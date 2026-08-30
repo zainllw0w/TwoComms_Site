@@ -88,6 +88,10 @@ CHAT_MIN_CALL_SECONDS = 2.0
 # квоти на гіршу відповідь.
 CHAT_PRIMARY_ATTEMPT_LIMIT = 2
 CHAT_FALLBACK_ATTEMPT_LIMIT = 2
+# The old hedge pre-leased an entire model pool and could classify already
+# dispatched calls as not-attempted after an early winner.  Keep it disabled
+# until the later permit/winner FSM owns real provider completion.
+ENABLE_LEGACY_CHAT_HEDGE = False
 CHAT_COMPLEX_TASKS = frozenset({
     "product_decision",
     "size_fit_decision",
@@ -183,7 +187,29 @@ class _GeminiEmpty(Exception):
 
 
 class _Gemini429(Exception):
-    """429 quota/rate. Викликач вирішує: кулдаун ключа чи пропуск моделі."""
+    """Typed 429 quota/rate evidence with a provider-scoped retry boundary."""
+
+    def __init__(
+        self,
+        message: str = "RESOURCE_EXHAUSTED",
+        *,
+        scope: str = "",
+        retry_after_seconds: int = 0,
+        provider_reason: str = "RESOURCE_EXHAUSTED",
+    ):
+        super().__init__(message)
+        self.scope = scope if scope in {"minute", "day", "topup"} else ""
+        self.retry_after_seconds = max(0, int(retry_after_seconds or 0))
+        self.provider_reason = str(provider_reason or "RESOURCE_EXHAUSTED")[:80]
+
+
+def _quota_scope_and_retry(exc: Exception) -> tuple[str, int]:
+    """Return typed quota scope, retaining compatibility with older callers."""
+    scope = str(getattr(exc, "scope", "") or "")
+    seconds = max(0, int(getattr(exc, "retry_after_seconds", 0) or 0))
+    if scope in {"minute", "day", "topup"}:
+        return scope, seconds
+    return gemini_keys.parse_429(str(exc))
 
 
 class _GeminiModelUnavailable(Exception):
@@ -536,7 +562,7 @@ def _call_combo(key_name: str, key_value: str, model: str, payload: dict,
             dt = time.monotonic() - t0
             if gemini_keys.is_key_level_429(model, grounded):
                 if track:
-                    scope, secs = gemini_keys.parse_429(str(exc))
+                    scope, secs = _quota_scope_and_retry(exc)
                     gemini_keys.mark_429(
                         key_name, scope, secs, error=str(exc), model=model
                     )
@@ -752,6 +778,9 @@ def _chat_key_failure(exc: Exception) -> bool:
 
 def _bounded_provider_reason(exc: Exception) -> str:
     """Keep only a known provider classification out of a typed error string."""
+    typed_reason = str(getattr(exc, "provider_reason", "") or "").upper()
+    if typed_reason in _BOUNDED_PROVIDER_REASONS:
+        return typed_reason
     detail = str(exc).upper()
     for reason in _BOUNDED_PROVIDER_REASONS:
         if reason in detail:
@@ -828,14 +857,17 @@ def _classify_hedge_error(exc: BaseException) -> tuple:
     return "transport", None, "degrade_model"
 
 
-def _apply_hedge_key_state(key_name: str, kind: str, http_code, model: str) -> None:
+def _apply_hedge_key_state(
+    key_name: str, kind: str, http_code, model: str, *, error: Exception | None = None
+) -> None:
     """Оновити стан ключа за результатом hedged-спроби (головний потік)."""
     if key_name not in gemini_keys.ALL_KEYS:
         return
     try:
         if kind == "quota_429":
             if gemini_keys.is_key_level_429(model, False):
-                gemini_keys.mark_429(key_name, "minute", 0, model=model)
+                scope, seconds = _quota_scope_and_retry(error or _Gemini429())
+                gemini_keys.mark_429(key_name, scope, seconds, model=model)
                 gemini_keys.record_key_failure(
                     key_name, failure_kind="quota_429", http_code=429
                 )
@@ -871,7 +903,9 @@ def _apply_hedge_key_state(key_name: str, kind: str, http_code, model: str) -> N
 def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                         parse: bool = False, log_cb=None,
                         model_override: str | None = None,
-                        reasoning_task: str = "customer_chat") -> dict:
+                        model_chain_override: list[str] | tuple[str, ...] | None = None,
+                        reasoning_task: str = "customer_chat",
+                        deadline_seconds: float | None = None) -> dict:
     """Run one live reply through a deadline-aware, quality-first pool.
 
     The generic runner is intentionally not reused here: its three rounds and
@@ -885,7 +919,14 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     if manual_key and not gemini_keys.manual_key_allowed("chat", manual_key):
         manual_key = None
 
-    models = gemini_keys.task_model_chain("chat", policy["task"], model_override)
+    if model_chain_override is not None:
+        models = [
+            str(model or "").strip()
+            for model in model_chain_override
+            if gemini_keys.is_allowed_chat_model(str(model or "").strip())
+        ]
+    else:
+        models = gemini_keys.task_model_chain("chat", policy["task"], model_override)
     if not models:
         raise CallAIAnalysisError("Не налаштована модель Gemini для live chat.")
     attempts: list[str] = []
@@ -901,7 +942,12 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         logger.debug("turn lineage unavailable", exc_info=True)
     attempt_counter = [0]
     started_at = time.monotonic()
-    deadline = started_at + _chat_deadline_seconds(policy["task"])
+    effective_deadline_seconds = (
+        max(1.0, float(deadline_seconds))
+        if deadline_seconds is not None
+        else _chat_deadline_seconds(policy["task"])
+    )
+    deadline = started_at + effective_deadline_seconds
 
     def _emit(message: str) -> None:
         if log_cb:
@@ -910,9 +956,18 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             except Exception:
                 pass
 
-    candidates = list(gemini_keys.iter_live_chat_attempts(
+    candidate_plan = gemini_keys.live_chat_candidate_plan(
         model_chain_override=models
-    ))
+    )
+    candidates = [
+        (item["key_name"], item["key_value"], item["model"])
+        for item in candidate_plan
+        if not item["skip_reason"]
+    ]
+    candidate_indexes = {
+        (item["key_name"], item["model"]): int(item["candidate_index"])
+        for item in candidate_plan
+    }
     if manual_key:
         candidates = [
             ("(manual)", manual_key, model)
@@ -942,33 +997,65 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         except Exception:
             logger.debug("gemini attempt audit unavailable", exc_info=True)
 
+    audited_candidate_indexes: set[int] = set()
+    dispatched_candidate_indexes: set[int] = set()
+
+    def _audit_skip(key_name: str, model: str, reason: str, candidate_index: int) -> None:
+        if candidate_index <= 0:
+            _audit_not_attempted(key_name, model, reason, candidate_index)
+            return
+        if candidate_index in audited_candidate_indexes:
+            return
+        _audit_not_attempted(key_name, model, reason, candidate_index)
+        audited_candidate_indexes.add(candidate_index)
+
+    for planned in candidate_plan:
+        if planned["skip_reason"]:
+            _audit_skip(
+                planned["key_name"],
+                planned["model"],
+                planned["skip_reason"],
+                int(planned["candidate_index"]),
+            )
+
+    def _audit_remaining(reason: str, *, model: str = "") -> None:
+        for planned in candidate_plan:
+            index = int(planned["candidate_index"])
+            if planned["skip_reason"] or index in dispatched_candidate_indexes:
+                continue
+            if model and planned["model"] != model:
+                continue
+            _audit_skip(planned["key_name"], planned["model"], reason, index)
+
     def _call(key_name: str, key_value: str, model: str, *, preserve_fallback: bool,
               candidate_index: int = 0):
         if gemini_keys.model_circuit_open(model):
             attempts.append(f"{key_name}/{model}: model_circuit_open")
             _emit(f"{key_name}/{model}: model circuit open")
-            _audit_not_attempted(key_name, model, "circuit_open", candidate_index)
+            _audit_skip(key_name, model, "circuit_open", candidate_index)
             return None, "model_circuit_open"
         remaining = deadline - time.monotonic()
         timeout = _chat_timeout(remaining, preserve_fallback=preserve_fallback)
         if timeout is None:
-            _audit_not_attempted(key_name, model, "deadline", candidate_index)
+            _audit_skip(key_name, model, "deadline", candidate_index)
             return None, "deadline"
         lease_token = None
         if key_name in gemini_keys.ALL_KEYS:
             if not gemini_keys.is_available(key_name, model=model):
                 attempts.append(f"{key_name}/{model}: quarantined")
                 _emit(f"{key_name}/{model}: quarantined")
-                _audit_not_attempted(key_name, model, "quarantine", candidate_index)
+                _audit_skip(key_name, model, "quarantine", candidate_index)
                 return None, "quarantined"
             lease_token = gemini_keys.acquire_key_lease(key_name, role="chat")
             if not lease_token:
                 attempts.append(f"{key_name}/{model}: lease_busy")
                 _emit(f"{key_name}/{model}: lease busy")
-                _audit_not_attempted(key_name, model, "lease_busy", candidate_index)
+                _audit_skip(key_name, model, "lease_busy", candidate_index)
                 return None, "lease_busy"
         attempt_counter[0] += 1
         attempt_index = attempt_counter[0]
+        if candidate_index:
+            dispatched_candidate_indexes.add(candidate_index)
 
         def _release() -> None:
             if lease_token:
@@ -1012,7 +1099,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             # который провайдер вернул бы через несколько сотен миллисекунд.
             attempts.append(f"{key_name}/{model}: quota_exhausted_local")
             _emit(f"{key_name}/{model}: квота пари вичерпана (локальний облік)")
-            _audit_not_attempted(key_name, model, "quota_exhausted", candidate_index)
+            _audit_skip(key_name, model, "quota_exhausted", candidate_index)
             _release()
             return None, "quota"
         try:
@@ -1050,7 +1137,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             return None, "empty"
         except _Gemini429 as exc:
             if key_name in gemini_keys.ALL_KEYS and gemini_keys.is_key_level_429(model, False):
-                scope, seconds = gemini_keys.parse_429(str(exc))
+                scope, seconds = _quota_scope_and_retry(exc)
                 gemini_keys.mark_429(
                     key_name, scope, seconds, error=str(exc), model=model
                 )
@@ -1116,6 +1203,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 _release()
                 return None, "invalid_key"
             _release()
+            _audit_remaining("fatal_payload")
             raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}") from exc
 
         if key_name in gemini_keys.ALL_KEYS:
@@ -1152,12 +1240,22 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             if key_name in gemini_keys.ALL_KEYS:
                 if not gemini_keys.is_available(key_name, model=model):
                     attempts.append(f"{key_name}/{model}: quarantined")
-                    _audit_not_attempted(key_name, model, "quarantine", 0)
+                    _audit_skip(
+                        key_name,
+                        model,
+                        "quarantine",
+                        candidate_indexes.get((key_name, model), 0),
+                    )
                     continue
                 token = gemini_keys.acquire_key_lease(key_name, role="chat")
                 if not token:
                     attempts.append(f"{key_name}/{model}: lease_busy")
-                    _audit_not_attempted(key_name, model, "lease_busy", 0)
+                    _audit_skip(
+                        key_name,
+                        model,
+                        "lease_busy",
+                        candidate_indexes.get((key_name, model), 0),
+                    )
                     continue
                 leased.append((key_name, token))
             prepared.append((key_name, key_value, model))
@@ -1193,6 +1291,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 # 404/403 по моделі не зникнуть від іншого ключа: така хвиля
                 # гасне одразу, щоб не палити квоту на відомий результат.
                 aborts_wave=lambda exc: isinstance(exc, _GeminiModelUnavailable),
+                max_in_flight=2,
             )
         finally:
             for key_name, token in leased:
@@ -1206,9 +1305,12 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         for outcome in wave.outcomes:
             attempt_counter[0] += 1
             if outcome.skipped_reason:
-                _audit_not_attempted(
+                _audit_skip(
                     outcome.key_name, outcome.model,
-                    outcome.skipped_reason, outcome.candidate_index,
+                    outcome.skipped_reason,
+                    candidate_indexes.get(
+                        (outcome.key_name, outcome.model), outcome.candidate_index
+                    ),
                 )
                 continue
             remaining_ms = max(0, int((deadline - time.monotonic()) * 1000))
@@ -1241,7 +1343,13 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     )
                 continue
             kind, http_code, decision = _classify_hedge_error(outcome.error)
-            _apply_hedge_key_state(outcome.key_name, kind, http_code, outcome.model)
+            _apply_hedge_key_state(
+                outcome.key_name,
+                kind,
+                http_code,
+                outcome.model,
+                error=outcome.error,
+            )
             gemini_keys.record_attempt(
                 request_id=request_id, role="chat", key_name=outcome.key_name,
                 model=outcome.model, outcome="failed", failure_kind=kind,
@@ -1282,53 +1390,68 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     # суточных запросов сильной модели — двадцать таких ходов съедают половину
     # дневного бюджета ради двадцати ответов. На lite (500/сутки на ключ) та же
     # волна стоит 0.6% бюджета. Поэтому hedging допустим ТОЛЬКО на дешёвом тире.
-    primary_budget = gemini_quota.budget_for(primary)
-    primary_rpd = int((primary_budget or {}).get("rpd") or 0)
-    hedging_affordable = primary_rpd >= gemini_quota.HEDGE_MIN_RPD
+    # The legacy hedge is forbidden on scarce 20-RPD models.  Only Lite may
+    # use a bounded two-call wave; every stronger model stays sequential.
+    hedging_affordable = bool(
+        ENABLE_LEGACY_CHAT_HEDGE and primary == "gemini-3.5-flash-lite"
+    )
     quota_pressure = gemini_keys.model_quota_pressure("chat", primary)
     if quota_pressure or not hedging_affordable:
         # Под квотой идём по кандидатам ПОСЛЕДОВАТЕЛЬНО. Первый же 429 закрывает
         # пару (ключ, модель), и мы честно спускаемся по лестнице, не потратив
         # на это разоблачение три параллельных запроса.
-        for index, (key_name, key_value, _model) in enumerate(primary_attempts, start=1):
+        primary_slow_calls = 0
+        for key_name, key_value, _model in primary_attempts:
+            index = candidate_indexes.get((key_name, primary), 0)
             result, state = _call(
                 key_name, key_value, primary,
                 preserve_fallback=True, candidate_index=index,
             )
             if result:
+                _audit_remaining("winner_found")
                 return result
             if state == "deadline":
+                _audit_remaining("deadline")
                 raise CallAIAnalysisError(
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
                 )
             if state in {"model_unavailable", "model_circuit_open"}:
+                _audit_remaining("model_terminal", model=primary)
                 break
+            if state not in {"invalid_key", "quota", "lease_busy", "quarantined"}:
+                primary_slow_calls += 1
+                if primary_slow_calls >= CHAT_PRIMARY_ATTEMPT_LIMIT:
+                    _audit_remaining("sla_model_budget", model=primary)
+                    break
     else:
         hedged_result = _hedged_primary(primary_attempts, primary)
         if hedged_result is not None:
+            _audit_remaining("winner_found")
             return hedged_result
 
     # A slow primary-model/transport fault gets one quality fallback phase.  A
     # fast key failure may still walk the full key list below without spending
     # the live budget on six long timeouts.
-    fallback_index = len(primary_attempts)
     for model in models[1:]:
         slow_fallback_calls = 0
         for key_name, key_value, _ in (candidate for candidate in candidates if candidate[2] == model):
-            fallback_index += 1
+            fallback_index = candidate_indexes.get((key_name, model), 0)
             result, state = _call(
                 key_name, key_value, model,
                 preserve_fallback=False, candidate_index=fallback_index,
             )
             if result:
+                _audit_remaining("winner_found")
                 return result
             if state == "deadline":
+                _audit_remaining("deadline")
                 raise CallAIAnalysisError(
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
                 )
             if state in {"model_unavailable", "model_circuit_open"}:
+                _audit_remaining("model_terminal", model=model)
                 break
             # На fallback-моделях паралелізм недоречний: кожен зайвий виклик —
             # це витрата безкоштовної квоти на гіршу відповідь. Але дві повільні
@@ -1337,6 +1460,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             if state not in {"invalid_key", "quota", "lease_busy", "quarantined"}:
                 slow_fallback_calls += 1
                 if slow_fallback_calls >= CHAT_FALLBACK_ATTEMPT_LIMIT:
+                    _audit_remaining("sla_model_budget", model=model)
                     break
 
     raise CallAIAnalysisError(
@@ -1441,8 +1565,10 @@ def gemini_generate_grounded(
 def gemini_generate_text(payload: dict, *, role: str = "chat",
                          manual_key: str | None = None, log_cb=None,
                          model_override: str | None = None,
+                         model_chain_override: list[str] | tuple[str, ...] | None = None,
                          reasoning_task: str | None = None,
-                         parse: bool = False) -> dict:
+                         parse: bool = False,
+                         deadline_seconds: float | None = None) -> dict:
     """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
     моделей. У result['parsed'] — сирий текст відповіді моделі.
     log_cb (опц.) отримує короткі рядки про кожну спробу (для консолі бота)."""
@@ -1453,7 +1579,9 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
             parse=parse,
             log_cb=log_cb,
             model_override=model_override,
+            model_chain_override=model_chain_override,
             reasoning_task=reasoning_task or "customer_chat",
+            deadline_seconds=deadline_seconds,
         )
     bounded_management = role == "management"
     return _run_with_pool(
@@ -1521,19 +1649,34 @@ def _build_payload(audio_bytes: bytes, mime: str, manager_context: str, manager_
     }
 
 
-def _safe_provider_error_summary(response) -> str:
-    """Extract only provider classifications, never an error message/body."""
+def _provider_error_details(response) -> dict:
+    """Extract bounded provider classifications and typed RetryInfo/QuotaFailure."""
     try:
         payload = response.json()
     except (TypeError, ValueError, AttributeError):
         payload = None
     error = payload.get("error") if isinstance(payload, dict) else None
     if not isinstance(error, dict):
-        return "UNKNOWN"
+        return {
+            "summary": "UNKNOWN",
+            "provider_reason": "UNKNOWN",
+            "quota_scope": "",
+            "retry_after_seconds": 0,
+        }
     parts = []
     status = str(error.get("status") or "").strip()
     if status:
         parts.append(status[:80])
+    quota_scope = ""
+    retry_after_seconds = 0
+    message_class = str(error.get("message") or "").casefold()
+    compact_message = message_class.replace("_", "").replace(" ", "")
+    if (
+        "prepayment" in message_class
+        or "creditsaredepleted" in compact_message
+        or "billingaccount" in compact_message
+    ):
+        quota_scope = "topup"
     for detail in error.get("details") or []:
         if not isinstance(detail, dict):
             continue
@@ -1543,7 +1686,40 @@ def _safe_provider_error_summary(response) -> str:
         retry_delay = str(detail.get("retryDelay") or "").strip()
         if retry_delay:
             parts.append(f"retryDelay={retry_delay[:24]}")
-    return ":".join(parts)[:240] or "UNKNOWN"
+            match = re.fullmatch(r"(\d+(?:\.\d+)?)s", retry_delay)
+            if match:
+                retry_after_seconds = int(float(match.group(1))) + 2
+        for violation in detail.get("violations") or []:
+            if not isinstance(violation, dict):
+                continue
+            quota_id = str(violation.get("quotaId") or "").strip()
+            normalized = quota_id.casefold().replace("_", "").replace("-", "")
+            if "perday" in normalized:
+                quota_scope = "day"
+            elif not quota_scope and (
+                "perminute" in normalized
+                or "tokensperminute" in normalized
+                or "requestsperminute" in normalized
+            ):
+                quota_scope = "minute"
+            if quota_id:
+                parts.append(f"quota={quota_id[:64]}")
+    if not quota_scope and retry_after_seconds:
+        quota_scope = "day" if retry_after_seconds > 3600 else "minute"
+    if not quota_scope and status == "RESOURCE_EXHAUSTED":
+        quota_scope = "minute"
+    summary = ":".join(dict.fromkeys(parts))[:240] or "UNKNOWN"
+    return {
+        "summary": summary,
+        "provider_reason": status[:80] or "UNKNOWN",
+        "quota_scope": quota_scope,
+        "retry_after_seconds": retry_after_seconds,
+    }
+
+
+def _safe_provider_error_summary(response) -> str:
+    """Backward-compatible bounded summary for non-quota errors."""
+    return str(_provider_error_details(response)["summary"])
 
 
 def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True,
@@ -1566,11 +1742,17 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
 
     code = resp.status_code
     if code != 200:
-        summary = _safe_provider_error_summary(resp)
+        details = _provider_error_details(resp)
+        summary = str(details["summary"])
         if code == 408 or 500 <= code < 600:
             raise _GeminiTransient(f"HTTP {code}: {summary}")
         if code == 429:
-            raise _Gemini429(summary)
+            raise _Gemini429(
+                summary,
+                scope=str(details["quota_scope"]),
+                retry_after_seconds=int(details["retry_after_seconds"] or 0),
+                provider_reason=str(details["provider_reason"]),
+            )
         if code in (404, 403):
             raise _GeminiModelUnavailable(f"HTTP {code}: {summary}")
         # 400 та інші — проблема нашого запиту.

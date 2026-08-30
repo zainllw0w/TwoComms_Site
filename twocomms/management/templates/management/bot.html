@@ -79,15 +79,6 @@
 .gemini-health-batch.is-incomplete{color:#e4b866;}
 .gemini-health-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;}
 .gemini-health-freshness{color:#8190a4;font-size:10px;font-weight:700;white-space:nowrap;}
-.gemini-health-countdown{display:inline-flex;align-items:center;gap:7px;min-width:132px;color:#aebdce;font-size:10px;font-weight:750;font-variant-numeric:tabular-nums;}
-.gemini-health-countdown-ring{display:block;flex:0 0 auto;width:30px;height:30px;transform:rotate(-90deg);}
-.gemini-health-countdown-track,.gemini-health-countdown-progress{fill:none;stroke-width:3;}
-.gemini-health-countdown-track{stroke:#263244;}
-.gemini-health-countdown-progress{stroke:#5dc7a1;stroke-linecap:round;stroke-dasharray:87.96;stroke-dashoffset:87.96;transition:stroke-dashoffset .2s ease,stroke .2s ease;}
-.gemini-health-countdown.is-due .gemini-health-countdown-progress{stroke:#edb94f;}
-.gemini-health-countdown-copy{display:grid;gap:1px;min-width:0;}
-.gemini-health-countdown-copy strong{color:#e5edf6;font-size:10.5px;line-height:1.1;}
-.gemini-health-countdown-copy small{color:#77869a;font-size:8.5px;font-weight:700;line-height:1.1;}
 .gemini-health-refresh{display:grid;place-items:center;width:32px;height:32px;border:1px solid #2a394d;border-radius:6px;background:#101925;color:#c8d5e3;font-size:17px;line-height:1;cursor:pointer;transition:background .16s ease,border-color .16s ease;}
 .gemini-health-refresh:hover,.gemini-health-refresh:focus-visible{border-color:#4b6380;background:#162334;color:#fff;outline:0;}
 .gemini-health-refresh:disabled{opacity:.45;cursor:wait;}
@@ -181,7 +172,7 @@
   .gemini-health-feedback{text-align:left;}
 }
 @media(prefers-reduced-motion:reduce){
-  .gemini-health-refresh,.gemini-health-segment,.gemini-health-countdown-progress{transition:none!important;}
+  .gemini-health-refresh,.gemini-health-segment{transition:none!important;}
   .gemini-health-segment:hover,.gemini-health-segment:focus-visible{transform:none;}
 }
 /* ---- Sales statistics ---- */
@@ -1445,13 +1436,19 @@ body.bot-drawer-open{overflow:hidden;}
             <label class="bot-radio"><input type="checkbox" name="receive_via_poll" id="receive_via_poll" {% if settings.receive_via_poll %}checked{% endif %}> Резервне опитування Instagram</label>
           </div>
           <div class="bot-field">
-            <label>Модель Gemini</label>
+            <label>Модель для тимчасового pin</label>
             <select name="gemini_model" id="gemini_model">
-              <option value="gemini-3.7-flash" {% if status.gemini_effective_model == 'gemini-3.7-flash' %}selected{% endif %}>gemini-3.7-flash (рекомендовано)</option>
-              <option value="gemini-3.6-flash" {% if status.gemini_effective_model == 'gemini-3.6-flash' %}selected{% endif %}>gemini-3.6-flash (резерв)</option>
-              <option value="gemini-3.5-flash" {% if status.gemini_effective_model == 'gemini-3.5-flash' %}selected{% endif %}>gemini-3.5-flash (резерв 2)</option>
-              <option value="gemini-3.5-flash-lite" {% if status.gemini_effective_model == 'gemini-3.5-flash-lite' %}selected{% endif %}>gemini-3.5-flash-lite (резерв 3)</option>
+              <option value="gemini-3.7-flash" {% if settings.gemini_model == 'gemini-3.7-flash' %}selected{% endif %}>gemini-3.7-flash</option>
+              <option value="gemini-3.6-flash" {% if settings.gemini_model == 'gemini-3.6-flash' %}selected{% endif %}>gemini-3.6-flash</option>
+              <option value="gemini-3.5-flash" {% if settings.gemini_model == 'gemini-3.5-flash' %}selected{% endif %}>gemini-3.5-flash</option>
+              <option value="gemini-3.5-flash-lite" {% if settings.gemini_model == 'gemini-3.5-flash-lite' %}selected{% endif %}>gemini-3.5-flash-lite</option>
             </select>
+            <select name="gemini_routing_mode" id="gemini_routing_mode" style="margin-top:8px;">
+              <option value="adaptive" {% if status.gemini_routing_mode == 'adaptive' %}selected{% endif %}>Adaptive (рекомендовано)</option>
+              <option value="pinned" {% if status.gemini_routing_mode == 'pinned' %}selected{% endif %}>Тимчасовий emergency pin</option>
+            </select>
+            <input type="number" name="pinned_minutes" min="1" max="60" value="60" aria-label="Тривалість emergency pin у хвилинах" style="margin-top:8px;">
+            <small class="bot-hint">Adaptive сам обирає модель за класом ходу. Pin діє максимум 60 хвилин і записується в audit log.</small>
           </div>
         </div>
         {% if not meta_bot_reviewer_mode %}
@@ -1506,18 +1503,11 @@ body.bot-drawer-open{overflow:hidden;}
       <header class="gemini-health-header">
         <div class="gemini-health-heading">
           <h2>Gemini API</h2>
-          <p>Оновлення сторінки читає лише збережений зріз. <strong>LIVE</strong> означає реальну генерацію, а <strong>ПЕРЕВІРЕНО</strong> означає token-free metadata GET без генерації відповіді. Щогодини автоматична перевірка проходить усі налаштовані ключі паралельно; ручна кнопка «Перевірити» запускає лише одну коротку перевірку.</p>
-          <span class="gemini-health-batch" id="gemini-health-batch" role="status" aria-live="polite">Остання автоматична перевірка: ще не зафіксована</span>
+          <p>Оновлення сторінки читає лише збережений зріз реального трафіку. <strong>LIVE</strong> означає успішну реальну генерацію. Ручна кнопка виконує лише token-free metadata GET; автоматичних provider-перевірок немає.</p>
+          <span class="gemini-health-batch" id="gemini-health-batch" role="status" aria-live="polite">Остання ручна metadata-діагностика: ще не зафіксована</span>
         </div>
         <div class="gemini-health-header-actions">
           <span class="gemini-health-freshness" id="gemini-health-freshness">Ще не оновлено</span>
-          <div class="gemini-health-countdown" id="gemini-health-countdown" role="timer" aria-live="off" aria-valuemin="0" aria-valuemax="3600" aria-valuenow="0" aria-label="Час до наступної погодинної перевірки" title="Локальний лічильник; він не запускає перевірку Gemini">
-            <svg class="gemini-health-countdown-ring" viewBox="0 0 32 32" aria-hidden="true">
-              <circle class="gemini-health-countdown-track" cx="16" cy="16" r="14"></circle>
-              <circle class="gemini-health-countdown-progress" id="gemini-health-countdown-progress" cx="16" cy="16" r="14"></circle>
-            </svg>
-            <span class="gemini-health-countdown-copy"><strong id="gemini-health-countdown-value">—</strong><small>до перевірки</small></span>
-          </div>
           <button type="button" class="gemini-health-refresh" id="gemini-health-refresh" aria-label="Оновити збережений зріз API" title="Оновити збережений зріз">↻</button>
         </div>
       </header>
@@ -1885,16 +1875,13 @@ body.bot-drawer-open{overflow:hidden;}
     const batchStatus=document.getElementById('gemini-health-batch');
     const freshness=document.getElementById('gemini-health-freshness');
     const refreshButton=document.getElementById('gemini-health-refresh');
-    const countdown=document.getElementById('gemini-health-countdown');
-    const countdownValue=document.getElementById('gemini-health-countdown-value');
-    const countdownProgress=document.getElementById('gemini-health-countdown-progress');
     const models=[
       {id:'gemini-3.7-flash',short:'3.7'},
       {id:'gemini-3.6-flash',short:'3.6'},
     ];
     const stateLabels={available:'Доступний у пулі',busy:'Зайнятий у пулі',cooldown:'Cooldown у пулі',unconfigured:'Не налаштовано',unavailable:'Недоступний у пулі'};
     const liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО',DEGRADED:'DEGRADED',OFFLINE:'OFFLINE',STALE:'STALE',NOT_CONFIGURED:'NOT CONFIGURED'};
-    const liveStateDescriptions={LIVE:'Нещодавня реальна генерація успішна',READY:'Погодинний metadata GET успішний; генерацію не доведено',DEGRADED:'3.7 не пройшла, але 3.6 підтверджена',OFFLINE:'Жоден маршрут не підтверджено',STALE:'Немає свіжого спостереження',NOT_CONFIGURED:'Секрет для alias не налаштовано'};
+    const liveStateDescriptions={LIVE:'Нещодавня реальна генерація успішна',READY:'Ручний metadata GET успішний; генерацію не доведено',DEGRADED:'Основний маршрут не пройшов, але fallback підтверджено',OFFLINE:'Жоден маршрут не підтверджено',STALE:'Немає свіжого спостереження',NOT_CONFIGURED:'Секрет для alias не налаштовано'};
     const observationLabels={success:'Успішне',recovered:'Відновлено після збою',terminal:'Помилка',no_observation:'Немає даних',not_needed:'Не перевірялась: 3.7 успішна'};
     const fallbackReasons={'3.7 timed out':'3.7 не відповіла вчасно','provider overload':'Провайдер перевантажений','network transport failure':'Помилка мережевого з’єднання','quota cooldown':'Ключ на cooldown','model unavailable':'Модель тимчасово недоступна','invalid key':'Ключ відхилено','invalid response':'Некоректна відповідь'};
     const allowedObservationStates=new Set(['success','recovered','terminal','no_observation','not_needed']);
@@ -1902,10 +1889,6 @@ body.bot-drawer-open{overflow:hidden;}
     let loading=false;
     const passiveRefreshMs=60000;
     let lastRequestAt=0;
-    let countdownDeadline=0;
-    let countdownDuration=3600;
-    let countdownDueReloadedFor=0;
-    const countdownCircumference=87.96;
 
     function make(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
     function integer(value){const parsed=Number(value);return Number.isFinite(parsed)?Math.max(0,Math.round(parsed)):0;}
@@ -1966,7 +1949,7 @@ body.bot-drawer-open{overflow:hidden;}
       const failures=soleData?integer(soleData.failures):Math.max(0,meaningfulStatuses.length-successes);
       const recovered=soleData?integer(soleData.recovered):selectedStatuses.filter(status=>status==='recovered').length;
       const status=latestIndex>=0?selectedStatuses[latestIndex]:normalizeObservation(fallbackData.status);
-      const source=generationUsed&&metadataUsed?'реальна генерація + погодинний metadata':generationUsed?'реальна генерація':metadataUsed?'погодинний metadata':fallbackSource==='generation'?'реальна генерація':fallbackSource==='metadata'?'погодинний metadata':'';
+      const source=generationUsed&&metadataUsed?'реальна генерація + ручний metadata':generationUsed?'реальна генерація':metadataUsed?'ручний metadata':fallbackSource==='generation'?'реальна генерація':fallbackSource==='metadata'?'ручний metadata':'';
       const data={...fallbackData,status,observations,successes,failures,skipped,recovered,last_observation_at:soleData?fallbackData.last_observation_at:(latestData.last_observation_at||fallbackData.last_observation_at||null),last_latency_ms:integer(soleData?fallbackData.last_latency_ms:(latestData.last_latency_ms||fallbackData.last_latency_ms)),history:mergedHistory};
       return {data,source};
     }
@@ -1979,9 +1962,9 @@ body.bot-drawer-open{overflow:hidden;}
       if(!batchStatus)return;
       const batch=data&&typeof data.latest_metadata_batch==='object'?data.latest_metadata_batch:null;
       batchStatus.className='gemini-health-batch';
-      if(!batch||!batch.completed_at){batchStatus.textContent='Остання автоматична перевірка: ще не зафіксована';return;}
+      if(!batch||!batch.completed_at){batchStatus.textContent='Остання ручна metadata-діагностика: ще не зафіксована';return;}
       const checked=integer(batch.checked_aliases);const expected=integer(batch.expected_aliases)||6;
-      batchStatus.textContent='Остання автоматична перевірка: '+checked+'/'+expected+' ключів · '+formatDate(batch.completed_at);
+      batchStatus.textContent='Остання ручна metadata-діагностика: '+checked+'/'+expected+' ключів · '+formatDate(batch.completed_at);
       batchStatus.classList.add(batch.complete?'is-complete':'is-incomplete');
       batchStatus.title=batch.complete?'Усі ключі цього hourly batch мають збережене спостереження':'Частина ключів цього hourly batch не має збереженого спостереження';
     }
@@ -2014,7 +1997,7 @@ body.bot-drawer-open{overflow:hidden;}
       const observations=integer(data.observations);const successes=integer(data.successes);
       const meta=make('div','gemini-health-model-meta');let headline='';let detail='';
       if(!observations){meta.dataset.observationState='insufficient_observations';headline='Недостатньо спостережень';}
-      else if(normalizeObservation(data.status)==='not_needed'){headline='Не потрібна';detail='3.7 вже підтверджена · погодинний зріз';}
+      else if(normalizeObservation(data.status)==='not_needed'){headline='Не потрібна';detail='Маршрут уже підтверджено · ручний зріз';}
       else{const ratio=Math.round((successes/observations)*100);headline=successes+'/'+observations+' · '+ratio+'%';detail=(integer(data.last_latency_ms)?integer(data.last_latency_ms)+' ms · ':'')+(observationLabels[normalizeObservation(data.status)]||'Немає даних');}
       if(source)detail+=(detail?' · ':'')+source;
       meta.append(make('strong','',headline));if(detail)meta.append(make('span','gemini-health-model-detail',detail));meta.title=[headline,detail].filter(Boolean).join(' · ');
@@ -2026,7 +2009,7 @@ body.bot-drawer-open{overflow:hidden;}
       const meta=make('div','gemini-health-key-meta');
       const liveCapsule=make('span','gemini-health-live-capsule '+liveStateClass(liveState),liveStateLabels[liveState]);liveCapsule.title=liveStateDescriptions[liveState];liveCapsule.setAttribute('aria-label',liveStateDescriptions[liveState]);
       const activeModel=shortModel(data.active_model);const activeRoute=make('span','gemini-health-active-route',activeModel?'Маршрут '+activeModel:'Маршрут не підтверджено');
-      const evidence=make('span','gemini-health-evidence',data.source==='generation'?'Доведено реальною генерацією':data.source==='scheduled_metadata'?'Погодинний metadata GET':'Очікує першого спостереження');
+      const evidence=make('span','gemini-health-evidence',data.source==='generation'?'Доведено реальною генерацією':data.source==='manual_metadata'?'Ручний metadata GET':'Очікує першого спостереження');
       const poolState=make('span','gemini-health-pool-state is-'+state,stateLabels[state]);
       meta.append(make('div','gemini-health-key-title',label),liveCapsule,activeRoute,evidence,poolState);row.appendChild(meta);
       const modelRows=make('div','gemini-health-models');
@@ -2063,28 +2046,11 @@ body.bot-drawer-open{overflow:hidden;}
       if(keys){keys.replaceChildren();for(let index=1;index<=6;index+=1)keys.appendChild(renderKey(source[index-1]||{},index));keys.setAttribute('aria-busy','false');}
       if(freshness){freshness.textContent='Оновлено '+formatDate(data.generated_at);freshness.title=String(data.generated_at||'');}
       if(!passive){const summaryData=data.summary||{};const observations=integer(summaryData.observations)+integer(summaryData.metadata_observations);setFeedback(observations?'На графіку лише збережені спроби, без фонових запитів.':'За 24 години ще немає спостережень.','');}
-      const rootNextAt=data&&Object.prototype.hasOwnProperty.call(data,'next_check_at')?data.next_check_at:null;
-      const rootSeconds=data&&Object.prototype.hasOwnProperty.call(data,'seconds_until_next_check')?data.seconds_until_next_check:null;
-      const keySource=source[0]&&typeof source[0]==='object'?source[0]:{};
-      const nextAt=rootNextAt!==null&&rootNextAt!==undefined&&rootNextAt!==''?rootNextAt:keySource.next_check_at;
-      const rawSeconds=rootSeconds!==null&&rootSeconds!==undefined?rootSeconds:keySource.seconds_until_next_check;
-      const parsedNextAt=Date.parse(String(nextAt||''));const secondsNumber=Number(rawSeconds);const seconds=Number.isFinite(secondsNumber)&&secondsNumber>=0?Math.round(secondsNumber):0;
-      const nextDeadline=Number.isFinite(parsedNextAt)?parsedNextAt:(seconds>0?Date.now()+seconds*1000:0);
-      if(nextDeadline!==countdownDeadline){countdownDeadline=nextDeadline;countdownDueReloadedFor=0;countdownDuration=seconds>0?seconds:3600;}
-      updateCountdown();
     }
-    function formatCountdown(seconds){const value=Math.max(0,Math.round(seconds));const hours=Math.floor(value/3600);const minutes=Math.floor((value%3600)/60);const secs=value%60;return hours?String(hours).padStart(2,'0')+':'+String(minutes).padStart(2,'0')+':'+String(secs).padStart(2,'0'):String(minutes).padStart(2,'0')+':'+String(secs).padStart(2,'0');}
-    function updateCountdown(){
-      if(!countdown||!countdownValue||!countdownProgress||!countdownDeadline)return;
-      const remaining=Math.max(0,Math.ceil((countdownDeadline-Date.now())/1000));const ratio=Math.min(1,remaining/Math.max(1,countdownDuration));
-      countdownValue.textContent=remaining?'через '+formatCountdown(remaining):'час оновити';
-      countdown.classList.toggle('is-due',remaining===0);countdown.setAttribute('aria-valuenow',String(remaining));countdownProgress.style.strokeDashoffset=String(countdownCircumference*(1-ratio));
-      if(remaining===0&&countdownDueReloadedFor!==countdownDeadline&&apiIsActive()&&!document.hidden){countdownDueReloadedFor=countdownDeadline;load({passive:true});}
-    }
-    let refreshTimer=0;let countdownTimer=0;
+    let refreshTimer=0;
     function syncTimers(){
-      if(refreshTimer){clearInterval(refreshTimer);refreshTimer=0;}if(countdownTimer){clearInterval(countdownTimer);countdownTimer=0;}
-      if(apiIsActive()&&!document.hidden){refreshTimer=setInterval(()=>{if(apiIsActive()&&!document.hidden)load({passive:true});},60000);countdownTimer=setInterval(updateCountdown,1000);}
+      if(refreshTimer){clearInterval(refreshTimer);refreshTimer=0;}
+      if(apiIsActive()&&!document.hidden){refreshTimer=setInterval(()=>{if(apiIsActive()&&!document.hidden)load({passive:true});},60000);}
     }
     async function load(options={}){
       const passive=Boolean(options&&options.passive);const now=Date.now();

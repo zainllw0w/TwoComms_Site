@@ -6770,20 +6770,106 @@ _CHAT_REASONING_PATTERNS = (
 
 
 def select_chat_reasoning_task(
-    history: list[dict], images: list[tuple[str, bytes]] | None = None
+    history: list[dict],
+    images: list[tuple[str, bytes]] | None = None,
+    routing_decision=None,
 ) -> str:
-    """Choose the provider reasoning task from explicit current-turn evidence."""
+    """Choose a task from the structured route, never text-keyword promotion.
+
+    ``history`` remains in the signature for rolling callers, but free text no
+    longer decides whether scarce 3.7 quota is spent.  The actual ingress path
+    supplies a versioned ``RoutingDecision`` built from commerce/media facts.
+    """
+    task = str(getattr(routing_decision, "reasoning_task", "") or "").strip()
+    if task:
+        return task
     if images:
         return "media_analysis"
-    latest_user = ""
-    for item in reversed(history or []):
-        if item.get("role") == "user" and item.get("text"):
-            latest_user = str(item["text"])
-            break
-    for task, pattern in _CHAT_REASONING_PATTERNS:
+    # Compatibility for callers that have not yet been migrated. The actual
+    # Instagram entrypoint always supplies ``routing_decision`` above, so these
+    # textual hints cannot select its model chain.
+    latest_user = next(
+        (
+            str(item.get("text") or "")
+            for item in reversed(history or [])
+            if item.get("role") == "user" and item.get("text")
+        ),
+        "",
+    )
+    for fallback_task, pattern in _CHAT_REASONING_PATTERNS:
         if pattern.search(latest_user):
-            return task
+            return fallback_task
     return "customer_chat"
+
+
+def live_routing_decision(
+    settings_obj,
+    *,
+    images: list[tuple[str, bytes]] | None = None,
+    media: list[dict] | None = None,
+    commerce_request=None,
+    deterministic_action: str = "",
+):
+    """Build the pre-provider route from typed current-turn state."""
+    from management.services.gemini_routing import TurnFacts, classify_live_turn
+
+    media = [item for item in (media or []) if isinstance(item, dict)]
+    has_audio = any(
+        str(item.get("mime") or "").casefold().startswith("audio/")
+        or str(item.get("media_type") or "").casefold() in {"audio", "voice"}
+        for item in media
+    )
+    reference = getattr(commerce_request, "exact_reference", None)
+    candidate_ids = tuple(getattr(reference, "candidate_product_ids", ()) or ())
+    pending = str(getattr(commerce_request, "pending_clarification", "") or "")
+    unresolved_candidates = len(set(candidate_ids))
+    if pending == "multiple_product_links":
+        unresolved_candidates = max(2, unresolved_candidates)
+    semantic = dict(getattr(commerce_request, "semantic_constraints", {}) or {})
+    garment_type = str(getattr(commerce_request, "garment_type", "") or "")
+    branch_switch = bool(
+        getattr(commerce_request, "reset_requested", False)
+        or getattr(commerce_request, "new_purchase_requested", False)
+        or getattr(commerce_request, "exchange_requested", False)
+    )
+    custom_print = bool(
+        garment_type in {"custom", "custom_print"}
+        or any(key in semantic for key in ("artwork", "placement", "print_brief"))
+    )
+    personalized_fit = pending in {"size_fit", "fit_recommendation"}
+    conflict = pending in {
+        "multiple_product_links",
+        "new_purchase_or_exchange",
+        "which_product",
+    }
+    commercial_risk = "high" if bool(
+        getattr(commerce_request, "checkout_requested", False)
+        or getattr(commerce_request, "exchange_requested", False)
+        or getattr(commerce_request, "support_requested", False)
+    ) else "low"
+    reasoning_hint = ""
+    if images or has_audio:
+        reasoning_hint = "media_analysis"
+    elif personalized_fit:
+        reasoning_hint = "size_fit_decision"
+    elif branch_switch or unresolved_candidates or custom_print:
+        reasoning_hint = "product_decision"
+
+    return classify_live_turn(
+        TurnFacts(
+            deterministic_action=deterministic_action,
+            has_image=bool(images),
+            has_audio=has_audio,
+            unresolved_catalog_candidates=unresolved_candidates,
+            personalized_fit_required=personalized_fit,
+            product_or_recipient_switch=branch_switch,
+            custom_print_brief=custom_print,
+            conflicting_intent=conflict,
+            commercial_risk=commercial_risk,
+            reasoning_task_hint=reasoning_hint,
+        ),
+        settings_obj=settings_obj,
+    )
 
 
 def _gemini_failure_kind(exc: Exception) -> str:
@@ -6813,6 +6899,7 @@ def gemini_generate(
     context_note: str | None = None, client=None, media_hint: str | None = None,
     turn_note: str | None = None,
     failure_context: dict | None = None,
+    routing_decision=None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -6893,17 +6980,38 @@ def gemini_generate(
     from management.services.call_ai_analysis import (
         gemini_generate_text, CallAIAnalysisError,
     )
-    from management.services.gemini_keys import normalize_chat_model
+    from management.services.gemini_routing import (
+        TaskClass,
+        TurnFacts,
+        classify_live_turn,
+    )
     import time as _time
 
     def _cb(msg):
         # Реальний час перебору ключів/моделей у консолі бота.
         log("info", "gemini_try", msg)
 
-    effective_model = normalize_chat_model(s.gemini_model)
-    reasoning_task = select_chat_reasoning_task(history, images)
+    routing_decision = routing_decision or classify_live_turn(
+        TurnFacts(has_image=bool(images)),
+        settings_obj=s,
+    )
+    if routing_decision.task_class == TaskClass.NO_MODEL:
+        if failure_context is not None:
+            failure_context["kind"] = "no_model"
+            failure_context["task_class"] = routing_decision.task_class.value
+        return None
+    reasoning_task = select_chat_reasoning_task(
+        history,
+        images,
+        routing_decision=routing_decision,
+    )
+    effective_model = routing_decision.model_chain[0]
+    if failure_context is not None:
+        failure_context["task_class"] = routing_decision.task_class.value
+        failure_context["routing_policy_version"] = routing_decision.policy_version
     log("info", "gemini_start",
-        f"генерую відповідь (chat/{effective_model}; task={reasoning_task}; "
+        f"генерую відповідь (chat/{effective_model}; class={routing_decision.task_class.value}; "
+        f"mode={routing_decision.routing_mode.value}; task={reasoning_task}; "
         f"кастом-ключ: {'так' if manual_key else 'ні'})")
     _t0 = _time.monotonic()
     try:
@@ -6912,9 +7020,10 @@ def gemini_generate(
             role="chat",
             manual_key=manual_key,
             log_cb=_cb,
-            model_override=effective_model,
+            model_chain_override=list(routing_decision.model_chain),
             reasoning_task=reasoning_task,
             parse=True,
+            deadline_seconds=routing_decision.deadline_ms / 1000,
         )
     except CallAIAnalysisError as exc:
         if failure_context is not None:
@@ -10727,6 +10836,7 @@ def _process_one_inside_reply_boundary(
     follow_authorized = None
     follow_provider_io_started = False
     follow_cancelled_before_io = False
+    routing_decision = None
 
     if row.client_id:
         # Логічний хід: усі вхідні, що прийшли поки бот ще не відповів, належать
@@ -10869,6 +10979,25 @@ def _process_one_inside_reply_boundary(
                 ugc_assessment = ensure_pending_ugc_assessment(row)
         except Exception as exc:
             log("warning", "ugc_ingress_assessment", repr(exc))
+    if ugc_turn:
+        # Provider-native UGC has a deterministic social receipt.  The durable
+        # pending assessment is drained separately on the dedicated 3.6
+        # analysis lane; live chat must not spend a second Gemini request or
+        # append a generic sales follow-up.
+        from management.services.gemini_routing import persist_decision
+        from management.services.ig_ugc_assessment import safe_ugc_acknowledgement
+
+        routing_decision = live_routing_decision(
+            s,
+            deterministic_action="provider_native_ugc",
+        )
+        persist_decision(row, routing_decision)
+        reply = safe_ugc_acknowledgement(
+            row.client,
+            "",
+            assessment=ugc_assessment,
+        )
+        log("info", "ugc_deterministic_reply", f"{row.sender_id}: no chat Gemini")
     if row.client_id:
         # Product corrections must become durable state before the classifier,
         # visual matcher, or Gemini can observe and reuse legacy current_* data.
@@ -10888,6 +11017,14 @@ def _process_one_inside_reply_boundary(
             # The reducer has already persisted this exact reply payload. Deliver it
             # before classification or follow-up scheduling can create side effects
             # for the same safe informational turn.
+            from management.services.gemini_routing import persist_decision
+
+            routing_decision = live_routing_decision(
+                s,
+                commerce_request=commerce_request,
+                deterministic_action="authoritative_reply",
+            )
+            persist_decision(row, routing_decision)
             clear_typing_indicator()
             return _deliver_durable_commerce_reply(
                 s,
@@ -10952,6 +11089,15 @@ def _process_one_inside_reply_boundary(
             from management.services.bot_sales_classifier import is_reaction_only
 
             if is_reaction_only(row.text):
+                from management.services.gemini_routing import persist_decision
+
+                persist_decision(
+                    row,
+                    live_routing_decision(
+                        s,
+                        deterministic_action="authoritative_reply",
+                    ),
+                )
                 clear_typing_indicator()
                 processed_at = timezone.now()
                 updated = _own_processing_claim(row).update(
@@ -10989,6 +11135,13 @@ def _process_one_inside_reply_boundary(
         if postback_outcome is not None:
             reply = postback_outcome.reply_text
             postback_quick_replies = tuple(postback_outcome.quick_replies or ())
+            from management.services.gemini_routing import persist_decision
+
+            routing_decision = live_routing_decision(
+                s,
+                deterministic_action="postback",
+            )
+            persist_decision(row, routing_decision)
             log(
                 "info",
                 "postback_handled",
@@ -11006,6 +11159,13 @@ def _process_one_inside_reply_boundary(
         rep = _repeated_question(row.sender_id, row.text)
         if rep > 3 and not row.attachments:
             reply = "Я вже відповів(-ла) на це трохи вище 🙂 Якщо потрібно щось інше — уточніть, будь ласка."
+            from management.services.gemini_routing import persist_decision
+
+            routing_decision = live_routing_decision(
+                s,
+                deterministic_action="authoritative_reply",
+            )
+            persist_decision(row, routing_decision)
             log("info", "repeat_guard", f"{row.sender_id}: повтор #{rep}, без Gemini")
         else:
             if not _renew_client_automation_lease(row, lease_token):
@@ -11031,45 +11191,6 @@ def _process_one_inside_reply_boundary(
             product_images = _collect_media_images(product_media) if media else (
                 [] if media_recovery_failed else images
             )
-            if ugc_turn and images:
-                try:
-                    from management.services import bot_vision
-                    from management.services.ig_ugc_assessment import assess_ugc_evidence
-
-                    vision_facts = bot_vision.assess_ugc(
-                        images,
-                        candidates=bot_vision.build_match_candidates(),
-                    )
-                    first_owned = next(
-                        (
-                            item for item in (row.attachment_media or [])
-                            if isinstance(item, dict)
-                            and item.get("provenance") == "live_webhook"
-                        ),
-                        {},
-                    )
-                    vision_facts.update({
-                        "provider_native_mention": bool(first_owned.get("provider_native_mention")),
-                        "target_username": first_owned.get("target_username", ""),
-                        "owned_media": first_owned.get("status") == "owned",
-                    })
-                    ugc_assessment = assess_ugc_evidence(
-                        message=row,
-                        facts=vision_facts,
-                    )
-                    if ugc_assessment.decision == "qualified_auto":
-                        from management.services.ig_ugc_rewards import (
-                            award_external_ugc_reward,
-                            queue_external_ugc_reward_delivery,
-                        )
-
-                        reward, _created = award_external_ugc_reward(
-                            client=row.client,
-                            assessment=ugc_assessment,
-                        )
-                        queue_external_ugc_reward_delivery(reward)
-                except Exception as exc:
-                    log("warning", "ugc_vision_assessment", repr(exc))
             if product_images and _match_allowed(row.sender_id) and not ugc_turn:
                 try:
                     from management.services import bot_vision
@@ -11190,6 +11311,15 @@ def _process_one_inside_reply_boundary(
             ) as _lineage, _TypingPulse(
                 s, row.sender_id if typing_active else ""
             ):
+                from management.services.gemini_routing import persist_decision
+
+                routing_decision = live_routing_decision(
+                    s,
+                    images=images or None,
+                    media=media,
+                    commerce_request=commerce_request,
+                )
+                persist_decision(row, routing_decision)
                 reply = gemini_generate(
                     s, history, images=images or None, match_hint=match_hint,
                     memory_note=mem_note, context_note=ctx_note,
@@ -11197,6 +11327,7 @@ def _process_one_inside_reply_boundary(
                     media_hint=_media_context_hint(media),
                     turn_note=turn_notes,
                     failure_context=gemini_failure,
+                    routing_decision=routing_decision,
                 )
             live_gemini_request_id = str(_lineage.get("request_id") or "")
     elif not reply:
@@ -11680,6 +11811,89 @@ def _process_one_inside_reply_boundary(
         typing_active = False
         return skip_after_permission_change()
 
+    # Finalize optional copy before the duplicate barrier, but do not create a
+    # send marker yet.  The previous order wrote send_state="sending" first;
+    # a duplicate then returned DONE while leaving a false provider boundary
+    # and an armed recovery/follow reservation behind.
+    if not _renew_client_automation_lease(row, lease_token):
+        clear_typing_indicator()
+        return False
+    with customer_send_boundary(s.pk, row.client_id, permission) as send_allowed:
+        if not send_allowed:
+            clear_typing_indicator()
+            return skip_after_permission_change()
+        if follow_decision is not None:
+            try:
+                from management.services.ig_follow_cta import authorize_follow_cta
+
+                authorized = authorize_follow_cta(
+                    follow_decision.pk,
+                    current_base_text=reply,
+                    now=timezone.now(),
+                )
+            except Exception as exc:
+                log("warning", "follow_decision_authorize", repr(exc))
+                authorized = None
+            if authorized is not None:
+                follow_authorized = authorized
+                reply = authorized.final_text
+            elif str(getattr(follow_decision, "state", "")) == "prepared":
+                follow_cancelled_before_io = True
+
+    # Э-DUP: this is the last text-only barrier and it runs *before*
+    # send_state="sending".  It also closes every prepared side effect.
+    if reply and _recent_identical_reply_exists(row, reply):
+        clear_typing_indicator()
+        authorized_follow_cancelled = False
+        if follow_authorized is not None:
+            try:
+                from management.services.ig_follow_cta import finalize_follow_delivery
+
+                finalize_follow_delivery(
+                    follow_authorized.decision_id,
+                    outcome="cancelled_before_io",
+                    lease_token=follow_authorized.lease_token,
+                    now=timezone.now(),
+                )
+                follow_cancelled_before_io = True
+                authorized_follow_cancelled = True
+            except Exception as exc:
+                log("warning", "follow_decision_cancel", repr(exc))
+            follow_authorized = None
+        if not authorized_follow_cancelled:
+            cancel_prepared_follow_before_io()
+        terminalize_prepared_recovery_before_send(
+            "holding_send_cancelled_before_meta_request:duplicate"
+        )
+        if outage_episode_id:
+            try:
+                from management.services.ig_provider_incidents import (
+                    release_holding_reservation,
+                )
+
+                release_holding_reservation(
+                    outage_episode_id,
+                    reason="duplicate_reply_suppressed",
+                )
+            except Exception as exc:
+                log("warning", "holding_reservation_release", repr(exc))
+        processed_at = timezone.now()
+        claimed = _own_processing_claim(row).update(
+            status=InstagramBotMessage.Status.DONE,
+            send_state="duplicate",
+            processed_at=processed_at,
+        )
+        if claimed:
+            row.status = InstagramBotMessage.Status.DONE
+            row.send_state = "duplicate"
+            row.processed_at = processed_at
+        log(
+            "warning",
+            "duplicate_reply_suppressed",
+            f"{row.sender_id}: identical text sent recently — skipping turn",
+        )
+        return bool(claimed)
+
     # Attempt typing cleanup before writing the durable sending marker.  If the
     # process dies during this advisory action, stale recovery still sees the
     # row as processing and may safely retry it; no false send boundary exists.
@@ -11692,23 +11906,6 @@ def _process_one_inside_reply_boundary(
         with customer_send_boundary(s.pk, row.client_id, permission) as send_allowed:
             if not send_allowed:
                 return "permission_denied", False
-            if follow_decision is not None:
-                try:
-                    from management.services.ig_follow_cta import authorize_follow_cta
-
-                    authorized = authorize_follow_cta(
-                        follow_decision.pk,
-                        current_base_text=reply,
-                        now=timezone.now(),
-                    )
-                except Exception as exc:
-                    log("warning", "follow_decision_authorize", repr(exc))
-                    authorized = None
-                if authorized is not None:
-                    follow_authorized = authorized
-                    reply = authorized.final_text
-                elif str(getattr(follow_decision, "state", "")) == "prepared":
-                    follow_cancelled_before_io = True
             send_started_at = timezone.now()
             if not _own_processing_claim(row).update(
                 send_state="sending", send_started_at=send_started_at, send_completed_at=None,
@@ -11815,21 +12012,6 @@ def _process_one_inside_reply_boundary(
                 follow_authorized,
                 now=timezone.now(),
             )
-
-    # Э-DUP: останній бар'єр перед відправкою. Якщо та сама відповідь вже пішла
-    # щойно, пропустити цей хід: навіть якби всі вищі перевірки дозволили, дублікат
-    # виглядає як технічний збій, а не корисна допомога.
-    if reply and _recent_identical_reply_exists(row, reply):
-        log(
-            "warning",
-            "duplicate_reply_suppressed",
-            f"{row.sender_id}: identical text sent recently — skipping turn",
-        )
-        row.status = InstagramBotMessage.Status.DONE
-        row.processed_at = timezone.now()
-        row.save(update_fields=["status", "processed_at"])
-        clear_typing_indicator()
-        return True
 
     delivery = _send_with_typing_off(
         s,
@@ -12290,7 +12472,12 @@ def _process_one_inside_reply_boundary(
             from management.services import bot_followups
 
             row.client.refresh_from_db()
-            if fallback_manager_handoff:
+            if ugc_turn:
+                bot_followups.cancel_pending(
+                    row.client,
+                    reason="provider_native_ugc",
+                )
+            elif fallback_manager_handoff:
                 _apply_stage(row.client, IgClient.Stage.LEAD_TO_MANAGER)
                 bot_followups.cancel_pending(
                     row.client,
@@ -13881,18 +14068,22 @@ def status_snapshot() -> dict:
         analysis_pending = None
         analysis_failed = None
     try:
-        from management.services.gemini_keys import (
-            ALL_KEYS,
-            key_project_groups,
-            normalize_chat_model,
+        from management.services.gemini_keys import ALL_KEYS, key_project_groups
+        from management.services.gemini_routing import (
+            ORDINARY_CHAIN,
+            POLICY_VERSION,
+            active_pin,
         )
 
-        effective_model = normalize_chat_model(s.gemini_model)
+        pinned_model = active_pin(s, now=now)
+        effective_model = pinned_model or ORDINARY_CHAIN[0]
         project_groups = key_project_groups()
         project_mapping_count = len(project_groups)
         project_mapping_complete = all(alias in project_groups for alias in ALL_KEYS)
     except Exception:
-        effective_model = s.gemini_model
+        pinned_model = ""
+        effective_model = "gemini-3.5-flash-lite"
+        POLICY_VERSION = ""
         project_mapping_count = 0
         project_mapping_complete = False
     return {
@@ -13963,6 +14154,14 @@ def status_snapshot() -> dict:
         "ai_enabled": s.ai_enabled,
         "gemini_model": s.gemini_model,
         "gemini_effective_model": effective_model,
+        "gemini_routing_mode": (
+            "pinned" if pinned_model else "adaptive"
+        ),
+        "gemini_routing_policy_version": POLICY_VERSION,
+        "pinned_chat_model": pinned_model,
+        "pinned_until": (
+            s.pinned_until.isoformat() if pinned_model and s.pinned_until else ""
+        ),
         "gemini_project_mapping_count": project_mapping_count,
         "gemini_project_mapping_complete": project_mapping_complete,
         "last_gemini_model": s.last_gemini_model,

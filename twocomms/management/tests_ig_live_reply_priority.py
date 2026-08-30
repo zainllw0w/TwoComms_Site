@@ -2149,12 +2149,13 @@ class QuietDegradationTests(TestCase):
 
     # Захват медиа проверяется своими тестами; здесь важно решение об ответе,
     # поэтому подготовленное `attachment_media` не должно перезаписываться.
+    @patch("management.services.bot_followups.schedule_after_bot_reply")
     @patch("management.services.instagram_bot._capture_message_media")
     @patch("management.services.instagram_bot.send_sender_action")
     @patch("management.services.instagram_bot.gemini_generate")
     @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
     def test_story_repost_gets_thanks_not_an_apology(
-        self, send_text, generate, _sender_action, _capture
+        self, send_text, generate, _sender_action, _capture, schedule_followup
     ):
         """Зафиксированный случай: репост истории с отметкой бренда."""
         def typed_provider_outage(*_args, **kwargs):
@@ -2181,6 +2182,8 @@ class QuietDegradationTests(TestCase):
 
         instagram_bot.process_pending(self.settings, max_items=1)
 
+        generate.assert_not_called()
+        schedule_followup.assert_not_called()
         self.assertTrue(send_text.called, "за отметку надо поблагодарить")
         reply = send_text.call_args.args[2].casefold()
         for marker in ("затримк", "задержк", "delay"):
@@ -2189,6 +2192,9 @@ class QuietDegradationTests(TestCase):
             any(anchor in reply for anchor in ("дяку", "спасиб", "thank")),
             reply,
         )
+        source = InstagramBotMessage.objects.get(mid="quiet-story-repost")
+        self.assertEqual(source.gemini_task_class, "no_model")
+        self.assertEqual(source.gemini_routing_model_chain, [])
 
 
 class LiveReplyReceiptTests(TestCase):

@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 from django.core.cache import cache
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.test import TestCase, override_settings
 
 from management.models import GeminiKeyState, GeminiRequestAttempt
@@ -169,7 +170,7 @@ class GeminiMetadataHealthTests(TestCase):
         self.assertFalse(GeminiRequestAttempt.objects.exists())
 
     @patch("management.management.commands.check_ig_gemini_metadata_health.gemini_metadata_health.run_hour")
-    def test_hourly_command_is_idempotent_and_heartbeat_supervised(self, run_hour):
+    def test_metadata_command_is_explicit_manual_diagnostic(self, run_hour):
         run_hour.return_value = {
             "request_id": "metadata-20260818T12",
             "checked_aliases": 6,
@@ -178,13 +179,11 @@ class GeminiMetadataHealthTests(TestCase):
             "deadline_skipped_models": 0,
         }
         output = StringIO()
-        with patch("management.management.commands.check_ig_gemini_metadata_health.task_heartbeat") as heartbeat:
-            heartbeat.return_value.__enter__.return_value = None
+        with self.assertRaises(CommandError):
             call_command("check_ig_gemini_metadata_health", stdout=output)
-            call_command("check_ig_gemini_metadata_health", stdout=output)
+        call_command("check_ig_gemini_metadata_health", manual=True, stdout=output)
         self.assertEqual(run_hour.call_count, 1)
-        heartbeat.assert_called_once_with("ig_gemini_metadata_health")
-        self.assertIn("6 provider requests", output.getvalue())
+        self.assertIn("6 metadata requests", output.getvalue())
         self.assertIn("0 deadline skips", output.getvalue())
 
     def test_read_only_pool_status_does_not_create_state_rows(self):

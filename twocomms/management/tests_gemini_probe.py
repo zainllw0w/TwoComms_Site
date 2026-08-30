@@ -222,7 +222,14 @@ class GeminiProbeCommandTests(TestCase):
         from io import StringIO
 
         output = StringIO()
-        call_command("probe_ig_gemini_pool", role="chat", model="gemini-3.6-flash", parallel=2, stdout=output)
+        call_command(
+            "probe_ig_gemini_pool",
+            role="chat",
+            model="gemini-3.6-flash",
+            parallel=2,
+            confirm_quota_spend=True,
+            stdout=output,
+        )
 
         self.assertEqual(probe_key.call_count, 6)
         self.assertNotIn("secret-one", output.getvalue())

@@ -23,6 +23,7 @@ import json
 import os
 import re
 import secrets
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode, urlsplit
 
@@ -3567,6 +3568,12 @@ def bot_settings_save_api(request):
     )
 
     reviewer_mode = _is_reviewer_only(request.user)
+    routing_before = {
+        "mode": s.gemini_routing_mode,
+        "pinned_model": s.pinned_chat_model,
+        "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
+    }
+    routing_changed = False
     if not reviewer_mode:
         direct_source = (request.POST.get("direct_source") or "").strip()
         if direct_source in InstagramBotSettings.CredSource.values:
@@ -3630,6 +3637,45 @@ def bot_settings_save_api(request):
         if not is_allowed_chat_model(model):
             return JsonResponse({"success": False, "error": "Недозволена модель Gemini."}, status=400)
         s.gemini_model = model[:80]
+    if not reviewer_mode and "gemini_routing_mode" in request.POST:
+        requested_mode = str(request.POST.get("gemini_routing_mode") or "").strip()
+        if requested_mode not in InstagramBotSettings.GeminiRoutingMode.values:
+            return JsonResponse(
+                {"success": False, "error": "Недозволений режим маршрутизації."},
+                status=400,
+            )
+        if requested_mode == InstagramBotSettings.GeminiRoutingMode.PINNED:
+            pinned_model = str(
+                request.POST.get("pinned_chat_model") or model or ""
+            ).strip()
+            from management.services.gemini_keys import is_allowed_chat_model
+
+            if not is_allowed_chat_model(pinned_model):
+                return JsonResponse(
+                    {"success": False, "error": "Недозволена закріплена модель Gemini."},
+                    status=400,
+                )
+            try:
+                pin_minutes = int(request.POST.get("pinned_minutes") or 0)
+            except (TypeError, ValueError):
+                pin_minutes = 0
+            if pin_minutes < 1 or pin_minutes > 60:
+                return JsonResponse(
+                    {"success": False, "error": "Закріплення дозволене на 1–60 хвилин."},
+                    status=400,
+                )
+            s.gemini_routing_mode = requested_mode
+            s.pinned_chat_model = pinned_model
+            s.pinned_until = timezone.now() + timedelta(minutes=pin_minutes)
+        else:
+            s.gemini_routing_mode = InstagramBotSettings.GeminiRoutingMode.ADAPTIVE
+            s.pinned_chat_model = ""
+            s.pinned_until = None
+        routing_changed = routing_before != {
+            "mode": s.gemini_routing_mode,
+            "pinned_model": s.pinned_chat_model,
+            "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
+        }
     if "system_prompt" in request.POST:
         if not reviewer_mode:
             s.system_prompt = (request.POST.get("system_prompt") or "").strip()
@@ -3665,6 +3711,28 @@ def bot_settings_save_api(request):
                 s.save()
     else:
         s.save()
+    if routing_changed:
+        routing_after = {
+            "mode": s.gemini_routing_mode,
+            "pinned_model": s.pinned_chat_model,
+            "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
+        }
+        AdminAuditLog.objects.create(
+            actor=request.user,
+            actor_role="staff",
+            action="ig_gemini.routing_policy_changed",
+            entity_type="InstagramBotSettings",
+            entity_id=str(s.pk),
+            before=routing_before,
+            after=routing_after,
+            reason=(
+                "temporary_emergency_pin"
+                if s.gemini_routing_mode == InstagramBotSettings.GeminiRoutingMode.PINNED
+                else "adaptive_routing_restored"
+            ),
+            ip=request.META.get("REMOTE_ADDR") or None,
+            user_agent=str(request.META.get("HTTP_USER_AGENT") or "")[:512],
+        )
     # Скинути кеш токена/кулдаун, щоб новий токен підхопився одразу.
     try:
         from django.core.cache import cache

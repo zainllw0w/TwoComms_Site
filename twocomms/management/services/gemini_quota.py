@@ -68,8 +68,8 @@ TIER_ANALYSIS = "analysis"
 TIER_GROUNDED = "grounded"
 
 DEFAULT_TIER_CHAINS = {
-    TIER_LITE: ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash"],
-    TIER_STRONG: ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
+    TIER_LITE: ["gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"],
+    TIER_STRONG: ["gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
     TIER_ANALYSIS: ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
     # Grounding бесплатен только на 2.5 — цепочка не смешивается с остальными.
     TIER_GROUNDED: ["gemini-2.5-flash", "gemini-2.5-flash-lite"],

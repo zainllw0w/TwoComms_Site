@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from django.test import TestCase
 from django.utils import timezone
 
-from management.models import IgClient, InstagramBotMessage
+from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
 from management.services.instagram_bot import (
     _identical_media_recently_sent,
     _recent_identical_reply_exists,
@@ -75,6 +75,47 @@ class DuplicateReplySuppressionTests(TestCase):
             created_at=timezone.now() - timedelta(minutes=20)
         )
         self.assertFalse(_recent_identical_reply_exists(self.row, "same"))
+
+    @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot.gemini_generate")
+    def test_duplicate_is_terminalized_before_sending_marker(
+        self,
+        generate,
+        send_text,
+        _sender_action,
+        _typing_wait,
+    ):
+        from management.services import instagram_bot
+
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.is_enabled = True
+        settings_obj.ai_enabled = True
+        settings_obj.save(update_fields=["is_enabled", "ai_enabled"])
+        self.client.profile_fetched_at = timezone.now()
+        self.client.save(update_fields=["profile_fetched_at", "updated_at"])
+        self.row.mid = "dup-before-sending-marker"
+        self.row.source = "webhook"
+        self.row.status = InstagramBotMessage.Status.PENDING
+        self.row.save(update_fields=["mid", "source", "status"])
+        InstagramBotMessage.objects.create(
+            sender_id=self.row.sender_id,
+            client=self.client,
+            role=InstagramBotMessage.Role.MODEL,
+            text="Та сама корисна відповідь",
+            provider_message_id="already-sent-duplicate",
+            send_state="sent",
+        )
+        generate.return_value = "Та сама корисна відповідь"
+
+        instagram_bot.process_pending(settings_obj, max_items=1)
+
+        self.row.refresh_from_db()
+        self.assertEqual(self.row.status, InstagramBotMessage.Status.DONE)
+        self.assertEqual(self.row.send_state, "duplicate")
+        self.assertIsNone(self.row.send_started_at)
+        send_text.assert_not_called()
 
 
 class DuplicateMediaSuppressionTests(TestCase):

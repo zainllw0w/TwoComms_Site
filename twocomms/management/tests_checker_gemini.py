@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
+from management.models import GeminiRequestAttempt
 from management.services import call_ai_analysis as caa
 from management.services import gemini_hedge
 from management.services import gemini_keys as gk
@@ -400,15 +401,8 @@ class AdaptiveChatPlannerTests(TestCase):
         self.assertEqual(primary, list(ENV6))
         sleep.assert_not_called()
 
-    def test_slow_transients_try_every_key_before_degrading_the_model(self):
-        """Э-HEDGE: усі шість ключів найкращої моделі, а не два.
-
-        Раніше тут стояла межа «не більше двох спроб 3.7», і саме вона в
-        production вивела хід на слабшу 3.6, коли чотири ключі 3.7 навіть не
-        питали. `read_timeout` означає повільну МОДЕЛЬ, а не зламаний ключ, тому
-        дізнатись, чи вона повільна на всіх ключах, можна лише спитавши всі.
-        Hedged-хвиля робить це паралельно, тому бюджет ходу це витримує.
-        """
+    def test_slow_transients_are_bounded_before_degrading_the_model(self):
+        """A slow model gets two calls; unstarted projects stay durable."""
         seen = []
 
         chain = gk.task_model_chain("chat", "customer_chat")
@@ -429,9 +423,14 @@ class AdaptiveChatPlannerTests(TestCase):
         first_fallback = seen.index(fallback_model)
         primary_calls = seen[:first_fallback].count(primary_model)
         self.assertEqual(out["parsed"], "fallback")
-        self.assertGreater(
-            primary_calls, 2,
-            "усі доступні ключі найкращої моделі мусять бути спробовані",
+        self.assertEqual(primary_calls, 2)
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(
+                model=primary_model,
+                outcome="not_attempted",
+                not_attempted_reason="sla_model_budget",
+            ).count(),
+            4,
         )
         sleep.assert_not_called()
 
@@ -481,7 +480,7 @@ class ChatHedgeDisciplineTests(TestCase):
             out = caa.gemini_generate_text(self._payload(), role="chat")
         self.assertEqual(out["parsed"], "ok-text")
 
-    def test_healthy_pool_still_opens_the_wave(self):
+    def test_healthy_pool_does_not_open_the_legacy_wave(self):
         def fake(model, payload, key, *, parse=True, timeout=None):
             return ("ok-text", {})
 
@@ -493,4 +492,4 @@ class ChatHedgeDisciplineTests(TestCase):
             )
             caa.gemini_generate_text(self._payload(), role="chat")
 
-        run_hedged.assert_called_once()
+        run_hedged.assert_not_called()

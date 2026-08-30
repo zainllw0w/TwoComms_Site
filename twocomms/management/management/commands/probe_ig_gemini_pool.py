@@ -12,15 +12,25 @@ from management.services import gemini_probe
 
 
 class Command(BaseCommand):
-    help = "Проверить доступность Gemini-пула без отправки клиентских сообщений."
+    help = "Quota-consuming manual generateContent diagnostic for the Gemini pool."
 
     def add_arguments(self, parser):
         parser.add_argument("--role", choices=("chat", "management", "checker"), default="chat")
         parser.add_argument("--model", default=None)
         parser.add_argument("--parallel", type=int, default=2)
         parser.add_argument("--timeout", type=int, default=20)
+        parser.add_argument(
+            "--confirm-quota-spend",
+            action="store_true",
+            help="Explicitly acknowledge that this command consumes generation quota",
+        )
 
     def handle(self, *args, **options):
+        if not options.get("confirm_quota_spend"):
+            raise CommandError(
+                "This diagnostic consumes Gemini generation quota; rerun with "
+                "--confirm-quota-spend only when explicitly authorized."
+            )
         role = options["role"]
         model = options["model"] or gemini_keys.model_chain(role)[0]
         if role == "chat":

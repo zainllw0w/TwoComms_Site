@@ -26,7 +26,16 @@ class RoleSeparationTests(TestCase):
         settings.gemini_model = "gemini-3.6-flash"
         bot.gemini_generate(settings, [{"role": "user", "text": "привіт"}])
         self.assertEqual(mock_gen.call_args.kwargs.get("role"), "chat")
-        self.assertEqual(mock_gen.call_args.kwargs.get("model_override"), "gemini-3.6-flash")
+        self.assertIsNone(mock_gen.call_args.kwargs.get("model_override"))
+        self.assertEqual(
+            mock_gen.call_args.kwargs.get("model_chain_override"),
+            [
+                "gemini-3.5-flash-lite",
+                "gemini-3.5-flash",
+                "gemini-3.6-flash",
+                "gemini-3.7-flash",
+            ],
+        )
 
 
 class MatchRateGuardTests(TestCase):

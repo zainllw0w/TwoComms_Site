@@ -3662,6 +3662,20 @@ class InstagramBotSettings(models.Model):
     # AI-режим (Gemini). Якщо увімкнено — бот веде вільну розмову; інакше
     # працює простий тригер trigger_text -> reply_text.
     ai_enabled = models.BooleanField(default=True)
+    class GeminiRoutingMode(models.TextChoices):
+        ADAPTIVE = "adaptive", _("Адаптивний")
+        PINNED = "pinned", _("Тимчасово закріплений")
+
+    # ``gemini_model`` is retained as legacy/operator display state.  Adaptive
+    # routing never treats it as a per-turn override: only the explicit,
+    # audited and expiring pin below can change the first live model.
+    gemini_routing_mode = models.CharField(
+        max_length=12,
+        choices=GeminiRoutingMode.choices,
+        default=GeminiRoutingMode.ADAPTIVE,
+    )
+    pinned_chat_model = models.CharField(max_length=80, blank=True, default="")
+    pinned_until = models.DateTimeField(null=True, blank=True)
     gemini_model = models.CharField(max_length=80, default="gemini-3.7-flash")
     system_prompt = models.TextField(blank=True, default=DEFAULT_BOT_SYSTEM_PROMPT)
     # Додаткова база знань (правила доставки, оплати, повернень, графік тощо).
@@ -3952,6 +3966,14 @@ class InstagramBotMessage(models.Model):
     # Зворотнє посилання на провайдерський запит, що породив цей текст (ЭА.1).
     # Однієї ссылки достатньо: деталі спроб лежать у `GeminiRequestAttempt`.
     gemini_request_id = models.CharField(max_length=40, blank=True, default="", db_index=True)
+    # Immutable pre-provider RoutingDecision evidence.  It intentionally lives
+    # on the inbound source row so a deadline, fallback or process death cannot
+    # erase why a model chain was selected.
+    gemini_task_class = models.CharField(max_length=24, blank=True, default="")
+    gemini_routing_reason_codes = models.JSONField(default=list, blank=True)
+    gemini_routing_policy_version = models.CharField(max_length=32, blank=True, default="")
+    gemini_routing_model_chain = models.JSONField(default=list, blank=True)
+    gemini_routing_deadline_ms = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     # Provider timestamp is separate from the local immutable ingest time.
     # Backfill/recovery may persist old messages today, but the chat must show

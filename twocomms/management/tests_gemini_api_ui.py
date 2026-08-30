@@ -64,8 +64,8 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         self.assertIn("setInterval", source)
         self.assertIn("60000", source)
         self.assertIn("visibilitychange", source)
-        self.assertIn("seconds_until_next_check", source)
-        self.assertIn("gemini-health-countdown", self.template)
+        self.assertNotIn("seconds_until_next_check", source)
+        self.assertNotIn("gemini-health-countdown", self.template)
         self.assertNotIn("setTimeout", source)
         self.assertIn("load({passive:true})", source)
         self.assertNotIn("probe_key", source)
@@ -73,19 +73,14 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         timer_source = source[source.index("setInterval"):]
         self.assertNotIn("fetch(probeUrl", timer_source)
 
-    def test_countdown_duration_is_pinned_until_the_hourly_deadline_changes(self):
+    def test_automatic_provider_countdown_is_removed(self):
         start = self.template.index("const GeminiHealth=(function(){")
         end = self.template.index("/* ============", start + 32)
         source = self.template[start:end]
 
-        self.assertIn(
-            "if(nextDeadline!==countdownDeadline){countdownDeadline=nextDeadline;countdownDueReloadedFor=0;countdownDuration=seconds>0?seconds:3600;}",
-            source,
-        )
-        self.assertNotIn(
-            "if(nextDeadline!==countdownDeadline){countdownDeadline=nextDeadline;countdownDueReloadedFor=0;}\n      countdownDuration=seconds>0?seconds:3600;updateCountdown();",
-            source,
-        )
+        self.assertNotIn("countdownDeadline", source)
+        self.assertNotIn("updateCountdown", source)
+        self.assertNotIn("next_check_at", source)
 
     def test_probe_is_an_explicit_click_and_uses_allowlisted_form_fields(self):
         start = self.template.index("const GeminiHealth=(function(){")
@@ -147,10 +142,11 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         panel_end = self.template.index("{% endif %}", panel_start)
         panel = self.template[panel_start:panel_end]
 
-        self.assertIn("<strong>LIVE</strong> означає реальну генерацію", panel)
-        self.assertIn("<strong>ПЕРЕВІРЕНО</strong> означає token-free metadata GET", panel)
-        self.assertIn("Щогодини автоматична перевірка", panel)
-        self.assertIn("Остання автоматична перевірка", panel)
+        self.assertIn("<strong>LIVE</strong> означає успішну реальну генерацію", panel)
+        self.assertIn("Ручна кнопка виконує лише token-free metadata GET", panel)
+        self.assertIn("автоматичних provider-перевірок немає", panel)
+        self.assertIn("Остання ручна metadata-діагностика", panel)
+        self.assertNotIn("Щогодини автоматична перевірка", panel)
         self.assertIn("<span>ПЕРЕВІРЕНО</span>", panel)
         self.assertNotIn("<span>READY</span>", panel)
 

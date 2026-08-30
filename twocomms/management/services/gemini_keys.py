@@ -116,6 +116,10 @@ def is_key_level_429(model: str, grounded: bool) -> bool:
     return model in FREE_QUOTA_MODELS
 
 ALL_KEYS = ["GEMINI_API", "GEMINI_API2", "GEMINI_API3", "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"]
+DEFAULT_PROJECT_IDENTITIES = {
+    alias: f"gemini-project-{index}"
+    for index, alias in enumerate(ALL_KEYS, start=1)
+}
 
 MODEL_OVERLOAD_SECONDS = 60    # 503 → модель «перевантажена» ~1 хв (швидке відновлення для чату)
 DEFAULT_MINUTE_COOLDOWN = 60   # per-minute 429 без retryDelay
@@ -154,7 +158,10 @@ _model_overload: dict[str, datetime.datetime] = {}
 PAID_MODEL_SKIP_SECONDS = 30 * 60
 _model_unavailable: dict[str, datetime.datetime] = {}
 
-_RETRY_RE = re.compile(r'"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"')
+_RETRY_RE = re.compile(
+    r'(?:"retryDelay"\s*:\s*"|retryDelay=)(\d+(?:\.\d+)?)s',
+    re.IGNORECASE,
+)
 
 
 def key_project_groups() -> dict[str, str]:
@@ -176,7 +183,11 @@ def key_project_groups() -> dict[str, str]:
             alias, separator, group = part.partition("=")
             if separator:
                 pairs.append((alias, group))
-    result = {}
+    # The owner confirmed that the six production aliases are six independent
+    # Google projects.  Stable non-secret identities make that contract usable
+    # even when an environment-specific mapping was omitted.  Deployments can
+    # still override a pair explicitly (for example during key rotation).
+    result = dict(DEFAULT_PROJECT_IDENTITIES)
     for alias, group in pairs:
         alias = str(alias or "").strip()
         group = str(group or "").strip()
@@ -271,10 +282,8 @@ def role_model_chains() -> dict:
         for role, models in configured.items():
             if isinstance(models, (list, tuple)):
                 result[str(role)] = list(models)
-    # Live chat and management work must always get the new primary first. A
-    # stale deployment override may still list 3.6 first, but it must not
-    # silently prevent the 3.7 migration. The remainder of an explicit chain
-    # is preserved as the operator's fallback order.
+    # Keep legacy role-chain compatibility. Per-task RoutingDecision owns the
+    # actual live/analysis order and never reads this role-level primary.
     chat_models = [
         str(model).strip()
         for model in result.get("chat", [])
@@ -987,6 +996,62 @@ def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
             if not gemini_quota.has_capacity(key_name, model):
                 continue
             yield key_name, key_value, model
+
+
+def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> list[dict]:
+    """Return the complete model-major plan, including durable skip reasons.
+
+    Unlike ``iter_live_chat_attempts`` this projection does not make cooled or
+    locally exhausted pairs disappear.  With six configured projects the
+    caller therefore receives six rows for every model and can prove whether a
+    candidate was called, skipped by policy, or skipped by the live deadline.
+    Secret values are used only in-process and must not be serialized.
+    """
+    models = list(
+        model_chain_override
+        if model_chain_override is not None
+        else model_chain("chat")
+    )
+    ordered_aliases = _ordered_role_keys("chat")
+    identities = key_project_groups()
+    from management.services import gemini_quota
+
+    plan: list[dict] = []
+    candidate_index = 0
+    for model in models:
+        ordered = gemini_quota.order_keys_by_remaining(ordered_aliases, model)
+        seen_projects: set[str] = set()
+        model_skip = ""
+        if is_model_overloaded(model):
+            model_skip = "model_overload"
+        elif is_model_unavailable(model):
+            model_skip = "model_unavailable"
+        elif model_circuit_open(model):
+            model_skip = "circuit_open"
+        for key_name in ordered:
+            candidate_index += 1
+            key_value = _key_value(key_name)
+            identity = str(identities.get(key_name) or "")
+            skip_reason = model_skip
+            if not key_value:
+                skip_reason = "unconfigured"
+            elif identity and identity in seen_projects:
+                skip_reason = "duplicate_project"
+            elif not skip_reason and not is_available(key_name, model=model):
+                skip_reason = "quota_cooldown"
+            elif not skip_reason and not gemini_quota.has_capacity(key_name, model):
+                skip_reason = "quota_exhausted"
+            plan.append({
+                "candidate_index": candidate_index,
+                "key_name": key_name,
+                "key_value": key_value,
+                "project_identity": identity,
+                "model": model,
+                "skip_reason": skip_reason,
+            })
+            if identity:
+                seen_projects.add(identity)
+    return plan
 
 
 def task_model_chain(

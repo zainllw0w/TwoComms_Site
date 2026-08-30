@@ -45,19 +45,17 @@ class InteractionCategoryUiContractTests(SimpleTestCase):
         self.assertIn("Стан сповіщень недоступний.", template)
         self.assertNotIn("st.notification_pending||0", template)
 
-    def test_model_selector_uses_normalized_effective_model(self):
+    def test_model_selector_is_explicitly_a_pin_choice_not_adaptive_effective_model(self):
         template = (
             Path(__file__).with_name("templates") / "management" / "bot.html"
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            "{% if status.gemini_effective_model == 'gemini-3.7-flash' %}",
-            template,
-        )
-        self.assertNotIn(
             "{% if settings.gemini_model == 'gemini-3.7-flash' %}",
             template,
         )
+        self.assertIn('name="gemini_routing_mode"', template)
+        self.assertIn("Adaptive сам обирає модель за класом ходу", template)
 
     def test_client_cards_use_localized_operational_labels_and_keyboard_open(self):
         template = (
@@ -102,7 +100,7 @@ class InteractionCategoryUiContractTests(SimpleTestCase):
             "Резервне опитування Instagram",
             "Розмірна таблиця",
             "Ідентифікатор реклами",
-            "Інтерес до товарів",
+            "Інтерес до товару",
         ):
             self.assertIn(visible_label, template)
         for raw_visible in (

@@ -380,7 +380,7 @@ def _runtime_live_state(
 def _metadata_live_state(
     rows: list[dict[str, Any]], generated_at: dt.datetime,
 ) -> tuple[str, str | None] | None:
-    """Classify one fresh scheduled 3.7 -> conditional 3.6 observation."""
+    """Classify one fresh, explicitly requested metadata observation."""
     request_rows = _latest_request_rows(rows)
     if not _fresh(request_rows, generated_at):
         return None
@@ -510,11 +510,6 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
     metadata_attempts = [
         row for row in attempt_rows if row.get("role") == "health_metadata"
     ]
-    next_check = generated_at.replace(
-        minute=0,
-        second=0,
-        microsecond=0,
-    ) + dt.timedelta(hours=1)
     pool_by_key = _pool_row_by_key(pool_rows)
     keys = []
     for key_name in KEY_ALIASES:
@@ -537,7 +532,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             evidence_source = "generation" if classified else ""
             if classified is None:
                 classified = _metadata_live_state(metadata_rows, generated_at)
-                evidence_source = "scheduled_metadata" if classified else "none"
+                evidence_source = "manual_metadata" if classified else "none"
             live_state, active_model = classified or ("STALE", None)
         if not pool_row.get("present"):
             evidence_source = "none"
@@ -556,12 +551,10 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             "live_state": live_state,
             "active_model": active_model,
             "source": evidence_source,
-            "evidence_kind": "generation" if evidence_source == "generation" else ("metadata_only" if evidence_source == "scheduled_metadata" else "none"),
+            "evidence_kind": "generation" if evidence_source == "generation" else ("metadata_only" if evidence_source == "manual_metadata" else "none"),
             "checked_at": _iso(latest_evidence["created_at"]) if latest_evidence else None,
             "last_check_at": _iso(latest_metadata["created_at"]) if latest_metadata else None,
             "last_generation_at": _iso(latest_runtime["created_at"]) if latest_runtime else None,
-            "next_check_at": _iso(next_check),
-            "seconds_until_next_check": max(0, int((next_check - generated_at).total_seconds())),
             "freshness": "fresh" if evidence_source != "none" else "stale",
             "generation_quota_proven": (
                 evidence_source == "generation"
@@ -575,11 +568,6 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso(generated_at),
-        "next_check_at": _iso(next_check),
-        "seconds_until_next_check": max(
-            0,
-            int((next_check - generated_at).total_seconds()),
-        ),
         "window": {
             "start": _iso(window_start),
             "end": _iso(generated_at),
