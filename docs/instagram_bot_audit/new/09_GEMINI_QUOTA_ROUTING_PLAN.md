@@ -3,8 +3,9 @@
 Дата фиксации контракта: 2026-08-30.
 
 Статус: **runtime S1 задеплоен; первый soak завершился ранним SIGKILL, после
-авторизованной S1b selector-коррекции 48-часовой gate запущен заново. Routing
-S2/V2 ещё не задеплоен и не считается реализованным**.
+авторизованной S1b selector-коррекции 48-часовой gate запущен заново. Исправленный
+Routing S2, schema S3a и первый checkout-срез объединены только в локальной
+integration-ветке, не задеплоены и поэтому не считаются production-complete**.
 
 Этот документ — единственный подробный контракт для Gemini-маршрутизации,
 учёта квот, event-driven health, API UI, durable CRM-анализа, typed memory и
@@ -34,8 +35,9 @@ production-проверки соответствующего пункта. На�
 | S1b runtime snapshot | selector/app restart выполнен под exact bot maintenance; health/home/catalog последовательно вернули 200; все lswsgi env показывают `3/0`; process group после старта master+2, верхняя цель master+3 | process/RSS цифры являются snapshots, не steady-state p95 |
 | S1b memory snapshot | comparable RSS `950732→588240 KiB`, PSS `666577→390312 KiB`, private `583960→298036 KiB` | не выдавать snapshot за fPMEM или PMEM p95 proof |
 | Active soak | baseline `2026-08-30T15:48:03+03:00`; deadline `2026-09-01T15:48:03+03:00`; automation active | gate закрывается только полной выборкой после deadline |
-| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | новые routing migrations не применять до закрытия S2 review gate |
-| Runtime routing | production остаётся на legacy routing из `e62bedf5`; commits `62070f6eb` и `ec34e1734` не merged и не deployed | исправленный S2 проходит повторный review до merge |
+| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0181` и `orders.0057` не применять до release gate |
+| Runtime routing | production остаётся на legacy routing из `e62bedf5`; corrected S2 существует только в локальной integration-ветке | до deploy настроить private-media root, завершить soak и повторить preflight |
+| Local integration candidate | `1f42e8461754372603b46809b4777eaf425639f3`; Routing S2 + schema S3a + checkout terminalization Slice 1 | SHA локальный, не GitHub/main/production; не использовать как running truth |
 | Ключи | владелец подтвердил: шесть ключей принадлежат шести отдельным Google-проектам | явный безопасный mapping `project_identity`, без вывода ключей и project IDs |
 | Cron ownership | один stdlib watchdog, один sequential Instagram coordinator; durable tasks и Nova Poshta используют общий heavy-process lock | cadence/LVE steady state подтвердить soak-выборкой |
 | Removed owners | automatic metadata cron = 0; legacy Instagram periodic owner lines = 0 | manual metadata остаётся только явной диагностикой |
@@ -77,9 +79,15 @@ Markdown запрещено записывать API-ключи, SSH-парол�
 - [ ] Завершить перезапущенный 48-часовой LVE/PMEM/NPROC/daemon-exit soak
       (`2026-08-30T15:48:03+03:00` → `2026-09-01T15:48:03+03:00`) и снять
       live-reply p95. Automation active; ранний pre-fix SIGKILL остаётся в evidence.
-- [ ] Закрыть S2 review blockers и повторить независимый review исправленного
-      routing diff; commits `62070f6eb`/`ec34e1734` в текущем виде не деплоить.
-- [ ] Затем внедрять V2 отдельными reversible slices; не смешивать schema,
+- [ ] Выпустить corrected S2 только после soak/preflight/private-media config;
+      локальные blockers закрыты, но checkbox остаётся открытым до deploy и
+      production proof.
+- [ ] Включить S3b shadow writer после Pacific midnight; schema S3a сама по
+      себе ничего не считает и не меняет routing.
+- [ ] Исправить отклонённый materiality Slice 1: первый независимый review
+      нашёл retry-FK P0 и нарушения честного `off/shadow`; до повторного PASS
+      этот commit не merge/cherry-pick.
+- [ ] Дальше внедрять V2 отдельными reversible slices; не смешивать schema,
       enforcement, policy, analysis, funnel и UI.
 
 ### 0.4 S1 soak failure и авторизованная S1b-коррекция
@@ -121,10 +129,10 @@ snapshots, не fPMEM, не p95 и не 48-часовое доказательс
 `2026-09-01T15:48:03+03:00`. Автоматизация мониторинга активна. До дедлайна все
 soak/fault/PMEM/p95 checkboxes остаются открытыми.
 
-### 0.5 S2 review gate — NO-GO для текущих routing-коммитов
+### 0.5 S2 review gate — первоначальный NO-GO закрыт локально, deploy всё ещё закрыт
 
-Независимый review `62070f6eb` + `ec34e1734` не разрешил deploy. Перед merge
-исправленный S2 обязан закрыть следующие темы без переноса их в будущий S3:
+Первоначальный независимый review `62070f6eb` + `ec34e1734` не разрешил deploy
+и потребовал закрыть следующие темы без переноса их в будущий S3:
 
 - один canonical media pass/artifact вместо повторного strong-вызова; рабочий
   voice/audio path и deterministic UGC acknowledgement при временно недоступных
@@ -138,14 +146,34 @@ soak/fault/PMEM/p95 checkboxes остаются открытыми.
 - health по фактической adaptive chain/cross-key request, безопасный fallback для
   неполного 429 envelope и opaque UI slots вместо env aliases.
 
-Model-scoped permits, rolling/input TPM и полный parent request/attempt FSM
-остаются отдельным S3; ими нельзя оправдывать перечисленные S2-регрессии.
+Исправленный стек `62070f6eb..a945d5f1` прошёл повторные scoped reviews и локально
+cherry-picked в integration. Он добавляет single-pass image/audio artifact,
+deterministic UGC acknowledgement, project-aware 404 rotation, typed ad
+resolver, приватное media ownership/erasure fencing, opaque 4×6 health slots,
+429 fail-closed accounting и retry-safe `0177`. Полный routing regression на
+integration: `930` tests, `OK`, `4` intentional skips. Disposable MariaDB 11.4
+kill/resume для `0177` завершился повторным применением без пропусков; целевые
+таблицы подтверждены InnoDB.
 
-**Следующий конкретный шаг:** automation продолжает новый S1b soak до
-`2026-09-01T15:48:03+03:00`; параллельно в изолированном worktree подготовить
-узкий исправленный S2 поверх `e62bedf5`, прогнать ingress/gateway/health/UGC
-regression matrix и отдать новый diff на независимый review. До закрытия gate
-routing migration и customer-visible S2 не деплоить.
+Это **локальное доказательство**, не `[x]`: corrected S2 отсутствует в `main`,
+GitHub и production. До deploy обязательно создать explicit `IG_PRIVATE_MEDIA_ROOT`
+вне checkout/MEDIA_ROOT, проверить owner/mode `0700`, затем повторить SHA,
+migration, cron и runtime preflight. Model-scoped permits, rolling/input TPM и
+полный parent request/attempt FSM остаются отдельным S3.
+
+### 0.6 Локальные additive-срезы после S2
+
+| Slice | Local evidence | Production status |
+|---|---|---|
+| S3a accounting schema | `0178–0181`; request/attempt/quota/profile contracts; `31` schema tests (`3` Maria-only skips); disposable MariaDB partial-DDL resume, все пять таблиц InnoDB | не применён; runtime writer `off`/отсутствует |
+| Checkout terminalization Slice 1 | `orders.0057`; `396` integrated tests (`5` skips); MariaDB partial-DDL resume; две реальные MariaDB concurrency гонки прошли без deadlock/duplicate order | не применён |
+| Runtime capacity auditor | безопасная selector/process/flock атрибуция; `37` targeted tests | не задеплоен, чтобы не сбросить активный soak SHA |
+| Materiality Slice 1 draft | author tests были зелёными, но независимый review выявил FK retry P0, operational shadow drift, manager-only evidence, digest privacy и unique-index gaps | **NO-GO**, не cherry-pick |
+
+**Следующий конкретный шаг:** automation продолжает S1b soak до
+`2026-09-01T15:48:03+03:00`; параллельно исправить materiality NO-GO и реализовать
+S3b shadow dual-write без routing behavior change. До закрытия soak не менять
+production SHA и не применять новые migrations.
 
 ---
 
