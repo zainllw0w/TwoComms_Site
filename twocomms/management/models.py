@@ -4,6 +4,7 @@ from decimal import Decimal
 from unicodedata import normalize as unicode_normalize
 from urllib.parse import urlsplit
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -4188,6 +4189,28 @@ class GeminiModelQuotaUsage(models.Model):
         return f"GeminiModelQuotaUsage({self.key_name}/{self.model}@{self.day_date})"
 
 
+class GeminiQuotaProfileQuerySet(models.QuerySet):
+    """Application-level append-only boundary for immutable quota profiles."""
+
+    @staticmethod
+    def _reject_mutation():
+        raise ValidationError("GeminiQuotaProfile is append-only.")
+
+    def update(self, **kwargs):
+        self._reject_mutation()
+
+    def delete(self):
+        self._reject_mutation()
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        self._reject_mutation()
+
+    def bulk_create(self, objs, *args, **kwargs):
+        if kwargs.get("update_conflicts") or kwargs.get("update_fields"):
+            self._reject_mutation()
+        return super().bulk_create(objs, *args, **kwargs)
+
+
 class GeminiQuotaProfile(models.Model):
     """Immutable observed quota contract for one Gemini model version.
 
@@ -4215,10 +4238,13 @@ class GeminiQuotaProfile(models.Model):
     effective_from = models.DateTimeField()
     effective_until = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    objects = GeminiQuotaProfileQuerySet.as_manager()
 
     class Meta:
         verbose_name = _("Профіль квоти Gemini")
         verbose_name_plural = _("Профілі квот Gemini")
+        base_manager_name = "objects"
+        default_manager_name = "objects"
         constraints = [
             models.UniqueConstraint(
                 fields=["profile_version", "model"],
@@ -4240,6 +4266,13 @@ class GeminiQuotaProfile(models.Model):
                 condition=models.Q(permit_limit__gt=0),
                 name="gem_qprof_permit_gt_zero",
             ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(effective_until__isnull=True)
+                    | models.Q(effective_until__gt=models.F("effective_from"))
+                ),
+                name="gem_qprof_effective_window",
+            ),
         ]
         indexes = [
             models.Index(
@@ -4250,6 +4283,43 @@ class GeminiQuotaProfile(models.Model):
 
     def __str__(self):
         return f"GeminiQuotaProfile({self.profile_version}/{self.model})"
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None or not self._state.adding:
+            raise ValidationError("GeminiQuotaProfile is append-only.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("GeminiQuotaProfile is append-only.")
+
+
+class GeminiQuotaStateQuerySet(models.QuerySet):
+    _IDENTITY_FIELDS = frozenset({
+        "project_identity", "model", "quota_profile", "quota_profile_id",
+    })
+
+    def update(self, **kwargs):
+        if self._IDENTITY_FIELDS.intersection(kwargs):
+            raise ValidationError(
+                "GeminiQuotaState identity/profile fields require the contract boundary."
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self._IDENTITY_FIELDS.intersection(fields):
+            raise ValidationError(
+                "GeminiQuotaState identity/profile fields require the contract boundary."
+            )
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        from management.services.gemini_accounting_contract import (
+            validate_quota_state_contract,
+        )
+
+        for obj in objs:
+            validate_quota_state_contract(obj)
+        return super().bulk_create(objs, *args, **kwargs)
 
 
 class GeminiQuotaState(models.Model):
@@ -4297,6 +4367,7 @@ class GeminiQuotaState(models.Model):
     revision = models.PositiveBigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    objects = GeminiQuotaStateQuerySet.as_manager()
 
     class Meta:
         verbose_name = _("Стан квоти Gemini V2")
@@ -4320,6 +4391,55 @@ class GeminiQuotaState(models.Model):
 
     def __str__(self):
         return f"GeminiQuotaState({self.project_identity}/{self.model})"
+
+    def clean(self):
+        super().clean()
+        from management.services.gemini_accounting_contract import (
+            validate_quota_state_contract,
+        )
+
+        validate_quota_state_contract(self)
+
+    def save(self, *args, **kwargs):
+        from management.services.gemini_accounting_contract import (
+            validate_quota_state_contract,
+        )
+
+        validate_quota_state_contract(self)
+        return super().save(*args, **kwargs)
+
+
+class GeminiRequestQuerySet(models.QuerySet):
+    _CONTRACT_FIELDS = frozenset({
+        "request_id",
+        "candidate_plan",
+        "candidate_plan_digest",
+        "winner_attempt",
+        "winner_attempt_id",
+    })
+
+    def update(self, **kwargs):
+        if self._CONTRACT_FIELDS.intersection(kwargs):
+            raise ValidationError(
+                "GeminiRequest identity, plan and winner require the contract boundary."
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self._CONTRACT_FIELDS.intersection(fields):
+            raise ValidationError(
+                "GeminiRequest identity, plan and winner require the contract boundary."
+            )
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        from management.services.gemini_accounting_contract import (
+            validate_request_contract,
+        )
+
+        for obj in objs:
+            validate_request_contract(obj)
+        return super().bulk_create(objs, *args, **kwargs)
 
 
 class GeminiRequest(models.Model):
@@ -4382,6 +4502,7 @@ class GeminiRequest(models.Model):
     provider_phase_started_at = models.DateTimeField(null=True, blank=True)
     resolved_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
+    objects = GeminiRequestQuerySet.as_manager()
 
     class Meta:
         verbose_name = _("Запит Gemini")
@@ -4400,6 +4521,22 @@ class GeminiRequest(models.Model):
 
     def __str__(self):
         return f"GeminiRequest({self.request_id}:{self.terminal_resolution or 'open'})"
+
+    def clean(self):
+        super().clean()
+        from management.services.gemini_accounting_contract import (
+            validate_request_contract,
+        )
+
+        validate_request_contract(self)
+
+    def save(self, *args, **kwargs):
+        from management.services.gemini_accounting_contract import (
+            validate_request_contract,
+        )
+
+        validate_request_contract(self)
+        return super().save(*args, **kwargs)
 
 
 class GeminiKeyState(models.Model):
@@ -4468,6 +4605,40 @@ class GeminiModelState(models.Model):
 
     def __str__(self):
         return f"GeminiModelState({self.model_name})"
+
+
+class GeminiRequestAttemptQuerySet(models.QuerySet):
+    _CONTRACT_FIELDS = frozenset({
+        "request_graph",
+        "request_graph_id",
+        "request_id",
+        "model",
+        "quota_profile",
+        "quota_profile_id",
+    })
+
+    def update(self, **kwargs):
+        if self._CONTRACT_FIELDS.intersection(kwargs):
+            raise ValidationError(
+                "GeminiRequestAttempt graph/profile fields require the contract boundary."
+            )
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        if self._CONTRACT_FIELDS.intersection(fields):
+            raise ValidationError(
+                "GeminiRequestAttempt graph/profile fields require the contract boundary."
+            )
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        from management.services.gemini_accounting_contract import (
+            validate_attempt_contract,
+        )
+
+        for obj in objs:
+            validate_attempt_contract(obj)
+        return super().bulk_create(objs, *args, **kwargs)
 
 
 class GeminiRequestAttempt(models.Model):
@@ -4568,6 +4739,7 @@ class GeminiRequestAttempt(models.Model):
     provider_block_until = models.DateTimeField(null=True, blank=True)
     winner_claimed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    objects = GeminiRequestAttemptQuerySet.as_manager()
 
     class Meta:
         ordering = ["-id"]
@@ -4610,6 +4782,22 @@ class GeminiRequestAttempt(models.Model):
 
     def __str__(self):
         return f"GeminiRequestAttempt({self.request_id}:{self.outcome})"
+
+    def clean(self):
+        super().clean()
+        from management.services.gemini_accounting_contract import (
+            validate_attempt_contract,
+        )
+
+        validate_attempt_contract(self)
+
+    def save(self, *args, **kwargs):
+        from management.services.gemini_accounting_contract import (
+            validate_attempt_contract,
+        )
+
+        validate_attempt_contract(self)
+        return super().save(*args, **kwargs)
 
 
 class LeadCheckJob(models.Model):
