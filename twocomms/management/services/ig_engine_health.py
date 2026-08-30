@@ -24,6 +24,7 @@ IG_RUNTIME_TABLES = (
     "management_igconversationanalysissnapshot",
     "management_igconversationanalysisjob",
     "management_geminikeystate",
+    "management_geminimodelquotausage",
     "management_geminimodelstate",
     "management_geminirequestattempt",
     "management_igaireplyrecoveryjob",

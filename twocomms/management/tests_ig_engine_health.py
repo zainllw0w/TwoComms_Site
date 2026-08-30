@@ -206,6 +206,7 @@ class IgEngineAuditTests(TestCase):
         self.assertIn("management_igconversationanalysissnapshot", IG_RUNTIME_TABLES)
         self.assertIn("management_igconversationanalysisjob", IG_RUNTIME_TABLES)
         self.assertIn("management_geminikeystate", IG_RUNTIME_TABLES)
+        self.assertIn("management_geminimodelquotausage", IG_RUNTIME_TABLES)
         self.assertIn("management_geminimodelstate", IG_RUNTIME_TABLES)
         self.assertIn("management_geminirequestattempt", IG_RUNTIME_TABLES)
         self.assertIn("management_igaireplyrecoveryjob", IG_RUNTIME_TABLES)
