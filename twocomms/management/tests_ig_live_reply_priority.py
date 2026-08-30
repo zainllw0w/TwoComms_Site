@@ -2196,6 +2196,50 @@ class QuietDegradationTests(TestCase):
         self.assertEqual(source.gemini_task_class, "no_model")
         self.assertEqual(source.gemini_routing_model_chain, [])
 
+    @patch("management.services.instagram_bot._capture_message_media")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.gemini_generate")
+    @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
+    def test_failed_native_post_capture_still_acknowledges_and_defers_assessment(
+        self,
+        send_text,
+        generate,
+        _sender_action,
+        _capture,
+    ):
+        from management.ig_bot_models import IgUgcEvidenceAssessment
+
+        source = self._pending(
+            "(публікація)",
+            "native-post-unavailable",
+            media=[{
+                "url": "https://lookaside.invalid/native-post",
+                "media_type": "ig_post",
+                "provenance": "live_webhook",
+                "provider_native_mention": True,
+                "target_username": "twocomms",
+                "status": "unavailable",
+                "provider_object_key": "ig_post:provider-object-1",
+                "provider_media_id": "provider-media-1",
+                "provider_event_id": "quiet-native-post-unavailable",
+                "capture_attempts": 1,
+            }],
+        )
+
+        instagram_bot.process_pending(self.settings, max_items=1)
+
+        generate.assert_not_called()
+        self.assertEqual(send_text.call_count, 1)
+        reply = send_text.call_args.args[2].casefold()
+        self.assertTrue(any(word in reply for word in ("дяку", "спасиб", "thank")))
+        assessment = IgUgcEvidenceAssessment.objects.get(
+            client=self.client,
+            source_message_id=source.mid,
+        )
+        self.assertEqual(assessment.decision, "pending")
+        source.refresh_from_db()
+        self.assertEqual(source.gemini_task_class, "no_model")
+
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
     @patch("management.services.instagram_bot._capture_message_media")

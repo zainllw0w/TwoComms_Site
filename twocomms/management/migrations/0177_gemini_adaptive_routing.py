@@ -89,4 +89,9 @@ class Migration(migrations.Migration):
             name="discount_percent",
             field=models.PositiveSmallIntegerField(default=10),
         ),
+        migrations.AddField(
+            model_name="instagrambotmessage",
+            name="turn_intelligence_artifact",
+            field=models.JSONField(blank=True, default=dict),
+        ),
     ]

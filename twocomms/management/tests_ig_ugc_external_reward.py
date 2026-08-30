@@ -173,27 +173,20 @@ class ExternalUGCRewardTests(TestCase):
                         **overrides,
                     )
 
-    def test_external_reward_does_not_require_order_assignment_or_actor(self):
-        from management.services.ig_ugc_rewards import award_external_ugc_reward
-
-        reward, created = award_external_ugc_reward(
-            client=self.client,
-            assessment=self.assessment,
+    def test_qualified_auto_cannot_mint_without_authenticated_actor(self):
+        from management.services.ig_ugc_rewards import (
+            UgcRewardConflict,
+            award_external_ugc_reward,
         )
 
-        self.assertTrue(created)
-        self.assertIsNone(reward.order_id)
-        self.assertIsNone(reward.assignment_id)
-        self.assertIsNone(reward.reviewed_by_id)
-        self.assertEqual(reward.decision_source, "auto")
-        self.assertEqual(reward.promo_code.discount_value, Decimal("10.00"))
-        self.assertEqual(reward.promo_code.max_uses, 1)
-        self.assertFalse(reward.promo_code.one_time_per_user)
-        self.assertTrue(reward.promo_code.guest_redeemable)
-        self.assertEqual(
-            reward.promo_code.valid_until.date(),
-            (reward.issued_at + timedelta(days=90)).date(),
-        )
+        with self.assertRaisesMessage(
+            UgcRewardConflict,
+            "Для підтвердження UGC потрібен авторизований менеджер.",
+        ):
+            award_external_ugc_reward(
+                client=self.client,
+                assessment=self.assessment,
+            )
 
     def test_reward_freezes_assessment_evidence_snapshot_at_issuance(self):
         from management.services.ig_ugc_rewards import award_external_ugc_reward
@@ -206,6 +199,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         self.assertTrue(created)
 
@@ -235,7 +230,7 @@ class ExternalUGCRewardTests(TestCase):
         self.assessment.save(update_fields=["target_username", "provider_object_key"])
 
         with self.assertRaises(UgcRewardConflict):
-            award_external_ugc_reward(client=self.client, assessment=self.assessment)
+            award_external_ugc_reward(client=self.client, assessment=self.assessment, actor=self.actor, review_note="Test manager approval")
 
         from management.ig_bot_models import IgUgcReward
         self.assertFalse(IgUgcReward.objects.exists())
@@ -253,6 +248,8 @@ class ExternalUGCRewardTests(TestCase):
             award_external_ugc_reward(
                 client=self.client,
                 assessment=self.assessment,
+                actor=self.actor,
+                review_note="Test manager approval",
             )
 
     def test_reward_reloads_original_user_webhook_message(self):
@@ -269,6 +266,8 @@ class ExternalUGCRewardTests(TestCase):
             award_external_ugc_reward(
                 client=self.client,
                 assessment=self.assessment,
+                actor=self.actor,
+                review_note="Test manager approval",
             )
 
     def test_reward_reloads_original_owned_attachment(self):
@@ -285,6 +284,8 @@ class ExternalUGCRewardTests(TestCase):
             award_external_ugc_reward(
                 client=self.client,
                 assessment=self.assessment,
+                actor=self.actor,
+                review_note="Test manager approval",
             )
 
     def test_reward_and_delivery_outbox_commit_together(self):
@@ -294,6 +295,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
 
         self.assertTrue(created)
@@ -317,6 +320,8 @@ class ExternalUGCRewardTests(TestCase):
             award_external_ugc_reward(
                 client=self.client,
                 assessment=self.assessment,
+                actor=self.actor,
+                review_note="Test manager approval",
             )
 
         self.assertFalse(IgUgcReward.objects.exists())
@@ -333,6 +338,8 @@ class ExternalUGCRewardTests(TestCase):
         first, created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         self.assertTrue(created)
         second_assessment = self._create_assessment("external-2")
@@ -360,12 +367,16 @@ class ExternalUGCRewardTests(TestCase):
         first, first_created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         first_delivery = queue_external_ugc_reward_delivery(first)
 
         replay, replay_created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         replay_delivery = queue_external_ugc_reward_delivery(replay)
 
@@ -389,12 +400,16 @@ class ExternalUGCRewardTests(TestCase):
         first, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         IgUgcRewardLifetime.objects.all().delete()
 
         replay, created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
 
         self.assertFalse(created)
@@ -443,6 +458,8 @@ class ExternalUGCRewardTests(TestCase):
         external, external_created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
 
         self.assertTrue(delivered_created)
@@ -458,6 +475,8 @@ class ExternalUGCRewardTests(TestCase):
         external, external_created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         order = Order.objects.create(
             order_number="TWC-CROSS-PATH-2",
@@ -592,9 +611,89 @@ class ExternalUGCRewardTests(TestCase):
         self.assertEqual(reward.discount_percent, 5)
         self.assertEqual(reward.promo_code.discount_value, Decimal("5.00"))
         self.assertTrue(reward.promo_code.is_guest_ugc_capability())
+        self.assertIn("5%", reward.delivery.message_snapshot)
+        self.assertNotIn("10%", reward.delivery.message_snapshot)
         self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
         answer_callback.assert_called_once()
         edit_message.assert_called_once()
+
+    @patch.dict(
+        "os.environ",
+        {
+            "MANAGEMENT_TG_ADMIN_CHAT_ID": "777,888",
+            "MANAGEMENT_TG_BOT_TOKEN": "ugc-token",
+        },
+        clear=False,
+    )
+    @patch("management.views._tg_edit_message")
+    @patch("management.views._tg_answer_callback")
+    def test_ugc_callback_rejects_same_message_id_from_another_admin_chat(
+        self,
+        answer_callback,
+        edit_message,
+    ):
+        from accounts.models import UserProfile
+        from management.ig_bot_models import IgUgcEvidenceAssessment, IgUgcReward
+        from management.models import IgBotNotification
+        from management.services.ig_ugc_assessment import queue_ugc_manager_review
+        from management.views import management_bot_webhook
+
+        profile = UserProfile.objects.get(user=self.actor)
+        profile.tg_manager_chat_id = 777
+        profile.is_manager = True
+        profile.save(update_fields=["tg_manager_chat_id", "is_manager"])
+        assessment = self._create_assessment("telegram-cross-chat")
+        assessment.decision = IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW
+        assessment.decision_source = "policy"
+        assessment.generation += 1
+        assessment.save(update_fields=[
+            "decision", "decision_source", "generation", "updated_at",
+        ])
+        self.assertTrue(queue_ugc_manager_review(assessment))
+        notification = IgBotNotification.objects.get(
+            dedupe_key=f"ugc_review:{assessment.pk}:{assessment.generation}"
+        )
+        notification.status = IgBotNotification.Status.SENT
+        notification.telegram_message_id = "901"
+        notification.payload = {
+            **notification.payload,
+            "chat_id": "777",
+            "main_delivery_message_id": "901",
+        }
+        notification.save(update_fields=[
+            "status", "telegram_message_id", "payload", "updated_at",
+        ])
+        request = RequestFactory().post(
+            "/management/tg-manager/webhook/ugc-token/",
+            data=json.dumps({
+                "callback_query": {
+                    "id": "ugc-cross-chat",
+                    "data": f"igugc:10:{assessment.pk}:{assessment.generation}",
+                    "from": {"id": 777},
+                    "message": {
+                        "chat": {"id": 888, "type": "group"},
+                        "message_id": 901,
+                        "text": "UGC review",
+                    },
+                },
+            }),
+            content_type="application/json",
+        )
+
+        response = management_bot_webhook(request, "ugc-token")
+
+        self.assertEqual(response.status_code, 200)
+        assessment.refresh_from_db()
+        self.assertEqual(
+            assessment.decision,
+            IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+        )
+        self.assertFalse(IgUgcReward.objects.filter(assessment=assessment).exists())
+        edit_message.assert_not_called()
+        self.assertIn(
+            "не належить",
+            str(answer_callback.call_args.args[2]),
+        )
 
     def test_direct_manager_approval_requires_a_non_blank_reason(self):
         from management.ig_bot_models import (
@@ -1105,7 +1204,7 @@ class ExternalUGCRewardTests(TestCase):
         from management.ig_bot_models import IgUgcRewardDelivery
         from unittest.mock import patch
 
-        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment)
+        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment, actor=self.actor, review_note="Test manager approval")
         delivery = queue_external_ugc_reward_delivery(reward)
         with patch(
             "management.services.instagram_bot.send_text",
@@ -1129,6 +1228,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         self.assertTrue(created)
         receipt = type(
@@ -1173,6 +1274,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         delivery = reward.delivery
         delivery.state = IgUgcRewardDelivery.State.PROCESSING
@@ -1199,6 +1302,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         delivery = reward.delivery
         delivery.state = IgUgcRewardDelivery.State.PROCESSING
@@ -1234,6 +1339,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         delivery = reward.delivery
         for delivery_status in (
@@ -1311,6 +1418,8 @@ class ExternalUGCRewardTests(TestCase):
         first, created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         self.assertTrue(created)
         self.assertTrue(first.lifetime_slot_key.startswith("v1:"))
@@ -1319,6 +1428,8 @@ class ExternalUGCRewardTests(TestCase):
             replay, replay_created = award_external_ugc_reward(
                 client=self.client,
                 assessment=self.assessment,
+                actor=self.actor,
+                review_note="Test manager approval",
             )
 
         self.assertFalse(replay_created)
@@ -1331,6 +1442,8 @@ class ExternalUGCRewardTests(TestCase):
         _first, created = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         self.assertTrue(created)
 
@@ -1453,6 +1566,8 @@ class ExternalUGCRewardTests(TestCase):
             award_external_ugc_reward(
                 client=self.client,
                 assessment=self.assessment,
+                actor=self.actor,
+                review_note="Test manager approval",
             )
 
     def test_latest_support_complaint_blocks_ugc_without_case_row(self):
@@ -1549,6 +1664,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         self._open_service_case(source_suffix="delivery")
 
@@ -1570,7 +1687,7 @@ class ExternalUGCRewardTests(TestCase):
             queue_external_ugc_reward_delivery,
         )
 
-        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment)
+        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment, actor=self.actor, review_note="Test manager approval")
         delivery = queue_external_ugc_reward_delivery(reward)
         self.client.last_message_at = timezone.now() - timedelta(hours=24)
         self.client.save(update_fields=["last_message_at", "updated_at"])
@@ -1591,7 +1708,7 @@ class ExternalUGCRewardTests(TestCase):
             queue_external_ugc_reward_delivery,
         )
 
-        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment)
+        reward, _ = award_external_ugc_reward(client=self.client, assessment=self.assessment, actor=self.actor, review_note="Test manager approval")
         delivery = queue_external_ugc_reward_delivery(reward)
         original_snapshot = delivery.message_snapshot
         self.client.last_message_at = timezone.now() - timedelta(hours=24)
@@ -1641,6 +1758,8 @@ class ExternalUGCRewardTests(TestCase):
                 reward, _ = award_external_ugc_reward(
                     client=self.client,
                     assessment=self.assessment,
+                    actor=self.actor,
+                    review_note="Test manager approval",
                 )
                 delivery = queue_external_ugc_reward_delivery(reward)
                 setattr(self.client, field, value)
@@ -1665,6 +1784,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         reward.promo_code.valid_until = timezone.now() - timedelta(seconds=1)
         reward.promo_code.save(update_fields=["valid_until"])
@@ -1697,6 +1818,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         reward.promo_code.is_active = False
         reward.promo_code.save(update_fields=["is_active"])
@@ -1722,6 +1845,8 @@ class ExternalUGCRewardTests(TestCase):
         reward, _ = award_external_ugc_reward(
             client=self.client,
             assessment=self.assessment,
+            actor=self.actor,
+            review_note="Test manager approval",
         )
         now = timezone.now()
         retry_receipt = type(

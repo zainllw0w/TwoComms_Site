@@ -1,4 +1,5 @@
 import json
+import inspect
 import os
 from datetime import timedelta
 from io import StringIO
@@ -137,23 +138,363 @@ class ActualInstagramGeminiRoutingTests(TestCase):
     @patch("management.services.call_ai_analysis.gemini_generate_text")
     def test_actual_entrypoint_routes_an_image_to_complex_chain(self, generate):
         from management.services.instagram_bot import gemini_generate
+        from storefront.models import Category, Product, ProductStatus
 
+        category = Category.objects.create(name="Routing images", slug="routing-images")
+        product = Product.objects.create(
+            title="Validated image product",
+            slug="validated-image-product",
+            category=category,
+            price=900,
+            status=ProductStatus.PUBLISHED,
+        )
         generate.return_value = {
-            "parsed": "Бачу принт.",
+            "parsed": {
+                "reply_text": "Бачу принт.",
+                "controls": [],
+                "turn_intelligence": {
+                    "catalog_candidates": [{
+                        "product_id": product.pk,
+                        "confidence": 0.96,
+                        "evidence": "visible matching print",
+                    }],
+                    "transcript": "",
+                    "intent": "product_match",
+                    "confidence": 0.96,
+                },
+            },
             "model": "gemini-3.7-flash",
             "meta": {},
         }
+        context = {}
         gemini_generate(
             self.settings,
             [{"role": "user", "text": "Що це?"}],
             images=[("image/jpeg", b"image")],
+            failure_context=context,
         )
 
+        generate.assert_called_once()
         self.assertEqual(
             tuple(generate.call_args.kwargs["model_chain_override"]),
             COMPLEX_CHAIN,
         )
         self.assertEqual(generate.call_args.kwargs["reasoning_task"], "media_analysis")
+        self.assertEqual(
+            context["turn_intelligence"]["auto_product_id"],
+            product.pk,
+        )
+
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_owned_audio_uses_one_complex_pass_and_returns_transcript_artifact(self, generate):
+        from management.services.instagram_bot import gemini_generate
+
+        generate.return_value = {
+            "parsed": {
+                "reply_text": "Так, допоможу з вибором.",
+                "controls": [],
+                "turn_intelligence": {
+                    "catalog_candidates": [],
+                    "transcript": "Хочу чорне худі oversize",
+                    "intent": "product_selection",
+                    "confidence": 0.94,
+                },
+            },
+            "model": "gemini-3.7-flash",
+            "meta": {},
+        }
+        context = {}
+
+        gemini_generate(
+            self.settings,
+            [{"role": "user", "text": "(голосове)"}],
+            images=[("audio/mp4", b"owned-audio")],
+            failure_context=context,
+        )
+
+        generate.assert_called_once()
+        self.assertEqual(generate.call_args.kwargs["reasoning_task"], "media_analysis")
+        self.assertEqual(
+            context["turn_intelligence"]["transcript"],
+            "Хочу чорне худі oversize",
+        )
+        payload = generate.call_args.args[0]
+        inline = payload["contents"][-1]["parts"][-1]["inline_data"]
+        self.assertEqual(inline["mime_type"], "audio/m4a")
+
+    @patch(
+        "management.services.instagram_bot.INLINE_MEDIA_RAW_BUDGET",
+        5,
+    )
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_actual_entrypoint_applies_combined_media_budget(self, generate):
+        from management.services.instagram_bot import gemini_generate
+
+        generate.return_value = {
+            "parsed": {
+                "reply_text": "Бачу вкладення.",
+                "controls": [],
+                "turn_intelligence": {
+                    "catalog_candidates": [],
+                    "transcript": "",
+                    "intent": "media_review",
+                    "confidence": 0.8,
+                },
+            },
+            "model": "gemini-3.7-flash",
+            "meta": {},
+        }
+        context = {}
+
+        reply = gemini_generate(
+            self.settings,
+            [{"role": "user", "text": "Два вкладення"}],
+            images=[("image/jpeg", b"1234"), ("image/png", b"5678")],
+            failure_context=context,
+            turn_candidate_set={"version": "test", "digest": "digest", "candidates": []},
+        )
+
+        self.assertEqual(reply.reply_text, "Бачу вкладення.")
+        generate.assert_called_once()
+        parts = generate.call_args.args[0]["contents"][-1]["parts"]
+        self.assertEqual(len([part for part in parts if "inline_data" in part]), 1)
+        self.assertEqual(context["inline_media_omitted"], 1)
+
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_actual_entrypoint_fails_safe_when_all_media_is_rejected(self, generate):
+        from management.services.instagram_bot import gemini_generate
+
+        context = {}
+        reply = gemini_generate(
+            self.settings,
+            [{"role": "user", "text": "Файл"}],
+            images=[("video/mp4", b"not-inline-audio")],
+            failure_context=context,
+        )
+
+        self.assertIsNone(reply)
+        self.assertEqual(context["kind"], "invalid_media")
+        self.assertEqual(context["inline_media_omitted"], 1)
+        generate.assert_not_called()
+
+    def test_turn_intelligence_controls_pin_or_clarification_deterministically(self):
+        from management.services.instagram_bot import _apply_turn_intelligence_resolution
+
+        auto_reply, auto_control = _apply_turn_intelligence_resolution(
+            "Ось ця модель.",
+            {},
+            {
+                "catalog_candidates": [{"product_id": 11, "title": "One"}],
+                "catalog_resolution": "auto_select",
+                "auto_product_id": 11,
+            },
+            None,
+        )
+        self.assertEqual(auto_reply, "Ось ця модель.")
+        self.assertEqual(auto_control["product"], "11")
+
+        clarification, control = _apply_turn_intelligence_resolution(
+            "Бачу кілька схожих варіантів.",
+            {"product": "11"},
+            {
+                "catalog_candidates": [
+                    {"product_id": 11, "title": "One"},
+                    {"product_id": 12, "title": "Two"},
+                ],
+                "catalog_resolution": "clarify",
+                "auto_product_id": None,
+            },
+            None,
+        )
+        self.assertNotIn("product", control)
+        self.assertIn("One, Two", clarification)
+        self.assertIn("?", clarification)
+
+        no_match_reply, no_match_control = _apply_turn_intelligence_resolution(
+            "Не впевнений.",
+            {"product": "99"},
+            {
+                "catalog_candidates": [],
+                "catalog_resolution": "no_match",
+                "auto_product_id": None,
+            },
+            None,
+        )
+        self.assertEqual(no_match_reply, "Не впевнений.")
+        self.assertNotIn("product", no_match_control)
+
+    @patch("management.services.bot_vision.build_match_candidates")
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_real_published_product_outside_candidate_set_is_rejected(
+        self,
+        generate,
+        build_candidates,
+    ):
+        from management.services.instagram_bot import gemini_generate
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Candidate gate", slug="candidate-gate")
+        allowed = Product.objects.create(
+            title="Allowed",
+            slug="candidate-allowed",
+            category=category,
+            price=800,
+            status=ProductStatus.PUBLISHED,
+        )
+        outsider = Product.objects.create(
+            title="Hallucinated outsider",
+            slug="candidate-outsider",
+            category=category,
+            price=900,
+            status=ProductStatus.PUBLISHED,
+        )
+        build_candidates.return_value = [{
+            "id": allowed.pk,
+            "title": allowed.title,
+            "fingerprint": "allowed visual",
+        }]
+        generate.return_value = {
+            "parsed": {
+                "reply_text": "Схоже на товар.",
+                "controls": [],
+                "turn_intelligence": {
+                    "catalog_candidates": [{
+                        "product_id": outsider.pk,
+                        "confidence": 0.99,
+                        "evidence": "hallucinated existing id",
+                    }],
+                    "transcript": "",
+                    "intent": "product_match",
+                    "confidence": 0.99,
+                },
+            },
+            "model": "gemini-3.7-flash",
+            "meta": {},
+        }
+        context = {}
+
+        reply = gemini_generate(
+            self.settings,
+            [{"role": "user", "text": "Що це?"}],
+            images=[("image/jpeg", b"image")],
+            failure_context=context,
+        )
+
+        self.assertTrue(reply)
+        artifact = context["turn_intelligence"]
+        self.assertEqual(artifact["catalog_candidates"], [])
+        self.assertIsNone(artifact["auto_product_id"])
+        self.assertEqual(artifact["catalog_resolution"], "no_match")
+        self.assertEqual(artifact["candidate_set_size"], 1)
+        self.assertTrue(artifact["candidate_set_digest"])
+
+    def test_ingress_has_no_second_bot_vision_provider_pass(self):
+        from management.services.instagram_bot import (
+            _process_one_inside_reply_boundary,
+        )
+
+        source = inspect.getsource(_process_one_inside_reply_boundary)
+        self.assertNotIn("bot_vision.match", source)
+        self.assertEqual(source.count("reply = gemini_generate("), 1)
+
+    @patch("management.services.instagram_bot._pin_control_product", return_value=True)
+    @patch("management.services.bot_vision.match")
+    @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch("management.services.instagram_bot.send_text")
+    @patch("management.services.instagram_bot._collect_media_images")
+    @patch("management.services.instagram_bot._recover_current_message_media")
+    @patch("management.services.instagram_bot._capture_message_media")
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_image_ingress_calls_provider_once_and_persists_validated_artifact(
+        self,
+        generate,
+        _capture,
+        recover,
+        collect,
+        send_text,
+        _sender_action,
+        _typing_wait,
+        legacy_match,
+        pin_product,
+    ):
+        from management.models import IgClient
+        from management.services import instagram_bot
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Ingress images", slug="ingress-images")
+        product = Product.objects.create(
+            title="One pass product",
+            slug="one-pass-product",
+            category=category,
+            price=990,
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("one-pass-image-client")
+        client.profile_fetched_at = timezone.now()
+        client.save(update_fields=["profile_fetched_at", "updated_at"])
+        source = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Що це за футболка?",
+            mid="one-pass-image-mid",
+            source="webhook",
+            status=InstagramBotMessage.Status.PENDING,
+            media_capture_eligible=True,
+            attachment_media=[{
+                "url": "https://lookaside.invalid/one-pass.jpg",
+                "media_type": "image",
+                "mime": "image/jpeg",
+                "provenance": "live_webhook",
+                "status": "owned",
+                "storage_name": "ig/one-pass.jpg",
+            }],
+        )
+        media = [{
+            **source.attachment_media[0],
+            "role": "product",
+            "catalog_match_allowed": True,
+        }]
+        recover.return_value = media
+        collect.return_value = [("image/jpeg", b"owned-image")]
+        generate.return_value = {
+            "parsed": {
+                "reply_text": "Це модель з нашого каталогу.",
+                "controls": [],
+                "turn_intelligence": {
+                    "catalog_candidates": [{
+                        "product_id": product.pk,
+                        "confidence": 0.97,
+                        "evidence": "print and cut match",
+                    }],
+                    "transcript": "",
+                    "intent": "product_match",
+                    "confidence": 0.97,
+                },
+            },
+            "model": "gemini-3.7-flash",
+            "meta": {},
+        }
+        send_text.return_value = instagram_bot.ProviderDeliveryReceipt(
+            True, "", "", "one-pass-image-reply"
+        )
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = True
+        self.settings.save(update_fields=["is_enabled", "ai_enabled"])
+
+        instagram_bot.process_pending(self.settings, max_items=1)
+
+        generate.assert_called_once()
+        legacy_match.assert_not_called()
+        pin_product.assert_called_once()
+        self.assertEqual(pin_product.call_args.args[1], product.pk)
+        source.refresh_from_db()
+        self.assertEqual(
+            source.turn_intelligence_artifact["auto_product_id"],
+            product.pk,
+        )
+        self.assertEqual(source.send_state, "sent")
 
     def test_routing_decision_is_durable_on_the_source_message(self):
         row = InstagramBotMessage.objects.create(
@@ -196,6 +537,9 @@ class ActualInstagramGeminiRoutingTests(TestCase):
             ("Хочу свой принт на футболке", "custom_print"),
             ("Сравни эти две модели, что лучше?", "comparison"),
             ("Хочу другую футболку", "branch_switch"),
+            ("Хочу іншу модель худі", "branch_switch"),
+            ("Please switch to a different hoodie", "branch_switch"),
+            ("I want another one", "branch_switch"),
         )
         for text, reason in cases:
             with self.subTest(text=text):
@@ -208,9 +552,10 @@ class ActualInstagramGeminiRoutingTests(TestCase):
                 self.assertIn(reason, decision.reason_codes)
 
     def test_unresolved_real_referral_is_complex(self):
-        from management.models import IgClient
+        from management.models import BotAdCampaign, IgClient
         from management.services.ig_commerce_turns import parse_turn
         from management.services.instagram_bot import live_routing_decision
+        from storefront.models import Category, Product, ProductStatus
 
         client = IgClient.get_or_create_for_sender("routing-referral-client")
         client.ad_id = "ad-without-product-map"
@@ -223,6 +568,32 @@ class ActualInstagramGeminiRoutingTests(TestCase):
 
         self.assertEqual(decision.task_class, TaskClass.COMPLEX_LIVE)
         self.assertIn("ambiguous_referral", decision.reason_codes)
+
+        category = Category.objects.create(name="Mapped ads", slug="mapped-ads")
+        product = Product.objects.create(
+            title="Mapped ad product",
+            slug="mapped-ad-product",
+            category=category,
+            price=800,
+            status=ProductStatus.PUBLISHED,
+        )
+        BotAdCampaign.objects.create(
+            ad_id="mapped-ad",
+            title="Mapped",
+            product=product,
+        )
+        mapped = IgClient.get_or_create_for_sender("routing-mapped-referral")
+        mapped.ad_id = "mapped-ad"
+        mapped.save(update_fields=["ad_id", "updated_at"])
+
+        mapped_decision = live_routing_decision(
+            self.settings,
+            commerce_request=parse_turn("Привіт"),
+            client=mapped,
+        )
+
+        self.assertEqual(mapped_decision.task_class, TaskClass.ORDINARY_LIVE)
+        self.assertNotIn("ambiguous_referral", mapped_decision.reason_codes)
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
@@ -302,6 +673,68 @@ class PinnedRoutingPolicyTests(TestCase):
         self.assertEqual(self.settings.gemini_routing_mode, "adaptive")
         self.assertEqual(self.settings.pinned_chat_model, "")
         self.assertIsNone(self.settings.pinned_until)
+
+    def test_unrelated_stale_settings_save_cannot_erase_a_new_pin(self):
+        user = get_user_model().objects.create_user(
+            username="routing-stale-save-admin",
+            password="test-password",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+        stale = InstagramBotSettings.objects.get(pk=self.settings.pk)
+        pinned_until = timezone.now() + timedelta(minutes=20)
+        InstagramBotSettings.objects.filter(pk=self.settings.pk).update(
+            gemini_routing_mode="pinned",
+            pinned_chat_model="gemini-3.6-flash",
+            pinned_until=pinned_until,
+        )
+
+        with patch(
+            "management.bot_views.InstagramBotSettings.load",
+            return_value=stale,
+        ):
+            response = self.client.post(
+                "/bot/api/settings/",
+                {"ai_enabled": "on", "poll_interval_seconds": "7"},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.gemini_routing_mode, "pinned")
+        self.assertEqual(self.settings.pinned_chat_model, "gemini-3.6-flash")
+        self.assertEqual(self.settings.pinned_until, pinned_until)
+
+    def test_explicit_routing_update_detects_a_concurrent_pin(self):
+        user = get_user_model().objects.create_user(
+            username="routing-race-admin",
+            password="test-password",
+            is_staff=True,
+        )
+        self.client.force_login(user)
+        stale = InstagramBotSettings.objects.get(pk=self.settings.pk)
+        InstagramBotSettings.objects.filter(pk=self.settings.pk).update(
+            gemini_routing_mode="pinned",
+            pinned_chat_model="gemini-3.6-flash",
+            pinned_until=timezone.now() + timedelta(minutes=20),
+        )
+
+        with patch(
+            "management.bot_views.InstagramBotSettings.load",
+            return_value=stale,
+        ):
+            response = self.client.post(
+                "/bot/api/settings/",
+                {
+                    "ai_enabled": "on",
+                    "gemini_routing_mode": "adaptive",
+                },
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+
+        self.assertEqual(response.status_code, 409)
+        self.settings.refresh_from_db()
+        self.assertEqual(self.settings.gemini_routing_mode, "pinned")
 
 
 class SixProjectCandidatePlanTests(TestCase):
@@ -454,6 +887,126 @@ class TypedQuotaErrorTests(SimpleTestCase):
             )
 
         self.assertEqual(raised.exception.scope, "topup")
+
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_detail_less_day_and_minute_messages_keep_safe_scope(self, post):
+        cases = (
+            ("GenerateRequestsPerDayPerProjectPerModel quota exceeded", "day"),
+            ("GenerateRequestsPerMinutePerProjectPerModel quota exceeded", "minute"),
+            ("Resource exhausted", "minute"),
+        )
+        for message, expected in cases:
+            payload = {
+                "error": {
+                    "status": "RESOURCE_EXHAUSTED",
+                    "message": message,
+                }
+            }
+            response = type("Response", (), {})()
+            response.status_code = 429
+            response.json = lambda payload=payload: payload
+            response.text = json.dumps(payload)
+            post.return_value = response
+            with self.subTest(message=message):
+                with self.assertRaises(call_ai_analysis._Gemini429) as raised:
+                    call_ai_analysis._gemini_call_once(
+                        "gemini-3.7-flash",
+                        {"contents": []},
+                        "redacted",
+                        parse=False,
+                    )
+                self.assertEqual(raised.exception.scope, expected)
+
+
+class OwnedAudioCaptureTests(SimpleTestCase):
+    @patch("management.services.instagram_bot.urllib.request.urlopen")
+    def test_audio_is_captured_with_a_bounded_read(self, urlopen):
+        from management.services.instagram_bot import download_image
+
+        class Response:
+            headers = {"Content-Type": "audio/ogg"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self, limit):
+                self.limit = limit
+                return b"voice-bytes"
+
+        response = Response()
+        urlopen.return_value = response
+
+        captured = download_image("https://lookaside.invalid/voice")
+
+        self.assertEqual(captured, ("audio/ogg", b"voice-bytes"))
+        self.assertEqual(response.limit, 10 * 1024 * 1024 + 1)
+
+    def test_single_ten_mib_audio_is_admitted_and_m4a_is_normalized(self):
+        from management.services.instagram_bot import _bounded_inline_media
+
+        raw = b"a" * (10 * 1024 * 1024)
+        admitted, omitted = _bounded_inline_media([("audio/x-m4a", raw)])
+
+        self.assertEqual(omitted, 0)
+        self.assertEqual(admitted, [("audio/m4a", raw)])
+
+    def test_combined_budget_omits_later_oversized_media(self):
+        from management.services.instagram_bot import (
+            INLINE_MEDIA_RAW_BUDGET,
+            _bounded_inline_media,
+        )
+
+        audio = b"a" * (10 * 1024 * 1024)
+        later_image = b"i" * (3 * 1024 * 1024)
+        admitted, omitted = _bounded_inline_media([
+            ("audio/ogg", audio),
+            ("image/jpeg", later_image),
+        ])
+
+        self.assertEqual(admitted, [("audio/ogg", audio)])
+        self.assertEqual(omitted, 1)
+        self.assertLessEqual(sum(len(raw) for _mime, raw in admitted), INLINE_MEDIA_RAW_BUDGET)
+
+    @patch("management.services.instagram_bot._owned_media_bytes")
+    def test_owned_collection_skips_budget_overflow_but_keeps_later_small_item(
+        self,
+        owned_bytes,
+    ):
+        from management.services.instagram_bot import _collect_media_images
+
+        audio = b"a" * (10 * 1024 * 1024)
+        too_large_for_remaining = b"i" * (3 * 1024 * 1024)
+        small = b"s" * 1024
+        owned_bytes.side_effect = [
+            ("audio/ogg", audio),
+            ("image/jpeg", too_large_for_remaining),
+            ("image/png", small),
+        ]
+        media = [
+            {
+                "url": f"https://lookaside.invalid/{index}",
+                "provenance": "live_webhook",
+                "status": "owned",
+            }
+            for index in range(3)
+        ]
+
+        admitted = _collect_media_images(media)
+
+        self.assertEqual(admitted, [("audio/ogg", audio), ("image/png", small)])
+
+    def test_unsupported_audio_mime_is_rejected(self):
+        from management.services.instagram_bot import _bounded_inline_media
+
+        admitted, omitted = _bounded_inline_media([
+            ("audio/vnd.unsupported", b"voice"),
+        ])
+
+        self.assertEqual(admitted, [])
+        self.assertEqual(omitted, 1)
 
 
 class ManualDiagnosticsOnlyTests(TestCase):

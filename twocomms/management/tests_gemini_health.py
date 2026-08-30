@@ -730,6 +730,43 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(model["failures"], 0)
         self.assertEqual(model["skipped"], 1)
 
+    def test_latest_route_preserves_full_cross_key_model_chain(self):
+        at = self.now - datetime.timedelta(minutes=3)
+        rows = (
+            ("GEMINI_API", "gemini-3.7-flash", "failed", "quota_429", 1),
+            ("GEMINI_API2", "gemini-3.7-flash", "failed", "permission_denied", 2),
+            ("GEMINI_API3", "gemini-3.5-flash-lite", "succeeded", "", 3),
+        )
+        for offset, (key, model, outcome, failure, candidate_index) in enumerate(rows):
+            row = self._attempt(
+                request_id="cross-key-chain",
+                key_name=key,
+                model=model,
+                outcome=outcome,
+                failure_kind=failure,
+                role="chat",
+                at=at + datetime.timedelta(seconds=offset),
+            )
+            row.candidate_index = candidate_index
+            row.save(update_fields=["candidate_index"])
+
+        snapshot = self._build()
+
+        self.assertEqual(
+            [step["model"] for step in snapshot["latest_route"]["steps"]],
+            [
+                "gemini-3.7-flash",
+                "gemini-3.7-flash",
+                "gemini-3.5-flash-lite",
+            ],
+        )
+        self.assertEqual(
+            [step["slot_id"] for step in snapshot["latest_route"]["steps"]],
+            list(gemini_health.SLOT_IDS[:3]),
+        )
+        self.assertEqual(snapshot["fallback"]["from_model"], "gemini-3.7-flash")
+        self.assertEqual(snapshot["fallback"]["to_model"], "gemini-3.5-flash-lite")
+
     def test_snapshot_reports_latest_metadata_batch_completeness(self):
         completed_at = self.now - datetime.timedelta(minutes=3)
         request_suffixes = ("I", "2", "3", "4", "5", "6")

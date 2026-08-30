@@ -89,7 +89,8 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
 
         self.assertIn("{% url \"management_bot_gemini_health_probe_api\" %}", source)
         self.assertIn("method:'POST'", source)
-        self.assertIn("body.append('key_name'", source)
+        self.assertIn("body.append('slot_id'", source)
+        self.assertNotIn("GEMINI_API", source)
         self.assertIn("body.append('model'", source)
         self.assertIn("probeButton.addEventListener('click'", source)
         self.assertIn("load()", source)

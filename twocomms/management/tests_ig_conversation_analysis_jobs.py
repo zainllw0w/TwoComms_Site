@@ -759,6 +759,47 @@ class ConversationAnalysisJobTests(TestCase):
             for item in media_sources
         ))
 
+    def test_live_turn_intelligence_reuses_artifact_without_second_media_pass(self):
+        url = "https://lookaside.example/already-analyzed.jpg"
+        message = self.message(
+            "Ось фото",
+            source="webhook",
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "owned",
+                "storage_name": "ig/already-analyzed.jpg",
+                "mime": "image/jpeg",
+            }],
+        )
+        message.turn_intelligence_artifact = {
+            "schema_version": 1,
+            "catalog_candidates": [{
+                "product_id": 7,
+                "title": "Validated",
+                "confidence": 0.97,
+            }],
+            "transcript": "",
+            "intent": "product_match",
+            "confidence": 0.97,
+            "catalog_resolution": "auto_select",
+            "auto_product_id": 7,
+        }
+        message.save(update_fields=["turn_intelligence_artifact"])
+
+        transcript, by_id, media_sources = analysis._conversation(
+            self.client.pk,
+            message.pk,
+        )
+
+        self.assertEqual(
+            by_id[message.pk]["turn_intelligence"]["auto_product_id"],
+            7,
+        )
+        self.assertTrue(any(item["message_id"] == message.pk for item in transcript))
+        self.assertFalse(any(item.get("url") == url for item in media_sources))
+
     @patch("management.services.instagram_bot.download_image", return_value=None)
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_live_media_download_failure_is_typed_before_provider(

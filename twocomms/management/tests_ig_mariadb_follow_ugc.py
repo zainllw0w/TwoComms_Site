@@ -470,6 +470,8 @@ class UgcMariaDbConcurrencyTests(_MariaDbConcurrencyCase):
             lambda: award_external_ugc_reward(
                 client=client,
                 assessment=assessment,
+                actor=manager,
+                review_note="Manager-approved external UGC evidence.",
             ),
             lambda: award_ugc_reward(
                 client=client,

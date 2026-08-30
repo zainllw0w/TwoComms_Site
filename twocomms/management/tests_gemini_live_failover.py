@@ -152,7 +152,7 @@ class LiveGeminiFailoverContractsTests(TestCase):
         self.assertEqual(result["model"], fallback)
         self.assertEqual(seen_models, [fallback])
 
-    def test_404_opens_circuit_and_does_not_try_the_same_model_on_next_key(self):
+    def test_two_project_404s_open_global_circuit(self):
         calls = []
 
         chain = gemini_keys.task_model_chain("chat", "customer_chat")
@@ -172,8 +172,29 @@ class LiveGeminiFailoverContractsTests(TestCase):
         self.assertEqual(result["model"], fallback)
         self.assertEqual(
             [model for model, _key in calls].count(primary),
-            1,
+            2,
         )
+        self.assertTrue(gemini_keys.model_circuit_open(primary))
+
+    def test_first_project_404_rotates_same_model_and_can_succeed(self):
+        calls = []
+        primary = gemini_keys.task_model_chain("chat", "customer_chat")[0]
+
+        def fake_once(model, payload, key, *, parse=True, timeout=None):
+            calls.append((model, key))
+            if len(calls) == 1:
+                raise ai._GeminiModelUnavailable("HTTP 404: NOT_FOUND")
+            return "same-model-recovered", {}
+
+        with patch.dict(os.environ, ENV_KEYS, clear=False), patch.object(
+            ai, "_gemini_call_once", side_effect=fake_once
+        ):
+            result = ai.gemini_generate_text({"contents": []}, role="chat")
+
+        self.assertEqual(result["parsed"], "same-model-recovered")
+        self.assertEqual(result["model"], primary)
+        self.assertEqual([model for model, _key in calls], [primary, primary])
+        self.assertFalse(gemini_keys.model_circuit_open(primary))
 
     def test_attempt_records_bounded_provider_reason(self):
         def permission_denied(*_args, **_kwargs):

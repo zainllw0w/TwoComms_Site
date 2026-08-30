@@ -3983,6 +3983,7 @@ class InstagramBotMessage(models.Model):
         max_length=16, blank=True, default=""
     )
     gemini_routing_mode = models.CharField(max_length=12, blank=True, default="")
+    turn_intelligence_artifact = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     # Provider timestamp is separate from the local immutable ingest time.
     # Backfill/recovery may persist old messages today, but the chat must show

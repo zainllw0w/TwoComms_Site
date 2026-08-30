@@ -176,6 +176,28 @@ STRUCTURED_RESPONSE_SCHEMA = {
             },
             "required": ["include", "text"],
         },
+        "turn_intelligence": {
+            "type": "object",
+            "properties": {
+                "catalog_candidates": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "product_id": {"type": "integer", "minimum": 1},
+                            "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                            "evidence": {"type": "string", "maxLength": 240},
+                        },
+                        "required": ["product_id", "confidence", "evidence"],
+                    },
+                },
+                "transcript": {"type": "string", "maxLength": 4000},
+                "intent": {"type": "string", "maxLength": 64},
+                "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            },
+            "required": ["catalog_candidates", "transcript", "intent", "confidence"],
+        },
     },
     "required": ["reply_text", "controls"],
 }
@@ -202,6 +224,21 @@ class FollowCtaCandidate:
 
 
 @dataclass(frozen=True)
+class TurnCatalogCandidate:
+    product_id: int
+    confidence: float
+    evidence: str
+
+
+@dataclass(frozen=True)
+class TurnIntelligenceArtifact:
+    catalog_candidates: tuple[TurnCatalogCandidate, ...] = ()
+    transcript: str = ""
+    intent: str = ""
+    confidence: float = 0.0
+
+
+@dataclass(frozen=True)
 class ValidatedResponse:
     """Immutable parser result.
 
@@ -214,6 +251,7 @@ class ValidatedResponse:
     valid: bool = True
     error: str = ""
     follow_cta: FollowCtaCandidate | None = None
+    turn_intelligence: TurnIntelligenceArtifact | None = None
 
     @property
     def control(self) -> dict[str, Any]:
@@ -458,6 +496,61 @@ def _parse_follow_candidate(payload: object) -> FollowCtaCandidate | None:
     return FollowCtaCandidate(text=text)
 
 
+def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None:
+    if not isinstance(payload, dict) or set(payload) != {
+        "catalog_candidates", "transcript", "intent", "confidence"
+    }:
+        return None
+    candidates = payload.get("catalog_candidates")
+    if not isinstance(candidates, list) or len(candidates) > 8:
+        return None
+    parsed_candidates = []
+    seen = set()
+    for raw in candidates:
+        if not isinstance(raw, dict) or set(raw) != {
+            "product_id", "confidence", "evidence"
+        }:
+            return None
+        product_id = _positive_integer(raw.get("product_id"))
+        try:
+            confidence = float(raw.get("confidence"))
+        except (TypeError, ValueError):
+            return None
+        evidence = _clean_text(raw.get("evidence"))[:240]
+        if (
+            product_id is None
+            or not 0 <= confidence <= 1
+            or int(product_id) in seen
+        ):
+            return None
+        seen.add(int(product_id))
+        parsed_candidates.append(TurnCatalogCandidate(
+            product_id=int(product_id),
+            confidence=confidence,
+            evidence=evidence,
+        ))
+    transcript = payload.get("transcript")
+    intent = payload.get("intent")
+    try:
+        confidence = float(payload.get("confidence"))
+    except (TypeError, ValueError):
+        return None
+    if (
+        not isinstance(transcript, str)
+        or len(transcript) > 4000
+        or not isinstance(intent, str)
+        or not re.fullmatch(r"[a-z][a-z0-9_]{0,63}", intent.strip().lower())
+        or not 0 <= confidence <= 1
+    ):
+        return None
+    return TurnIntelligenceArtifact(
+        catalog_candidates=tuple(parsed_candidates),
+        transcript=_clean_text(transcript)[:4000],
+        intent=intent.strip().lower(),
+        confidence=confidence,
+    )
+
+
 def parse_structured_response(payload: object) -> ValidatedResponse:
     """Validate a structured model response without performing side effects."""
     if isinstance(payload, str):
@@ -468,7 +561,9 @@ def parse_structured_response(payload: object) -> ValidatedResponse:
     if (
         not isinstance(payload, dict)
         or not {"reply_text", "controls"}.issubset(payload)
-        or not set(payload).issubset({"reply_text", "controls", "follow_cta"})
+        or not set(payload).issubset({
+            "reply_text", "controls", "follow_cta", "turn_intelligence"
+        })
     ):
         return _failure(payload.get("reply_text", "") if isinstance(payload, dict) else "", "malformed_payload")
     reply_text = payload.get("reply_text")
@@ -498,10 +593,18 @@ def parse_structured_response(payload: object) -> ValidatedResponse:
         if "follow_cta" in payload
         else None
     )
+    turn_intelligence = (
+        _parse_turn_intelligence(payload.get("turn_intelligence"))
+        if "turn_intelligence" in payload
+        else None
+    )
+    if "turn_intelligence" in payload and turn_intelligence is None:
+        return _failure(reply_text, "invalid_turn_intelligence")
     return ValidatedResponse(
         reply_text=reply_text.strip(),
         controls=tuple(controls),
         follow_cta=follow_cta,
+        turn_intelligence=turn_intelligence,
     )
 
 

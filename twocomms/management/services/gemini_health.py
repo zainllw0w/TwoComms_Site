@@ -32,6 +32,12 @@ KEY_ALIASES = (
     "GEMINI_API5",
     "GEMINI_API6",
 )
+SLOT_IDS = (
+    "gslot_7f3a", "gslot_c921", "gslot_18de",
+    "gslot_a604", "gslot_52bb", "gslot_e17c",
+)
+SLOT_BY_ALIAS = dict(zip(KEY_ALIASES, SLOT_IDS, strict=True))
+ALIAS_BY_SLOT = dict(zip(SLOT_IDS, KEY_ALIASES, strict=True))
 DISPLAY_ALIASES = {
     key_name: f"API key {index}"
     for index, key_name in enumerate(KEY_ALIASES, start=1)
@@ -277,22 +283,36 @@ def _group_by_request(rows: list[dict[str, Any]]) -> dict[tuple[str, str], list[
     return grouped
 
 
+def _group_global_request(rows: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        request_id = str(row.get("request_id") or "").strip()
+        if request_id and str(row.get("key_name") or "") in KEY_ALIASES:
+            grouped[request_id].append(row)
+    for request_rows in grouped.values():
+        request_rows.sort(key=lambda row: (
+            int(row.get("candidate_index") or 0) or 65535,
+            *_attempt_sort_key(row),
+        ))
+    return grouped
+
+
 def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | int | None] | None:
     latest: tuple[tuple[dt.datetime, int], dict[str, str | int | None]] | None = None
-    for request_rows in _group_by_request(rows).values():
+    for request_rows in _group_global_request(rows).values():
         for index, row in enumerate(request_rows):
-            if row.get("model") != "gemini-3.7-flash" or _attempt_succeeded(row):
+            if _attempt_succeeded(row) or _attempt_not_needed(row):
                 continue
             for next_row in request_rows[index + 1:]:
-                if next_row.get("model") != "gemini-3.6-flash":
-                    continue
                 if not _attempt_succeeded(next_row):
+                    continue
+                if next_row.get("model") == row.get("model"):
                     continue
                 failure_kind = str(row.get("failure_kind") or "").strip().lower()
                 fallback = {
-                    "from_model": "gemini-3.7-flash",
-                    "to_model": "gemini-3.6-flash",
-                    "reason": _FAILURE_REASON_LABELS.get(failure_kind, "3.7 request failed"),
+                    "from_model": str(row.get("model") or ""),
+                    "to_model": str(next_row.get("model") or ""),
+                    "reason": _FAILURE_REASON_LABELS.get(failure_kind, "provider request failed"),
                     "http_code": int(row.get("http_code") or 0) or None,
                     "observed_at": _iso(next_row["created_at"]),
                 }
@@ -301,6 +321,30 @@ def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | int | None] 
                     latest = (observed_at, fallback)
                 break
     return latest[1] if latest else None
+
+
+def _latest_route(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    groups = _group_global_request(rows)
+    if not groups:
+        return None
+    request_id, request_rows = max(
+        groups.items(),
+        key=lambda item: _attempt_sort_key(max(item[1], key=_attempt_sort_key)),
+    )
+    return {
+        "request_id": request_id,
+        "steps": [
+            {
+                "slot_id": SLOT_BY_ALIAS[str(row.get("key_name") or "")],
+                "model": str(row.get("model") or ""),
+                "outcome": str(row.get("outcome") or ""),
+                "failure_kind": str(row.get("failure_kind") or ""),
+                "not_attempted_reason": str(row.get("not_attempted_reason") or ""),
+                "candidate_index": int(row.get("candidate_index") or 0),
+            }
+            for row in request_rows
+        ],
+    }
 
 
 def _latest_request_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -491,6 +535,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         "role",
         "latency_ms",
         "not_attempted_reason",
+        "candidate_index",
         "created_at",
     )
     runtime_rows = list(
@@ -542,6 +587,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         if not pool_row.get("present"):
             evidence_source = "none"
         keys.append({
+            "slot_id": SLOT_BY_ALIAS[key_name],
             "alias": DISPLAY_ALIASES[key_name],
             "state": str(
                 pool_row.get("health_state")
@@ -599,5 +645,6 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         },
         "latest_metadata_batch": _latest_metadata_batch(metadata_attempts),
         "fallback": _latest_fallback(runtime_attempts),
+        "latest_route": _latest_route(runtime_attempts),
         "keys": keys,
     }

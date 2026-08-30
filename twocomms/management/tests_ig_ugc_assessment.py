@@ -1,13 +1,15 @@
 import hashlib
+import json
 from datetime import timedelta
 from io import BytesIO
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.conf import settings
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, TestCase, override_settings
 from django.utils import timezone
 from PIL import Image
 
@@ -204,7 +206,70 @@ class UGCIngressAssessmentTests(TestCase):
             [button["text"] for button in buttons],
             ["5%", "10%", "Відхилити"],
         )
+        self.assertEqual(
+            notification.payload["catalog_candidates"][0]["product_id"],
+            11,
+        )
+        self.assertTrue(notification.payload.get("media"))
+        self.assertNotIn(message.text, notification.payload["text"])
         self.assertEqual(result["review_queued"], 1)
+        from accounts.models import UserProfile
+        from management.views import management_bot_webhook
+
+        actor = get_user_model().objects.create_user(
+            username="ugc-worker-callback-manager",
+            password="test-password",
+            is_staff=True,
+        )
+        profile = UserProfile.objects.get(user=actor)
+        profile.tg_manager_chat_id = 777
+        profile.is_manager = True
+        profile.save(update_fields=["tg_manager_chat_id", "is_manager"])
+        notification.status = notification.Status.SENT
+        notification.telegram_message_id = "990"
+        notification.payload = {
+            **notification.payload,
+            "chat_id": "777",
+            "main_delivery_message_id": "990",
+        }
+        notification.save(update_fields=[
+            "status", "telegram_message_id", "payload", "updated_at",
+        ])
+        callback_request = RequestFactory().post(
+            "/management/tg-manager/webhook/ugc-token/",
+            data=json.dumps({
+                "callback_query": {
+                    "id": "worker-ugc-callback",
+                    "data": f"igugc:10:{assessment.pk}:{assessment.generation}",
+                    "from": {"id": 777},
+                    "message": {
+                        "chat": {"id": 777, "type": "private"},
+                        "message_id": 990,
+                        "text": "UGC review",
+                    },
+                },
+            }),
+            content_type="application/json",
+        )
+        with patch.dict(
+            "os.environ",
+            {
+                "MANAGEMENT_TG_ADMIN_CHAT_ID": "777",
+                "MANAGEMENT_TG_BOT_TOKEN": "ugc-token",
+            },
+            clear=False,
+        ), patch("management.views._tg_answer_callback"), patch(
+            "management.views._tg_edit_message"
+        ):
+            callback_response = management_bot_webhook(
+                callback_request,
+                "ugc-token",
+            )
+        self.assertEqual(callback_response.status_code, 200)
+        from management.ig_bot_models import IgUgcReward
+
+        reward = IgUgcReward.objects.get(assessment=assessment)
+        self.assertEqual(reward.discount_percent, 10)
         self.assertEqual(
             initial_message_ids,
             set(InstagramBotMessage.objects.values_list("pk", flat=True)),

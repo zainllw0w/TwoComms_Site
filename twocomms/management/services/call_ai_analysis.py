@@ -893,9 +893,6 @@ def _apply_hedge_key_state(
             return
         if kind == "model_not_found":
             gemini_keys.record_key_failure(key_name, failure_kind=kind, http_code=404)
-            gemini_keys.open_model_circuit(
-                model, reason=kind, project=gemini_keys.project_group(key_name)
-            )
             return
         gemini_keys.record_key_failure(
             key_name, failure_kind=kind, http_code=http_code
@@ -1008,6 +1005,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
 
     audited_candidate_indexes: set[int] = set()
     dispatched_candidate_indexes: set[int] = set()
+    model_not_found_projects: dict[str, set[str]] = {}
 
     def _audit_skip(key_name: str, model: str, reason: str, candidate_index: int) -> None:
         if candidate_index <= 0:
@@ -1180,17 +1178,42 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     gemini_keys.record_key_failure(
                         key_name, failure_kind=kind, http_code=404
                     )
+            model_not_found_global = False
             if kind == "model_not_found":
-                gemini_keys.open_model_circuit(model, reason=kind, project=gemini_keys.project_group(key_name))
+                project_identity = (
+                    gemini_keys.project_group(key_name)
+                    or str(key_name or "")
+                )
+                evidence = model_not_found_projects.setdefault(model, set())
+                evidence.add(project_identity)
+                model_not_found_global = len(evidence) >= 2
+                if model_not_found_global:
+                    gemini_keys.open_model_circuit(
+                        model,
+                        reason=kind,
+                        project=project_identity,
+                    )
             _audit(
                 "failed", failure_kind=kind,
                 http_code=404 if kind == "model_not_found" else 403,
                 provider_reason=_bounded_provider_reason(exc),
-                decision="skip_model" if kind == "model_not_found" else "rotate_key",
+                decision=(
+                    "skip_model"
+                    if model_not_found_global
+                    else "rotate_project"
+                    if kind == "model_not_found"
+                    else "rotate_key"
+                ),
             )
             _emit(f"{key_name}/{model}: model unavailable")
             _release()
-            return None, kind
+            return None, (
+                "model_not_found_global"
+                if model_not_found_global
+                else "model_not_found_project"
+                if kind == "model_not_found"
+                else kind
+            )
         except _GeminiFatal as exc:
             kind = "invalid_key" if _chat_key_failure(exc) else "invalid_payload"
             http_match = _HTTP_CODE_RE.search(str(exc))
@@ -1436,12 +1459,13 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
                 )
-            if state in {"model_not_found", "model_circuit_open"}:
+            if state in {"model_not_found_global", "model_circuit_open"}:
                 _audit_remaining("model_terminal", model=primary)
                 break
             if state not in {
                 "invalid_key",
                 "permission_denied",
+                "model_not_found_project",
                 "quota",
                 "lease_busy",
                 "quarantined",
@@ -1476,7 +1500,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     "Перебір Gemini перервано по live дедлайну. Спроби: "
                     + "; ".join(attempts)
                 )
-            if state in {"model_not_found", "model_circuit_open"}:
+            if state in {"model_not_found_global", "model_circuit_open"}:
                 _audit_remaining("model_terminal", model=model)
                 break
             # На fallback-моделях паралелізм недоречний: кожен зайвий виклик —
@@ -1486,6 +1510,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             if state not in {
                 "invalid_key",
                 "permission_denied",
+                "model_not_found_project",
                 "quota",
                 "lease_busy",
                 "quarantined",
@@ -1709,6 +1734,14 @@ def _provider_error_details(response) -> dict:
         or "billingaccount" in compact_message
     ):
         quota_scope = "topup"
+    elif "perday" in compact_message:
+        quota_scope = "day"
+    elif (
+        "perminute" in compact_message
+        or "tokensperminute" in compact_message
+        or "requestsperminute" in compact_message
+    ):
+        quota_scope = "minute"
     for detail in error.get("details") or []:
         if not isinstance(detail, dict):
             continue

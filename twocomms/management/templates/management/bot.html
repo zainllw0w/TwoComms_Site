@@ -2024,11 +2024,11 @@ body.bot-drawer-open{overflow:hidden;}
       const actions=make('div','gemini-health-actions');const actionLabel=make('label','', 'Ручна перевірка');
       const select=make('select','gemini-health-model-select');select.setAttribute('aria-label','Модель для ручної перевірки '+label);
       models.forEach(model=>{const option=make('option','',model.short);option.value=model.id;select.appendChild(option);});
-      const probeButton=make('button','gemini-health-probe','Перевірити');probeButton.type='button';probeButton.disabled=!Boolean(data.configured);probeButton.title=data.configured?'Виконати одну коротку перевірку вибраної моделі':'Ключ не налаштовано';
-      const keyName='GEMINI_API'+(index===1?'':String(index));
+      const slotId=String(data.slot_id||'');
+      const probeButton=make('button','gemini-health-probe','Перевірити');probeButton.type='button';probeButton.disabled=!Boolean(data.configured&&slotId);probeButton.title=data.configured?'Виконати одну коротку перевірку вибраної моделі':'Ключ не налаштовано';
       probeButton.addEventListener('click',async()=>{
         if(probeButton.disabled)return;probeButton.disabled=true;select.disabled=true;setFeedback('Перевіряємо '+label+' · '+select.options[select.selectedIndex].text+'…');
-        const body=new FormData();body.append('key_name',keyName);body.append('model',select.value);
+        const body=new FormData();body.append('slot_id',slotId);body.append('model',select.value);
         try{
           const response=await fetch(probeUrl,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body});
           const result=await response.json().catch(()=>({}));if(!response.ok||result.success===false)throw new Error('probe_failed');
@@ -2037,7 +2037,7 @@ body.bot-drawer-open{overflow:hidden;}
           else if(refreshed)setFeedback('Результат ручної перевірки зафіксовано у зрізі.','stale');
           else setFeedback('Перевірку завершено, але новий зріз поки недоступний.','stale');
         }catch(_){setFeedback('Ручна перевірка не завершилася. Спробуйте пізніше.','error');}
-        finally{select.disabled=false;probeButton.disabled=!Boolean(data.configured);}
+        finally{select.disabled=false;probeButton.disabled=!Boolean(data.configured&&slotId);}
       });
       actions.append(actionLabel,select,probeButton);row.appendChild(actions);return row;
     }

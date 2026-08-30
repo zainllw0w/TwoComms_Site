@@ -565,7 +565,7 @@ def potential_ugc_message(message) -> bool:
         # its download is still pending or unavailable.  It can receive only
         # the neutral receipt path below; qualification still requires owned
         # bytes in ``_decision`` and therefore cannot issue a reward here.
-        if media_type == "story_mention" and status in {"pending", "unavailable"}:
+        if media_type in PROVIDER_MEDIA_TYPES and status in {"pending", "unavailable"}:
             return True
     return False
 
@@ -787,6 +787,32 @@ def queue_ugc_manager_review(assessment) -> bool:
     assessment_id = int(getattr(assessment, "pk", 0) or 0)
     if not client or not assessment_id:
         return False
+    from management.models import InstagramBotMessage
+
+    source = InstagramBotMessage.objects.filter(
+        client_id=client.pk,
+        mid=str(getattr(assessment, "source_message_id", "") or ""),
+        role=InstagramBotMessage.Role.USER,
+    ).first()
+    owned_evidence = []
+    for item in getattr(source, "attachment_media", None) or []:
+        if not isinstance(item, dict) or item.get("status") != OWNED_STATUS:
+            continue
+        if item.get("local_url"):
+            owned_evidence.append({
+                "role": "ugc_evidence",
+                "local_url": str(item.get("local_url") or "")[:1200],
+                "message_id": str(getattr(source, "pk", "") or ""),
+            })
+    product_context = [
+        {
+            "product_id": int(item.get("product_id") or 0),
+            "product_name": str(item.get("product_name") or "")[:160],
+            "confidence": float(item.get("confidence") or 0),
+        }
+        for item in (getattr(assessment, "catalog_candidates", None) or [])[:8]
+        if isinstance(item, dict) and item.get("product_id")
+    ]
     return notify_manager(
         "\n".join((
             "📸 IG UGC — потрібне рішення менеджера",
@@ -816,7 +842,9 @@ def queue_ugc_manager_review(assessment) -> bool:
             "assessment_id": assessment_id,
             "assessment_generation": generation,
             "requires_human_review": True,
+            "catalog_candidates": product_context,
         },
+        media=owned_evidence,
         deliver_immediately=False,
     )
 
@@ -893,6 +921,9 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
                         )
                         if updated:
                             counts["terminalized"] += 1
+                            candidate.refresh_from_db()
+                            if queue_ugc_manager_review(candidate):
+                                counts["review_queued"] += 1
                     finally:
                         _release_pending_ugc_assessment(candidate.pk, lease_token)
                     continue
@@ -976,8 +1007,12 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
                 )
                 if updated:
                     assessment.refresh_from_db()
-                    if queue_ugc_manager_review(assessment):
-                        counts["review_queued"] += 1
+            if (
+                assessment.decision
+                == IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW
+                and queue_ugc_manager_review(assessment)
+            ):
+                counts["review_queued"] += 1
         except Exception:
             # Leave pending evidence untouched.  The next bounded pass can
             # reclaim the lease and retry capture/vision without duplicating a

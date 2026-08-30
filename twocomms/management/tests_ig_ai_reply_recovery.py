@@ -236,10 +236,21 @@ class IgAIReplyRecoveryTests(TestCase):
         recover_media.return_value = self.source.attachment_media
         collect_images.return_value = [("image/jpeg", b"owned-image")]
 
+        artifact = {
+            "schema_version": 1,
+            "catalog_candidates": [],
+            "catalog_resolution": "no_match",
+            "auto_product_id": None,
+        }
+
+        def generate_recovery(*_args, failure_context=None, **_kwargs):
+            failure_context["turn_intelligence"] = artifact
+            return "Бачу зображення і допоможу з товаром."
+
         with patch.object(
             self.recovery,
             "gemini_generate",
-            return_value="Бачу зображення і допоможу з товаром.",
+            side_effect=generate_recovery,
         ) as generate:
             draft = self.recovery._generate_recovery_draft(job)
 
@@ -255,6 +266,35 @@ class IgAIReplyRecoveryTests(TestCase):
         self.assertEqual(job.routing_decision["task_class"], "complex_live")
         self.assertEqual(job.routing_decision["lane"], "recovery")
         self.assertTrue(job.routing_decision["requires_media_reasoning"])
+        self.source.refresh_from_db()
+        self.assertEqual(self.source.turn_intelligence_artifact, artifact)
+
+    def test_text_only_complex_recovery_preserves_and_revalidates_original_route(self):
+        from management.services.gemini_routing import (
+            TurnFacts,
+            classify_live_turn,
+            persist_decision,
+        )
+
+        original = classify_live_turn(TurnFacts(comparison_required=True))
+        persist_decision(self.source, original)
+        self.source.refresh_from_db()
+        job = self.recovery.schedule_recovery(self.source)
+
+        with patch.object(
+            self.recovery,
+            "gemini_generate",
+            return_value="Порівняю ці варіанти.",
+        ) as generate:
+            self.recovery._generate_recovery_draft(job)
+
+        route = generate.call_args.kwargs["routing_decision"]
+        self.assertEqual(route.task_class.value, "complex_live")
+        self.assertEqual(route.reasoning_task, "product_decision")
+        self.assertEqual(route.model_chain[0], "gemini-3.7-flash")
+        job.refresh_from_db()
+        self.assertEqual(job.routing_decision["task_class"], "complex_live")
+        self.assertIn("comparison", job.routing_decision["reason_codes"])
 
     def test_generated_recovery_rejects_invalid_typed_reply_without_delivery_text(self):
         from management.services.ig_response_control import ValidatedResponse

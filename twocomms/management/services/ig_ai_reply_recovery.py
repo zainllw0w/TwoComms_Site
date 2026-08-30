@@ -1045,9 +1045,10 @@ def _generate_recovery_draft(
     from management.services.instagram_bot import (
         _collect_media_images,
         _media_context_hint,
+        _persist_turn_intelligence,
         _recover_current_message_media,
-        live_routing_decision,
     )
+    model_context = model_context if isinstance(model_context, dict) else {}
 
     media_expected = bool(
         str(getattr(target, "attachments", "") or "").strip()
@@ -1075,13 +1076,14 @@ def _generate_recovery_draft(
         )
         return normalized
 
-    from dataclasses import replace
+    from management.services.gemini_routing import recovery_decision_for
 
-    routing_decision = replace(live_routing_decision(
+    routing_decision = recovery_decision_for(
+        target,
         settings_obj,
-        images=images or None,
-        media=media,
-    ), lane="recovery")
+        has_image=any(str(mime).startswith("image/") for mime, _raw in images),
+        has_audio=any(str(mime).startswith("audio/") for mime, _raw in images),
+    )
     route_payload = routing_decision.as_dict()
     if type(job).objects.filter(pk=job.pk, routing_decision={}).update(
         routing_decision=route_payload
@@ -1114,6 +1116,10 @@ def _generate_recovery_draft(
             failure_context=model_context,
             routing_decision=routing_decision,
         )
+    _persist_turn_intelligence(
+        target,
+        model_context.get("turn_intelligence") or {},
+    )
     if isinstance(draft, ValidatedResponse):
         # Recovery may compose customer text but never executes model controls.
         if not draft.valid:

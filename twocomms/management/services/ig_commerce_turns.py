@@ -121,17 +121,17 @@ def parse_turn(text: str | None, *, media_evidence=None) -> CommerceTurnRequest:
     # change expression and an explicit commerce object.
     reset_requested = bool(
         re.search(
-            r"(?:друг(?:ой|ую)|інш(?:ий|у)|another|different|сменить|заміни|replace)"
-            r"[^.!?]{0,32}(?:товар|футболк|худі|худи|принт|модел|колір|цвет|size|розмір|размер)",
+            r"(?:друг(?:ой|ую)|інш(?:ий|у)|another|different|сменить|заміни|replace|switch|change)"
+            r"[^.!?]{0,32}(?:товар|футболк|худі|худи|принт|модел|колір|цвет|size|розмір|размер|product|shirt|t-shirt|hoodie|print|model|color)",
             lowered,
         )
         or re.search(
-            r"(?:товар|футболк|худі|худи|принт|модел|колір|цвет|size|розмір|размер)"
-            r"[^.!?]{0,24}(?:сменить|змінити|замінити|replace|different|another)",
+            r"(?:товар|футболк|худі|худи|принт|модел|колір|цвет|size|розмір|размер|product|shirt|t-shirt|hoodie|print|model|color)"
+            r"[^.!?]{0,24}(?:сменить|змінити|замінити|replace|different|another|switch|change)",
             lowered,
         )
         or re.fullmatch(
-            r"(?:хочу|want)\s+(?:другую|іншу|another(?:\s+one)?)",
+            r"(?:хочу|(?:i\s+)?want)\s+(?:другую|іншу|another(?:\s+one)?)",
             lowered.strip(" .!?"),
         )
     )

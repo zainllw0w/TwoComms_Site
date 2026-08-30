@@ -249,6 +249,58 @@ def analysis_escalation_chain(
     return ()
 
 
+def recovery_decision_for(message, settings_obj, *, has_image=False, has_audio=False):
+    """Revalidate an original live route against the current routing policy."""
+    reasons = set(getattr(message, "gemini_routing_reason_codes", None) or [])
+    original_class = str(getattr(message, "gemini_task_class", "") or "")
+    facts = TurnFacts(
+        has_image=bool(has_image),
+        has_audio=bool(has_audio),
+        unresolved_catalog_candidates=(
+            2 if "ambiguous_catalog" in reasons else 0
+        ),
+        personalized_fit_required="personalized_fit" in reasons,
+        product_or_recipient_switch="branch_switch" in reasons,
+        custom_print_brief="custom_print" in reasons,
+        conflicting_intent="conflicting_intent" in reasons,
+        ambiguous_ad_referral="ambiguous_referral" in reasons,
+        comparison_required="comparison" in reasons,
+        commercial_risk=str(
+            getattr(message, "gemini_routing_commercial_risk", "") or "low"
+        ),
+        reasoning_task_hint=(
+            "media_analysis"
+            if has_image or has_audio
+            else "size_fit_decision"
+            if "personalized_fit" in reasons
+            else "product_decision"
+        ),
+    )
+    if (
+        original_class == TaskClass.COMPLEX_LIVE
+        and not any((
+            facts.has_image,
+            facts.has_audio,
+            facts.unresolved_catalog_candidates,
+            facts.personalized_fit_required,
+            facts.product_or_recipient_switch,
+            facts.custom_print_brief,
+            facts.conflicting_intent,
+            facts.ambiguous_ad_referral,
+            facts.comparison_required,
+        ))
+    ):
+        facts = TurnFacts(
+            unresolved_catalog_candidates=2,
+            commercial_risk=facts.commercial_risk,
+            reasoning_task_hint="product_decision",
+        )
+    decision = classify_live_turn(facts, settings_obj=settings_obj)
+    from dataclasses import replace
+
+    return replace(decision, lane="recovery")
+
+
 def persist_decision(message, decision: RoutingDecision) -> None:
     """Persist the immutable route before provider I/O; telemetry is fail-soft."""
     if message is None or not getattr(message, "pk", None):

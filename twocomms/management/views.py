@@ -4374,6 +4374,7 @@ def management_bot_webhook(request, token):
                         or int(payload_data.get('assessment_generation') or -1)
                         != expected_generation
                         or bound_message_id != str(message_id or '')
+                        or str(payload_data.get('chat_id') or '') != str(chat_id or '')
                     ):
                         _tg_answer_callback(
                             bot_token, cb_id, 'Ця кнопка не належить цьому рішенню'

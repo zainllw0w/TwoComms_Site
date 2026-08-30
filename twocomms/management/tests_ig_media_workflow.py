@@ -953,6 +953,11 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         with (
             patch.object(instagram_bot, "_capture_message_media", side_effect=capture),
             patch.object(instagram_bot, "_recover_current_message_media", side_effect=lambda target: target.attachment_media),
+            patch.object(
+                instagram_bot,
+                "_collect_media_images",
+                return_value=[("image/jpeg", b"owned-payment-image")],
+            ),
             patch.object(instagram_bot, "_persist_commerce_turn", return_value=(None, None)),
             patch(
                 "management.services.bot_sales_classifier.ensure_rule_classification",

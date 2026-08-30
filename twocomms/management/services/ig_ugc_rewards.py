@@ -500,8 +500,8 @@ def award_external_ugc_reward(
 ):
     """Issue one manager-selected 5%/10% lifetime code for external UGC.
 
-    No order, phone number, assignment, or TTN is fabricated.  A manager is
-    required only when deterministic policy routed the assessment to review.
+    No order, phone number, assignment, or TTN is fabricated. Every new mint
+    requires an authenticated manager even when evidence confidence is high.
     """
     from management.ig_bot_models import IgUgcEvidenceAssessment, IgUgcReward
 
@@ -520,16 +520,20 @@ def award_external_ugc_reward(
     }:
         raise UgcRewardConflict("Ця UGC-доказова база не дає права на нагороду.")
     _validate_external_assessment(assessment=assessment, client=client)
-    manager_decision = assessment.decision in {
-        IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
-        IgUgcEvidenceAssessment.Decision.MANAGER_APPROVED,
-    }
-    is_authenticated = bool(actor is not None and getattr(actor, "is_authenticated", False))
-    if manager_decision and not is_authenticated:
-        raise UgcRewardConflict("Для підтвердження UGC потрібен авторизований менеджер.")
+    # Final mint boundary: even a high-confidence QUALIFIED_AUTO artifact is
+    # evidence, not authorization. Every new reward needs an authenticated
+    # manager; already-issued historical rewards are returned above unchanged.
+    manager_decision = True
+    is_authenticated = bool(
+        actor is not None
+        and getattr(actor, "is_authenticated", False)
+        and (
+            getattr(actor, "is_staff", False)
+            or getattr(actor, "is_superuser", False)
+            or getattr(getattr(actor, "userprofile", None), "is_manager", False)
+        )
+    )
     normalized_review_note = str(review_note or "").strip()
-    if manager_decision and not normalized_review_note:
-        raise UgcRewardConflict("Додайте причину підтвердження UGC.")
 
     locked_client = type(client).objects.select_for_update().get(pk=client_pk)
     lifetime = _lifetime_slot_for_client(locked_client)
@@ -550,6 +554,11 @@ def award_external_ugc_reward(
         lifetime.consumed_at = legacy_reward.issued_at or legacy_reward.created_at
         lifetime.save(update_fields=["reward", "consumed_at", "updated_at"])
         return _with_ugc_delivery(legacy_reward, False)
+
+    if not is_authenticated:
+        raise UgcRewardConflict("Для підтвердження UGC потрібен авторизований менеджер.")
+    if not normalized_review_note:
+        raise UgcRewardConflict("Додайте причину підтвердження UGC.")
 
     now = timezone.now()
     return _create_locked_ugc_grant(
@@ -607,15 +616,22 @@ def queue_external_ugc_reward_delivery(reward):
         .get(pk=getattr(reward, "pk", reward))
     )
     expiry = _ugc_expiry_label(reward.promo_code)
+    discount_percent = int(reward.discount_percent or 0)
     language = str(getattr(reward.client, "language", "uk") or "uk").casefold()
     if language.startswith("ru"):
         text = (
-            f"Спасибо, что отметили TwoComms! Ваш персональный промокод на скидку 10%: "
+            f"Спасибо, что отметили TwoComms! Ваш персональный промокод на скидку {discount_percent}%: "
             f"{reward.promo_code.code}. Он одноразовый, действует 90 дней и до {expiry}."
+        )
+    elif language.startswith("en"):
+        text = (
+            f"Thank you for tagging TwoComms! Your personal {discount_percent}% "
+            f"discount code is {reward.promo_code.code}. It is single-use and "
+            f"valid for 90 days, until {expiry}."
         )
     else:
         text = (
-            f"Дякуємо, що відмітили TwoComms! Ваш персональний промокод на знижку 10%: "
+            f"Дякуємо, що відмітили TwoComms! Ваш персональний промокод на знижку {discount_percent}%: "
             f"{reward.promo_code.code}. Він одноразовий, діє 90 днів і до {expiry}."
         )
     delivery, _created = IgUgcRewardDelivery.objects.get_or_create(

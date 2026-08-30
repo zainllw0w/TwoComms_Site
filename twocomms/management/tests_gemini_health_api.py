@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from management.bot_access import META_REVIEWER_GROUP_NAME
 from management.models import GeminiKeyState, GeminiRequestAttempt
-from management.services import gemini_keys
+from management.services import gemini_health, gemini_keys
 
 
 @override_settings(ROOT_URLCONF="twocomms.urls_management")
@@ -56,7 +56,8 @@ class GeminiHealthApiTests(TestCase):
 
     def _post_probe(self, *, key_name="GEMINI_API", model="gemini-3.7-flash"):
         return self.client.post(
-            self._probe_url(), {"key_name": key_name, "model": model}
+            self._probe_url(),
+            {"slot_id": gemini_health.SLOT_BY_ALIAS.get(key_name, key_name), "model": model},
         )
 
     def test_get_returns_snapshot_and_never_calls_provider(self):
@@ -81,6 +82,13 @@ class GeminiHealthApiTests(TestCase):
         self.assertEqual(response.json(), snapshot)
         build_snapshot.assert_called_once_with()
         probe_key.assert_not_called()
+
+    def test_rendered_dashboard_contains_no_environment_aliases(self):
+        response = self.client.get(reverse("management_bot"))
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode("utf-8")
+        for alias in gemini_keys.ALL_KEYS:
+            self.assertNotIn(alias, html)
 
     def test_get_uses_redacted_snapshot_without_configured_key(self):
         self._configure()
@@ -112,12 +120,12 @@ class GeminiHealthApiTests(TestCase):
     def test_probe_rejects_unknown_values_before_provider_io(self):
         self._configure()
         invalid_requests = (
-            {"key_name": "", "model": "gemini-3.7-flash"},
-            {"key_name": "GEMINI_API7", "model": "gemini-3.7-flash"},
-            {"key_name": " GEMINI_API", "model": "gemini-3.7-flash"},
-            {"key_name": "GEMINI_API", "model": ""},
-            {"key_name": "GEMINI_API", "model": "gemini-3.5-flash"},
-            {"key_name": "GEMINI_API", "model": "gemini-3.7-flash "},
+            {"slot_id": "", "model": "gemini-3.7-flash"},
+            {"slot_id": "gslot_unknown", "model": "gemini-3.7-flash"},
+            {"slot_id": "GEMINI_API", "model": "gemini-3.7-flash"},
+            {"slot_id": gemini_health.SLOT_IDS[0], "model": ""},
+            {"slot_id": gemini_health.SLOT_IDS[0], "model": "gemini-3.5-flash"},
+            {"slot_id": gemini_health.SLOT_IDS[0], "model": "gemini-3.7-flash "},
         )
         with patch("management.services.gemini_probe.probe_key_metadata") as probe_key:
             for payload in invalid_requests:

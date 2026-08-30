@@ -978,14 +978,14 @@ def bot_gemini_health_probe_api(request):
     if blocked:
         return blocked
 
-    key_name = request.POST.get("key_name")
+    slot_id = request.POST.get("slot_id")
     model = request.POST.get("model")
-    key_values = request.POST.getlist("key_name")
+    slot_values = request.POST.getlist("slot_id")
     model_values = request.POST.getlist("model")
+    key_name = gemini_health.ALIAS_BY_SLOT.get(str(slot_id or ""))
     if (
-        len(key_values) != 1
+        len(slot_values) != 1
         or len(model_values) != 1
-        or not isinstance(key_name, str)
         or key_name not in gemini_keys.ALL_KEYS
         or not isinstance(model, str)
         or model not in gemini_health.DISPLAY_MODELS
@@ -3576,6 +3576,9 @@ def bot_settings_save_api(request):
         "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
     }
     routing_changed = False
+    routing_requested = bool(
+        not reviewer_mode and "gemini_routing_mode" in request.POST
+    )
     if not reviewer_mode:
         direct_source = (request.POST.get("direct_source") or "").strip()
         if direct_source in InstagramBotSettings.CredSource.values:
@@ -3639,7 +3642,7 @@ def bot_settings_save_api(request):
         if not is_allowed_chat_model(model):
             return JsonResponse({"success": False, "error": "Недозволена модель Gemini."}, status=400)
         s.gemini_model = model[:80]
-    if not reviewer_mode and "gemini_routing_mode" in request.POST:
+    if routing_requested:
         requested_mode = str(request.POST.get("gemini_routing_mode") or "").strip()
         if requested_mode not in InstagramBotSettings.GeminiRoutingMode.values:
             return JsonResponse(
@@ -3718,8 +3721,12 @@ def bot_settings_save_api(request):
                     else ""
                 ),
             }
-            if routing_changed and locked_routing != routing_before:
+            if routing_requested and locked_routing != routing_before:
                 raise RoutingPolicyConflict
+            if not routing_requested:
+                s.gemini_routing_mode = locked_settings.gemini_routing_mode
+                s.pinned_chat_model = locked_settings.pinned_chat_model
+                s.pinned_until = locked_settings.pinned_until
             if allowlist_policy_changed:
                 s.allowed_senders = requested_allowed_senders
                 s.reply_permission_epoch = (

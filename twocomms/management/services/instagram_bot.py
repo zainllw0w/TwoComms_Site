@@ -6851,6 +6851,24 @@ def live_routing_decision(
         or getattr(commerce_request, "exchange_requested", False)
         or getattr(commerce_request, "support_requested", False)
     ) else "low"
+    mapped_referral_product_id = None
+    if client is not None and (getattr(client, "ad_id", "") or getattr(client, "ad_ref", "")):
+        try:
+            from management.models import BotAdCampaign
+            from storefront.models import ProductStatus
+
+            campaign = BotAdCampaign.match(
+                ad_id=getattr(client, "ad_id", "") or None,
+                ref=getattr(client, "ad_ref", "") or None,
+            )
+            if (
+                campaign is not None
+                and campaign.product_id
+                and campaign.product.status == ProductStatus.PUBLISHED
+            ):
+                mapped_referral_product_id = int(campaign.product_id)
+        except Exception:
+            mapped_referral_product_id = None
     ambiguous_referral = bool(
         client is not None
         and (
@@ -6860,6 +6878,7 @@ def live_routing_decision(
         )
         and not getattr(client, "current_product_id", None)
         and not getattr(commerce_request, "exact_product_id", None)
+        and not mapped_referral_product_id
     )
     comparison_required = bool(
         getattr(commerce_request, "comparison_requested", False)
@@ -6931,6 +6950,150 @@ def _media_unavailable_reply(client) -> str:
     return f"{text} [MANAGER]"
 
 
+def _build_turn_candidate_set(*, limit: int = 40) -> dict:
+    """Build a bounded, deterministic catalog allowlist without provider I/O."""
+    from management.services.bot_vision import build_match_candidates
+
+    candidates = []
+    for raw in build_match_candidates()[: max(1, min(int(limit or 0), 60))]:
+        try:
+            product_id = int(raw.get("id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if product_id <= 0:
+            continue
+        candidates.append({
+            "product_id": product_id,
+            "title": str(raw.get("title") or "")[:160],
+            "fingerprint": str(raw.get("fingerprint") or "")[:300],
+        })
+    canonical = json.dumps(
+        candidates,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return {
+        "version": "catalog-candidates-v1",
+        "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        "candidates": candidates,
+    }
+
+
+def _validated_turn_intelligence(artifact, candidate_set: dict | None = None) -> dict:
+    """Validate model candidates against the published catalog and enrich them."""
+    if artifact is None:
+        return {}
+    raw_candidates = list(getattr(artifact, "catalog_candidates", ()) or ())[:8]
+    candidate_set = candidate_set if isinstance(candidate_set, dict) else {}
+    allowed_ids = set()
+    for item in candidate_set.get("candidates") or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            product_id = int(item.get("product_id") or 0)
+        except (TypeError, ValueError):
+            continue
+        if product_id > 0:
+            allowed_ids.add(product_id)
+    candidate_ids = [
+        int(item.product_id)
+        for item in raw_candidates
+        if int(item.product_id) in allowed_ids
+    ]
+    from storefront.models import Product, ProductStatus
+
+    products = {
+        product.pk: product
+        for product in Product.objects.filter(
+            pk__in=candidate_ids,
+            status=ProductStatus.PUBLISHED,
+        ).only("id", "title", "slug")
+    }
+    candidates = []
+    for item in raw_candidates:
+        if int(item.product_id) not in allowed_ids:
+            continue
+        product = products.get(int(item.product_id))
+        if product is None:
+            continue
+        candidates.append({
+            "product_id": product.pk,
+            "title": str(product.title or "")[:160],
+            "slug": str(product.slug or "")[:180],
+            "confidence": round(float(item.confidence), 4),
+            "evidence": str(item.evidence or "")[:240],
+        })
+    candidates.sort(key=lambda item: (-item["confidence"], item["product_id"]))
+    auto_product_id = None
+    if candidates and candidates[0]["confidence"] >= 0.9:
+        if len(candidates) == 1 or (
+            candidates[0]["confidence"] - candidates[1]["confidence"] >= 0.1
+        ):
+            auto_product_id = candidates[0]["product_id"]
+    return {
+        "schema_version": 1,
+        "candidate_set_version": str(candidate_set.get("version") or "")[:40],
+        "candidate_set_digest": str(candidate_set.get("digest") or "")[:64],
+        "candidate_set_size": len(allowed_ids),
+        "catalog_candidates": candidates,
+        "transcript": str(getattr(artifact, "transcript", "") or "")[:4000],
+        "intent": str(getattr(artifact, "intent", "") or "")[:64],
+        "confidence": round(float(getattr(artifact, "confidence", 0) or 0), 4),
+        "catalog_resolution": (
+            "auto_select"
+            if auto_product_id
+            else "clarify"
+            if len(candidates) > 1
+            else "single_low_confidence"
+            if len(candidates) == 1
+            else "no_match"
+        ),
+        "auto_product_id": auto_product_id,
+    }
+
+
+def _persist_turn_intelligence(row: InstagramBotMessage, artifact: dict) -> None:
+    if not artifact or not getattr(row, "pk", None):
+        return
+    if type(row).objects.filter(pk=row.pk, turn_intelligence_artifact={}).update(
+        turn_intelligence_artifact=artifact
+    ):
+        row.turn_intelligence_artifact = artifact
+
+
+def _apply_turn_intelligence_resolution(reply: str, control: dict, artifact: dict, client):
+    if not isinstance(artifact, dict) or not artifact:
+        return reply, control
+    control = dict(control or {})
+    candidates = artifact.get("catalog_candidates") or []
+    proposed = str(_control_product_id(control) or "")
+    auto_product_id = artifact.get("auto_product_id")
+    validated_auto_product = str(auto_product_id or "")
+    if proposed and proposed != validated_auto_product:
+        control.pop("product", None)
+    if not _control_product_id(control) and auto_product_id:
+        control["product"] = str(auto_product_id)
+    if artifact.get("catalog_resolution") == "clarify":
+        control.pop("product", None)
+        titles = [
+            str(item.get("title") or "")
+            for item in candidates[:3]
+            if isinstance(item, dict) and item.get("title")
+        ]
+        language = str(getattr(client, "language", "uk") or "uk").casefold()
+        options = ", ".join(titles)
+        if language.startswith("ru"):
+            question = f"Уточните, пожалуйста, какой вариант вы имеете в виду: {options}?"
+        elif language.startswith("en"):
+            question = f"Please clarify which option you mean: {options}?"
+        else:
+            question = f"Уточніть, будь ласка, який варіант ви маєте на увазі: {options}?"
+        if options and question.casefold() not in str(reply or "").casefold():
+            reply = f"{str(reply or '').strip()}\n{question}".strip()
+    return reply, control
+
+
 def _gemini_failure_kind(exc: Exception) -> str:
     """Map the bounded live-pool error summary to a safe routing class.
 
@@ -6959,11 +7122,25 @@ def gemini_generate(
     turn_note: str | None = None,
     failure_context: dict | None = None,
     routing_decision=None,
+    turn_candidate_set: dict | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
+    media_was_requested = bool(images)
+    images, omitted_media_count = _bounded_inline_media(images or [])
     if failure_context is not None:
         failure_context.clear()
+        if omitted_media_count:
+            failure_context["inline_media_omitted"] = omitted_media_count
+    if media_was_requested and not images:
+        if failure_context is not None:
+            failure_context["kind"] = "invalid_media"
+        log(
+            "warning",
+            "inline_media_rejected",
+            f"all current-turn media rejected; omitted={omitted_media_count}",
+        )
+        return None
     contents = []
     for h in history:
         if h.get("text"):
@@ -6993,6 +7170,27 @@ def gemini_generate(
         if item.get("role") == "user" and item.get("text"):
             latest_user_text = str(item["text"])
             break
+    from management.services.gemini_routing import (
+        TaskClass,
+        TurnFacts,
+        classify_live_turn,
+    )
+
+    routing_decision = routing_decision or classify_live_turn(
+        TurnFacts(has_image=bool(images)),
+        settings_obj=s,
+    )
+    if routing_decision.task_class == TaskClass.NO_MODEL:
+        if failure_context is not None:
+            failure_context["kind"] = "no_model"
+            failure_context["task_class"] = routing_decision.task_class.value
+        return None
+    if routing_decision.task_class == TaskClass.COMPLEX_LIVE:
+        turn_candidate_set = (
+            turn_candidate_set
+            if isinstance(turn_candidate_set, dict)
+            else _build_turn_candidate_set()
+        )
     sys_text = assemble_system_instruction(
         s,
         client=client,
@@ -7003,6 +7201,20 @@ def gemini_generate(
         turn_note=turn_note,
         turn_text=latest_user_text,
     )
+    if str(getattr(routing_decision, "task_class", "") or "") == "complex_live":
+        sys_text += (
+            "\n\n[TURN INTELLIGENCE — REQUIRED FOR THIS COMPLEX TURN]\n"
+            "Return turn_intelligence in the response schema. For product media, "
+            "list only catalog product IDs supported by visible evidence with "
+            "confidence. For audio, transcribe the customer audio and provide a "
+            "bounded intent. This artifact is evidence, never payment/stock truth. "
+            "Catalog candidates MUST use only IDs from this deterministic set:\n"
+            + json.dumps(
+                (turn_candidate_set or {}).get("candidates") or [],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+        )
 
     payload = {
         "contents": contents,
@@ -7039,26 +7251,12 @@ def gemini_generate(
     from management.services.call_ai_analysis import (
         gemini_generate_text, CallAIAnalysisError,
     )
-    from management.services.gemini_routing import (
-        TaskClass,
-        TurnFacts,
-        classify_live_turn,
-    )
     import time as _time
 
     def _cb(msg):
         # Реальний час перебору ключів/моделей у консолі бота.
         log("info", "gemini_try", msg)
 
-    routing_decision = routing_decision or classify_live_turn(
-        TurnFacts(has_image=bool(images)),
-        settings_obj=s,
-    )
-    if routing_decision.task_class == TaskClass.NO_MODEL:
-        if failure_context is not None:
-            failure_context["kind"] = "no_model"
-            failure_context["task_class"] = routing_decision.task_class.value
-        return None
     reasoning_task = select_chat_reasoning_task(
         history,
         images,
@@ -7095,6 +7293,7 @@ def gemini_generate(
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {repr(exc)}")
         return None
     parsed = out.get("parsed")
+    intelligence = {}
     if isinstance(parsed, dict):
         from management.services.ig_response_control import parse_structured_response
 
@@ -7118,6 +7317,11 @@ def gemini_generate(
                 valid=False,
                 error=text.error or "invalid_control",
             )
+        elif text.turn_intelligence is not None:
+            intelligence = _validated_turn_intelligence(
+                text.turn_intelligence,
+                turn_candidate_set,
+            )
     else:
         # Rolling compatibility: old workers/tests may still return free text.
         text = (parsed or "").strip() if isinstance(parsed, str) else ""
@@ -7126,9 +7330,20 @@ def gemini_generate(
             failure_context["kind"] = "empty_response"
         log("warning", "gemini_empty", f"порожня відповідь ({_time.monotonic() - _t0:.1f}с)")
         return None
+    if (
+        images
+        and str(getattr(routing_decision, "task_class", "") or "") == "complex_live"
+        and not intelligence
+    ):
+        if failure_context is not None:
+            failure_context["kind"] = "invalid_response"
+        log("warning", "gemini_intelligence_missing", "complex media artifact missing")
+        return None
     provider_model = str(out.get("model") or effective_model).strip()[:80]
     if failure_context is not None:
         failure_context["model"] = provider_model
+        if intelligence:
+            failure_context["turn_intelligence"] = intelligence
     try:
         s.last_gemini_model = provider_model
         meta = out.get("meta") or {}
@@ -8290,16 +8505,82 @@ def _inbound_log_detail(source: str, sender_id: str, text: str, extra: str) -> s
     return f"[{source}] {sender_id}: {length} симв.{extra}"
 
 
+INLINE_MEDIA_RAW_BUDGET = 12 * 1024 * 1024
+INLINE_MEDIA_MAX_ITEMS = 3
+INLINE_IMAGE_MAX_BYTES = 6 * 1024 * 1024
+INLINE_AUDIO_MAX_BYTES = 10 * 1024 * 1024
+SUPPORTED_INLINE_IMAGE_MIMES = frozenset({
+    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
+})
+SUPPORTED_INLINE_AUDIO_MIMES = frozenset({
+    "audio/wav", "audio/mpeg", "audio/mp3", "audio/aiff",
+    "audio/aac", "audio/ogg", "audio/flac", "audio/m4a",
+    "audio/l16", "audio/opus",
+    "audio/alaw", "audio/mulaw", "audio/webm",
+})
+_AUDIO_MIME_ALIASES = {
+    "audio/x-wav": "audio/wav",
+    "audio/x-aiff": "audio/aiff",
+    "audio/x-m4a": "audio/m4a",
+    "audio/mp4": "audio/m4a",
+}
+
+
+def _normalized_inline_mime(value: str) -> str:
+    mime = str(value or "").split(";", 1)[0].strip().casefold()
+    return _AUDIO_MIME_ALIASES.get(mime, mime)
+
+
+def _bounded_inline_media(media) -> tuple[list[tuple[str, bytes]], int]:
+    """Admit provider-supported media under one request-wide byte budget.
+
+    Gemini's inline request limit includes prompt bytes and base64 expansion.
+    The 12 MiB raw cap expands to 16 MiB, leaving roughly 4 MiB for JSON,
+    system instructions and conversation text inside the 20 MiB boundary.
+    The final provider entry point applies this even when ingress is bypassed.
+    """
+    accepted = []
+    total = 0
+    omitted = 0
+    for mime, raw in media or []:
+        mime = _normalized_inline_mime(mime)
+        if mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES:
+            omitted += 1
+            continue
+        per_item_limit = (
+            INLINE_IMAGE_MAX_BYTES
+            if mime.startswith("image/")
+            else INLINE_AUDIO_MAX_BYTES
+        )
+        if (
+            len(accepted) >= INLINE_MEDIA_MAX_ITEMS
+            or not isinstance(raw, bytes)
+            or not raw
+            or len(raw) > per_item_limit
+            or total + len(raw) > INLINE_MEDIA_RAW_BUDGET
+        ):
+            omitted += 1
+            continue
+        accepted.append((mime, raw))
+        total += len(raw)
+    return accepted, omitted
+
+
 def download_image(url: str) -> tuple[str, bytes] | None:
-    """Завантажує зображення-вкладення для мультимодалу. Ліміт ~6 МБ."""
+    """Download bounded image/audio bytes for one multimodal provider pass."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "TwoCommsBot/1.0"})
         with urllib.request.urlopen(req, timeout=20) as resp:
-            mime = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0].strip()
-            if not mime.startswith("image/"):
+            mime = _normalized_inline_mime(resp.headers.get("Content-Type") or "")
+            if mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES:
                 return None
-            raw = resp.read(6 * 1024 * 1024 + 1)
-            if len(raw) > 6 * 1024 * 1024:
+            limit = (
+                INLINE_IMAGE_MAX_BYTES
+                if mime.startswith("image/")
+                else INLINE_AUDIO_MAX_BYTES
+            )
+            raw = resp.read(limit + 1)
+            if not raw or len(raw) > limit:
                 return None
             return mime, raw
     except Exception as exc:
@@ -8546,15 +8827,23 @@ def _media_is_historical(item: dict | None) -> bool:
 
 def _owned_media_bytes(item: dict) -> tuple[str, bytes] | None:
     storage_name = str(item.get("storage_name") or "").strip()
-    mime = str(item.get("mime") or "").strip()
-    if not storage_name or not mime.startswith("image/"):
+    mime = _normalized_inline_mime(item.get("mime"))
+    if (
+        not storage_name
+        or mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES
+    ):
         return None
     try:
         from django.core.files.storage import default_storage
 
+        limit = (
+            INLINE_IMAGE_MAX_BYTES
+            if mime.startswith("image/")
+            else INLINE_AUDIO_MAX_BYTES
+        )
         with default_storage.open(storage_name, "rb") as handle:
-            raw = handle.read(6 * 1024 * 1024 + 1)
-        if not raw or len(raw) > 6 * 1024 * 1024:
+            raw = handle.read(limit + 1)
+        if not raw or len(raw) > limit:
             return None
         return mime, raw
     except Exception as exc:
@@ -8841,7 +9130,12 @@ def _capture_message_media(
                 "image/jpeg": ".jpg",
                 "image/png": ".png",
                 "image/webp": ".webp",
-                "image/gif": ".gif",
+                "image/heic": ".heic",
+                "image/heif": ".heif",
+                "audio/ogg": ".ogg",
+                "audio/mpeg": ".mp3",
+                "audio/m4a": ".m4a",
+                "audio/webm": ".webm",
             }.get(mime, ".bin")
             path = (
                 f"ig_message_media/{int(getattr(row, 'pk', 0) or 0)}/"
@@ -8990,6 +9284,10 @@ def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
 def _collect_media_images(media: list[dict] | None, limit: int = 3) -> list[tuple[str, bytes]]:
     """Load owned live bytes; historical URLs never cross a network boundary."""
     images: list[tuple[str, bytes]] = []
+    total_bytes = 0
+    max_items = min(max(0, int(limit or 0)), INLINE_MEDIA_MAX_ITEMS)
+    if not max_items:
+        return images
     seen = set()
     for item in media or []:
         url = str(item.get("url") or "") if isinstance(item, dict) else ""
@@ -9003,8 +9301,17 @@ def _collect_media_images(media: list[dict] | None, limit: int = 3) -> list[tupl
             continue
         image = _owned_media_bytes(item)
         if image:
-            images.append(image)
-        if len(images) >= limit:
+            mime, raw = image
+            if total_bytes + len(raw) <= INLINE_MEDIA_RAW_BUDGET:
+                images.append((mime, raw))
+                total_bytes += len(raw)
+            else:
+                log(
+                    "warning",
+                    "inline_media_budget",
+                    f"omitted owned media; admitted_bytes={total_bytes}",
+                )
+        if len(images) >= max_items:
             break
     return images
 
@@ -9184,6 +9491,8 @@ def _localize_avatar(igsid: str, url: str) -> str:
     if not img:
         return ""
     _mime, raw = img
+    if _mime not in SUPPORTED_INLINE_IMAGE_MIMES:
+        return ""
     try:
         from django.core.files.base import ContentFile
         from django.core.files.storage import default_storage
@@ -11259,38 +11568,17 @@ def _process_one_inside_reply_boundary(
             # Recover raw ig_post/story media as well as normalized attachments.
             # This keeps active and paused/manager-led conversations on the
             # same evidence path; receipts are passed to Gemini for context but
-            # are never sent to catalog matching.
+            # cross exactly one provider boundary in this live turn.
             recovered_media = _recover_current_message_media(row)
-            media_recovery_failed = recovered_media is None
             media = recovered_media or []
             images = _collect_media_images(media)
             if not _renew_client_automation_lease(row, lease_token):
                 clear_typing_indicator()
                 return False
-            # Якщо є фото/пост — матчимо з каталогом і даємо моделі підказку.
+            # The structured complex reply owns catalog candidates and customer
+            # copy in one pass. The former separate vision matcher spent a
+            # second 3.7 request over the same bytes.
             match_hint = None
-            product_media = [] if ugc_turn else _catalog_match_media(media)
-            product_images = _collect_media_images(product_media) if media else (
-                [] if media_recovery_failed else images
-            )
-            if product_images and _match_allowed(row.sender_id) and not ugc_turn:
-                try:
-                    from management.services import bot_vision
-
-                    match = bot_vision.match(product_images)
-                    if not _renew_client_automation_lease(row, lease_token):
-                        clear_typing_indicator()
-                        return False
-                    match_hint = _match_hint_text(match)
-                    # Впевнений матчинг → закріплюємо товар за клієнтом.
-                    if (
-                        row.client_id
-                        and not _commerce_request_blocks_media_pin(commerce_request)
-                        and _should_pin_product_media(media)
-                    ):
-                        _maybe_pin_from_match(row.client, match)
-                except Exception as exc:
-                    log("warning", "match", repr(exc))
             if commerce_decision is not None:
                 # Classification may still record evidence, but it cannot leave
                 # its transient legacy fields more authoritative than the
@@ -11412,6 +11700,10 @@ def _process_one_inside_reply_boundary(
                     failure_context=gemini_failure,
                     routing_decision=routing_decision,
                 )
+                _persist_turn_intelligence(
+                    row,
+                    gemini_failure.get("turn_intelligence") or {},
+                )
             live_gemini_request_id = str(_lineage.get("request_id") or "")
     elif not reply:
         if (row.text or "").strip() != s.trigger_text:
@@ -11453,6 +11745,12 @@ def _process_one_inside_reply_boundary(
     # A customer-safe reply may continue without changing CRM authority state;
     # explicit manager escalation remains separately validated below.
     needs_manager = bool(control.get("manager"))
+    reply, control = _apply_turn_intelligence_resolution(
+        reply,
+        control,
+        getattr(row, "turn_intelligence_artifact", {}) or {},
+        row.client if row.client_id else None,
+    )
     if reply and row.client_id:
         claim_failures = _authoritative_reply_claim_failures(row.client, reply, control)
         if claim_failures:

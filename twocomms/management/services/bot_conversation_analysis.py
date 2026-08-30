@@ -697,6 +697,8 @@ def _conversation(
     for row in reversed(rows):
         if capture_budget <= 0:
             break
+        if isinstance(row.turn_intelligence_artifact, dict) and row.turn_intelligence_artifact:
+            continue
         entries = row.attachment_media or []
         needs_capture = (
             not entries and row.source == "webhook"
@@ -746,6 +748,7 @@ def _conversation(
                 "text": row.text or "",
                 "attachments": row.attachments or "",
                 "attachment_media": row.attachment_media or [],
+                "turn_intelligence_artifact": row.turn_intelligence_artifact or {},
                 "source": row.source or "",
                 "media_capture_eligible": bool(row.media_capture_eligible),
                 "role": row.role,
@@ -781,6 +784,13 @@ def _conversation(
             InstagramBotMessage.Role.MANAGER: "manager",
         }.get(row.role, "system")
         item = {"message_id": row.pk, "role": role, "text": text}
+        intelligence = (
+            row.turn_intelligence_artifact
+            if isinstance(row.turn_intelligence_artifact, dict)
+            else {}
+        )
+        if intelligence:
+            item["turn_intelligence"] = intelligence
         if raw_media:
             try:
                 if classify_media_items is None:
@@ -801,7 +811,7 @@ def _conversation(
                 manager_media = role == "manager"
                 item["media"] = []
                 for media_index, media in enumerate(semantic_media[:8]):
-                    if media.get("url"):
+                    if media.get("url") and not intelligence:
                         media_sources.append({
                             "url": str(media.get("url") or "")[:1200],
                             "message_id": row.pk,
