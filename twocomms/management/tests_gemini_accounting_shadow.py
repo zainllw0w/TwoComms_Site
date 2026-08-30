@@ -367,6 +367,27 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertEqual(state.rpd_uncertain, 0)
 
     @override_settings(**SHADOW)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_wrong_200_envelope_shape_settles_failed_not_in_flight(self, post):
+        response = _Response()
+        response.json = lambda: ["not-an-envelope"]
+        post.return_value = response
+        observer = self._observer()
+        boundary = observer.attempt(
+            key_name="GEMINI_API", model="gemini-3.7-flash", candidate_index=1
+        )
+        with self.assertRaises(ai._GeminiTransient):
+            ai._gemini_call_once(
+                "gemini-3.7-flash", {"contents": []}, "private-key",
+                parse=False, attempt_boundary=boundary,
+            )
+        attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+        state = GeminiQuotaState.objects.get(pk=boundary.state_id)
+        self.assertEqual(attempt.failure_kind, "invalid_response")
+        self.assertEqual(attempt.fsm_state, GeminiRequestAttempt.FsmState.FAILED)
+        self.assertEqual(state.in_flight_count, 0)
+
+    @override_settings(**SHADOW)
     def test_final_body_failure_is_linked_cancelled_without_quota_spend(self):
         observer = self._observer()
         boundary = observer.attempt(

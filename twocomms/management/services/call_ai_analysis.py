@@ -2037,8 +2037,31 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
             attempt_boundary.failed(error)
         raise error from exc
 
-    cand = (data.get("candidates") or [{}])[0]
-    parts = (cand.get("content") or {}).get("parts") or []
+    if not isinstance(data, dict):
+        error = _GeminiTransient("invalid JSON envelope shape")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error
+
+    candidates = data.get("candidates") or []
+    if not isinstance(candidates, list):
+        error = _GeminiTransient("invalid JSON envelope candidates")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error
+    cand = candidates[0] if candidates and isinstance(candidates[0], dict) else {}
+    content = cand.get("content") or {}
+    if not isinstance(content, dict):
+        error = _GeminiTransient("invalid JSON envelope content")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error
+    parts = content.get("parts") or []
+    if not isinstance(parts, list):
+        error = _GeminiTransient("invalid JSON envelope parts")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error
     # Thought parts are provider-internal and must never leak into a customer
     # answer, JSON parser, logs, or CRM memory.
     text = "".join(
@@ -2067,7 +2090,13 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
             raise error from exc
     else:
         parsed = text
-    usage = dict(data.get("usageMetadata") or {})
+    raw_usage = data.get("usageMetadata") or {}
+    if not isinstance(raw_usage, dict):
+        error = _GeminiTransient("invalid JSON envelope usage")
+        if attempt_boundary is not None:
+            attempt_boundary.failed(error)
+        raise error
+    usage = dict(raw_usage)
     usage["_finish_reason"] = str(cand.get("finishReason") or "")[:32]
     usage["_request_inline_count"] = request_inline_count
     usage["_request_trimmed_inline"] = request_trimmed_inline
