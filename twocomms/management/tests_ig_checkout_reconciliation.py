@@ -340,7 +340,7 @@ class InstagramCheckoutReconciliationTests(TestCase):
         self.assertEqual(result["expired_proposals"], 1)
         self.assertEqual(result["released_reservations"], 1)
 
-    def test_legacy_null_expiry_releases_after_24h_and_keeps_late_success_pointer(self):
+    def test_legacy_null_expiry_releases_after_24h_and_clears_active_pointer(self):
         attempt = PaymentAttempt.objects.create(
             fingerprint=hashlib.sha256(b"unclaimed-details-lock").hexdigest(),
             full_name="Instagram Buyer",
@@ -385,10 +385,7 @@ class InstagramCheckoutReconciliationTests(TestCase):
         self.assertEqual(result["expired_proposals"], 0)
         self.assertEqual(attempt.status, PaymentAttempt.Status.EXPIRED)
         self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.EXPIRED)
-        # Keep the exact proposal graph reachable: a late provider success is
-        # stronger than local expiry and must bind/review this same attempt,
-        # never race a silently issued replacement into a duplicate order.
-        self.assertEqual(self.deal.active_checkout_proposal_id, self.proposal.pk)
+        self.assertIsNone(self.deal.active_checkout_proposal_id)
         self.assertEqual(reservation.state, IgCheckoutInventoryReservation.State.RELEASED)
 
     def test_reconciliation_prioritizes_repairable_rows_over_permanent_ambiguity(self):

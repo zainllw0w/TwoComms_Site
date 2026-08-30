@@ -2212,12 +2212,22 @@ def _resolve_attempt_invoice_status(attempt, invoice_id, fallback_status=None):
 @transaction.atomic
 def _apply_payment_attempt_status(attempt, status, payload=None, source='webhook'):
     status = (status or '').lower()
-    attempt = (
-        PaymentAttempt.objects.select_for_update()
-        .select_related('order')
-        .get(pk=attempt.pk)
+    from management.services.ig_checkout_payment import (
+        _lock_attempt_proposal_graph,
     )
+
+    attempt, _deal, _proposal = _lock_attempt_proposal_graph(attempt.pk)
     if status in MONOBANK_SUCCESS_STATUSES:
+        from management.services.ig_checkout_payment import (
+            record_late_local_payment_for_review,
+        )
+
+        if record_late_local_payment_for_review(
+            attempt.pk,
+            payload=payload,
+            source=source,
+        ):
+            return None, False
         if not attempt.order_id and attempt.status in {
             PaymentAttempt.Status.FAILED,
             PaymentAttempt.Status.EXPIRED,

@@ -720,7 +720,6 @@ def create_or_update_proposal(
         deal = (
             IgDeal.objects.select_for_update()
             .filter(pk=deal.pk, client=locked_client)
-            .select_related("active_checkout_proposal")
             .first()
         )
         if deal is None:
@@ -729,14 +728,40 @@ def create_or_update_proposal(
         deal = (
             IgDeal.objects.select_for_update()
             .filter(client=locked_client, active_checkout_proposal__isnull=False)
-            .select_related("active_checkout_proposal")
             .order_by("-id")
             .first()
         )
-    proposal = deal.active_checkout_proposal if deal is not None else None
+    proposal_id = deal.active_checkout_proposal_id if deal is not None else None
+    proposal = None
+    if proposal_id:
+        proposal = IgCheckoutProposal.objects.select_for_update().get(pk=proposal_id)
     if proposal is not None:
-        proposal = IgCheckoutProposal.objects.select_for_update().get(pk=proposal.pk)
-        if proposal.is_expired:
+        local_terminal = {}
+        if proposal.payment_attempt_id:
+            from orders.models import PaymentAttempt
+
+            locked_attempt = PaymentAttempt.objects.select_for_update().get(
+                pk=proposal.payment_attempt_id
+            )
+            local_terminal = dict(
+                (locked_attempt.event_state or {}).get("local_terminalization") or {}
+            )
+        if (
+            proposal.status in {
+                IgCheckoutProposal.Status.EXPIRED,
+                IgCheckoutProposal.Status.CANCELLED,
+            }
+            and local_terminal
+        ):
+            # Repair a crash/race that committed the local terminal proposal but
+            # left the fast active pointer behind. The historical deal/attempt/
+            # invoice remains immutable; this request starts a fresh generation.
+            if deal.active_checkout_proposal_id == proposal.pk:
+                deal.active_checkout_proposal = None
+                deal.save(update_fields=["active_checkout_proposal", "updated_at"])
+            proposal = None
+            deal = None
+        elif proposal.is_expired:
             if proposal.status not in {
                 IgCheckoutProposal.Status.READY,
                 IgCheckoutProposal.Status.VIEWED,
@@ -771,7 +796,7 @@ def create_or_update_proposal(
             or deal.invoice_url
         ):
             raise CheckoutConfigurationError("proposal_locked")
-    elif deal is None:
+    if deal is None:
         deal = IgDeal.objects.create(
             client=locked_client,
             status=IgDeal.Status.QUOTED,

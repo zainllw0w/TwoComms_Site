@@ -454,26 +454,34 @@ def _enqueue_invoice_created_alert_best_effort(locked, attempt):
 
 
 def _lock_attempt_proposal_graph(attempt_id, *, proposal_related=()):
-    """Lock an existing payment graph in one InnoDB-safe order."""
+    """Lock an existing graph in canonical Deal -> Proposal -> Attempt order."""
     from management.models import IgCheckoutProposal, IgDeal
 
-    attempt = PaymentAttempt.objects.select_for_update().get(pk=attempt_id)
     locator = (
         IgCheckoutProposal.objects.filter(payment_attempt_id=attempt_id)
         .values("pk", "deal_id")
         .first()
     )
     if locator is None:
+        attempt = PaymentAttempt.objects.select_for_update().get(pk=attempt_id)
         return attempt, None, None
     deal = IgDeal.objects.select_for_update().get(pk=locator["deal_id"])
     proposal_query = IgCheckoutProposal.objects.select_for_update()
-    if proposal_related:
-        proposal_query = proposal_query.select_related(*proposal_related)
+    safe_related = tuple(
+        relation for relation in proposal_related if relation != "payment_attempt"
+    )
+    if safe_related:
+        proposal_query = proposal_query.select_related(*safe_related)
     proposal = proposal_query.filter(
         pk=locator["pk"],
         deal_id=deal.pk,
-        payment_attempt_id=attempt.pk,
+        payment_attempt_id=attempt_id,
     ).first()
+    attempt = PaymentAttempt.objects.select_for_update().get(pk=attempt_id)
+    if proposal is not None:
+        # Avoid a later implicit query through the OneToOne descriptor and make
+        # every caller use the already locked attempt instance.
+        proposal._state.fields_cache["payment_attempt"] = attempt
     return attempt, deal, proposal
 
 
@@ -486,8 +494,14 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
 
     deal = IgDeal.objects.select_for_update().get(pk=proposal.deal_id)
     locked = IgCheckoutProposal.objects.select_for_update().select_related(
-        "payment_attempt", "client", "commercial_episode"
+        "client", "commercial_episode"
     ).get(pk=proposal.pk, deal_id=deal.pk)
+    locked_attempt = None
+    if locked.payment_attempt_id:
+        locked_attempt = PaymentAttempt.objects.select_for_update().get(
+            pk=locked.payment_attempt_id
+        )
+        locked._state.fields_cache["payment_attempt"] = locked_attempt
     now = timezone.now()
     if locked.expires_at <= now:
         raise CheckoutPaymentError("expired", "Срок действия предложения истек.")
@@ -496,7 +510,7 @@ def lock_proposal_details(proposal, *, payload, request, grant_id=""):
         locked.Status.INVOICE_CREATED,
         locked.Status.DETAILS_LOCKED,
     } and locked.payment_attempt_id:
-        attempt = locked.payment_attempt
+        attempt = locked_attempt
         if (attempt.event_state or {}).get("invoice_creation_ambiguous"):
             raise CheckoutPaymentError(
                 "provider_ambiguous",
@@ -793,18 +807,9 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         "return": "provider_pull",
         "ig_reconcile": "provider_pull",
         "poll": "provider_pull",
-        # Local terminal boundaries are durable operational evidence, not a
-        # claim that Monobank returned this state. Keep them distinct so a
-        # later provider cancellation/success can append stronger evidence.
-        "system_expiry": "system_expiry",
-        "checkout_session_reset": "checkout_session_reset",
     }.get(str(source or "").strip().lower())
     if truth is None or canonical_source is None:
         return None
-    is_local_terminal = canonical_source in {
-        "system_expiry",
-        "checkout_session_reset",
-    }
 
     attempt, deal, proposal = _lock_attempt_proposal_graph(
         attempt_id,
@@ -823,8 +828,6 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         "status": normalized_status,
         "ccy": raw_payload.get("ccy") or raw_payload.get("currency"),
         "amount": raw_payload.get("paidAmount", raw_payload.get("finalAmount", raw_payload.get("amount"))),
-        "reason": str(raw_payload.get("reason") or "")[:128],
-        "boundary": str(raw_payload.get("boundary") or "")[:64],
     }
     payload_digest = hashlib.sha256(
         json.dumps(evidence, sort_keys=True, separators=(",", ":"), default=str).encode()
@@ -838,11 +841,8 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         provider_status=normalized_status,
         payload_digest=payload_digest,
     )
-    event_key = f"attempt:{attempt.pk}:terminal:{normalized_status}"
-    if is_local_terminal:
-        event_key = f"{event_key}:{canonical_source}"
     event, _created = IgPaymentEvent.objects.get_or_create(
-        event_key=event_key[:64],
+        event_key=f"attempt:{attempt.pk}:terminal:{normalized_status}"[:64],
         defaults={
             "deal": deal,
             "client": proposal.client,
@@ -884,20 +884,228 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         "payment_truth", "payment_status", "paid_amount", "paid_at",
         "payment_truth_updated_at", "updated_at",
     ])
-    proposal.status = (
-        IgCheckoutProposal.Status.EXPIRED
-        if canonical_source == "system_expiry"
-        else IgCheckoutProposal.Status.CANCELLED
-    )
-    proposal_update_fields = ["status", "updated_at"]
-    if not is_local_terminal:
-        proposal.invoice_cancelled_at = proposal.invoice_cancelled_at or timezone.now()
-        proposal.provider_cancellation_event = event
-        proposal_update_fields.extend(
-            ["invoice_cancelled_at", "provider_cancellation_event"]
-        )
-    proposal.save(update_fields=proposal_update_fields)
+    proposal.status = IgCheckoutProposal.Status.CANCELLED
+    proposal.invoice_cancelled_at = proposal.invoice_cancelled_at or timezone.now()
+    proposal.provider_cancellation_event = event
+    proposal.save(update_fields=[
+        "status", "invoice_cancelled_at", "provider_cancellation_event", "updated_at",
+    ])
     return event
+
+
+def _paid_amount_from_provider_payload(attempt, payload):
+    raw = None
+    if isinstance(payload, dict):
+        raw = payload.get("paidAmount")
+        if raw is None:
+            raw = payload.get("finalAmount")
+        if raw is None:
+            raw = payload.get("amount")
+    if raw is None:
+        return Decimal(attempt.payment_amount or 0).quantize(Decimal("0.01"))
+    try:
+        return (Decimal(str(raw)) / Decimal("100")).quantize(Decimal("0.01"))
+    except (ArithmeticError, TypeError, ValueError):
+        return Decimal(attempt.payment_amount or 0).quantize(Decimal("0.01"))
+
+
+@transaction.atomic
+def record_late_local_payment_for_review(
+    attempt_id,
+    *,
+    payload=None,
+    source="provider_pull",
+):
+    """Persist late provider money without materializing a duplicate Order.
+
+    A locally expired/cancelled invoice may overlap a newly issued generation.
+    Until the invoice-series winner schema exists, every such success fails
+    closed to an explicit manager review. Provider truth is still recorded.
+    """
+
+    from management.models import (
+        IgFollowUpTask,
+        IgPaymentEvent,
+        IgPaymentProjection,
+        provider_evidence_signature,
+    )
+
+    attempt, deal, proposal = _lock_attempt_proposal_graph(
+        attempt_id,
+        proposal_related=("client", "commercial_episode"),
+    )
+    if proposal is None or deal is None or attempt.order_id:
+        return False
+    local_terminal = dict(
+        (attempt.event_state or {}).get("local_terminalization") or {}
+    )
+    if not local_terminal:
+        return False
+
+    now = timezone.now()
+    paid_amount = _paid_amount_from_provider_payload(attempt, payload)
+    expected = Decimal(attempt.payment_amount or 0).quantize(Decimal("0.01"))
+    amount_valid = paid_amount == expected and paid_amount > 0
+    evidence_payload = {
+        "attempt_id": attempt.pk,
+        "attempt_reference": attempt.reference,
+        "invoice_id": attempt.monobank_invoice_id,
+        "status": "success",
+        "amount": str(paid_amount),
+        "expected_amount": str(expected),
+        "local_terminal_event_key": str(local_terminal.get("event_key") or "")[:180],
+        "late_conflict_review": True,
+    }
+    payload_digest = hashlib.sha256(
+        json.dumps(
+            evidence_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    signature = provider_evidence_signature(
+        deal_id=deal.pk,
+        client_id=deal.client_id,
+        provider="monobank",
+        source="provider_attempt",
+        invoice_id=attempt.monobank_invoice_id,
+        provider_status="success",
+        payload_digest=payload_digest,
+    )
+    evidence_payload["signature"] = signature
+    payment_event, _created = IgPaymentEvent.objects.get_or_create(
+        event_key=f"attempt:{attempt.pk}:verified",
+        defaults={
+            "deal": deal,
+            "client": deal.client,
+            "provider": "monobank",
+            "source": "provider_attempt",
+            "invoice_id": attempt.monobank_invoice_id[:128],
+            "provider_status": "success",
+            "provider_modified_at": now,
+            "gross_amount": paid_amount,
+            "final_amount": paid_amount,
+            "refunded_amount": Decimal("0.00"),
+            "amount_valid": amount_valid,
+            "currency": proposal.currency or "UAH",
+            "evidence": evidence_payload,
+            "payload_digest": payload_digest,
+        },
+    )
+    projection, _created = IgPaymentProjection.objects.select_for_update().get_or_create(
+        deal=deal,
+        defaults={"client": deal.client},
+    )
+    projection.client = deal.client
+    projection.truth = deal.PaymentTruth.CONFIRMED
+    projection.gross_amount = paid_amount
+    projection.refunded_amount = Decimal("0.00")
+    projection.paid_at = projection.paid_at or now
+    projection.provider_modified_at = now
+    projection.last_event = payment_event
+    projection.needs_reconciliation = True
+    projection.reconciled_at = None
+    projection.save()
+
+    history = list(attempt.payment_history or [])
+    history.append(
+        {
+            "ts": now.isoformat(),
+            "status": "success",
+            "source": str(source or "provider_pull")[:32],
+            "payload": {
+                "invoiceId": attempt.monobank_invoice_id,
+                "paidAmount": str(paid_amount),
+                "late_conflict_review": True,
+            },
+        }
+    )
+    attempt.payment_history = history[-30:]
+    attempt_event_state = dict(attempt.event_state or {})
+    local_terminal["provider_check_state"] = "resolved"
+    local_terminal["provider_last_status"] = "success"
+    local_terminal["provider_last_check_at"] = now.isoformat()
+    local_terminal["provider_next_check_at"] = None
+    attempt_event_state["local_terminalization"] = local_terminal
+    local_history = list(
+        attempt_event_state.get("local_terminalization_events") or []
+    )
+    if (
+        local_history
+        and local_history[-1].get("event_key") == local_terminal.get("event_key")
+    ):
+        local_history[-1] = local_terminal
+        attempt_event_state["local_terminalization_events"] = local_history[-8:]
+    attempt.event_state = attempt_event_state
+    attempt.status = (
+        PaymentAttempt.Status.PREPAID
+        if attempt.pay_type in {
+            PaymentAttempt.PayType.PREPAYMENT,
+            PaymentAttempt.PayType.PREPAY_200,
+        }
+        else PaymentAttempt.Status.PAID
+    )
+    attempt.paid_amount = paid_amount
+    attempt.last_status_at = now
+    attempt.error_reason = "late_local_terminal_payment_review"
+    attempt.save(
+        update_fields=[
+            "status", "paid_amount", "last_status_at", "error_reason",
+            "payment_history", "event_state", "updated",
+        ]
+    )
+    deal.status = deal.Status.PAID
+    deal.payment_status = (
+        "prepaid"
+        if attempt.pay_type in {
+            PaymentAttempt.PayType.PREPAYMENT,
+            PaymentAttempt.PayType.PREPAY_200,
+        }
+        else "paid"
+    )
+    deal.payment_truth = deal.PaymentTruth.CONFIRMED
+    deal.paid_amount = paid_amount
+    deal.paid_at = deal.paid_at or now
+    deal.payment_truth_updated_at = now
+    deal.save(
+        update_fields=[
+            "status", "payment_status", "payment_truth", "paid_amount",
+            "paid_at", "payment_truth_updated_at", "updated_at",
+        ]
+    )
+    proposal.status = proposal.Status.MANAGER_REVIEW
+    proposal.paid_at = proposal.paid_at or now
+    proposal.save(update_fields=["status", "paid_at", "updated_at"])
+    mark_overbooked_proposal_inventory(
+        proposal,
+        paid_at=now,
+        reason="late_local_payment_review",
+    )
+    IgFollowUpTask.objects.get_or_create(
+        event_key=f"late-local-payment-review:{attempt.pk}",
+        defaults={
+            "client": proposal.client,
+            "deal": deal,
+            "due_at": now,
+            "status": IgFollowUpTask.Status.SKIPPED,
+            "kind": IgFollowUpTask.Kind.MANAGER_TASK,
+            "reason": "late_local_payment_review",
+            "trigger": IgFollowUpTask.Trigger.EVENT,
+            "event_occurred_at": now,
+            "event_payload": {
+                "proposal_id": proposal.pk,
+                "attempt_id": attempt.pk,
+                "payment_event_id": payment_event.pk,
+                "amount_valid": amount_valid,
+            },
+            "skip_reason": "human_agent_required",
+            "message_text": (
+                "Оплата надійшла за локально закритим IG invoice. "
+                "Перевірте новішу пропозицію, склад, промокод або повернення."
+            ),
+        },
+    )
+    return True
 
 
 @transaction.atomic

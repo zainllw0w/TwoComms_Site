@@ -8,13 +8,19 @@ truth; a later provider-verified success must therefore remain recoverable.
 from __future__ import annotations
 
 import hashlib
+import threading
+from io import StringIO
 from datetime import timedelta
 from decimal import Decimal
+from unittest import skipUnless
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.middleware import SessionMiddleware
-from django.test import RequestFactory, TestCase
+from django.core.management import call_command
+from django.db import DatabaseError, close_old_connections, connection, connections
+from django.test import RequestFactory, TestCase, TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from management.models import (
@@ -29,7 +35,13 @@ from management.models import (
 from management.services.ig_commercial_episodes import ensure_episode_for_deal
 from orders.models import Order, PaymentAttempt
 from productcolors.models import Color, ProductColorVariant
-from storefront.models import Category, Product, PromoCode
+from storefront.models import (
+    Category,
+    Product,
+    ProductFitOption,
+    PromoCode,
+    PromoCodeUsage,
+)
 
 
 class AssistedAttemptTerminalizationTests(TestCase):
@@ -54,6 +66,12 @@ class AssistedAttemptTerminalizationTests(TestCase):
             product=self.product,
             color=self.color,
             stock=1,
+        )
+        self.fit = ProductFitOption.objects.create(
+            product=self.product,
+            code="classic",
+            label="Classic",
+            is_default=True,
         )
         self.user = get_user_model().objects.create_user(
             username="ig-terminalization-user",
@@ -95,6 +113,9 @@ class AssistedAttemptTerminalizationTests(TestCase):
             product=self.product,
             color_variant=self.variant,
             product_title=self.product.title,
+            size="S",
+            fit_code=self.fit.code,
+            fit_label=self.fit.label,
             quantity=1,
             catalog_unit_price=Decimal("900.00"),
             catalog_line_total=Decimal("900.00"),
@@ -149,9 +170,9 @@ class AssistedAttemptTerminalizationTests(TestCase):
                         "product_id": self.product.pk,
                         "title": self.product.title,
                         "qty": 1,
-                        "size": "",
-                        "fit_option_code": "",
-                        "fit_option_label": "",
+                        "size": "S",
+                        "fit_option_code": self.fit.code,
+                        "fit_option_label": self.fit.label,
                         "color_variant_id": self.variant.pk,
                         "option_values": {},
                         "option_labels": {},
@@ -214,20 +235,25 @@ class AssistedAttemptTerminalizationTests(TestCase):
 
         graph["attempt"].refresh_from_db()
         graph["proposal"].refresh_from_db()
-        event = IgPaymentEvent.objects.get(deal=graph["deal"])
-        projection = IgPaymentProjection.objects.get(deal=graph["deal"])
         self.assertEqual(result["expired_attempts"], 1)
         self.assertEqual(graph["attempt"].status, PaymentAttempt.Status.EXPIRED)
         self.assertEqual(graph["attempt"].error_reason, "invoice_expired")
         self.assertEqual(graph["proposal"].status, IgCheckoutProposal.Status.EXPIRED)
         self.assertIsNone(graph["proposal"].invoice_cancelled_at)
         self.assertIsNone(graph["proposal"].provider_cancellation_event_id)
-        self.assertEqual(event.source, "system_expiry")
-        self.assertEqual(event.provider_status, "expired")
-        self.assertEqual(projection.last_event_id, event.pk)
+        graph["deal"].refresh_from_db()
+        self.assertIsNone(graph["deal"].active_checkout_proposal_id)
+        self.assertEqual(graph["deal"].payment_truth, IgDeal.PaymentTruth.UNVERIFIED)
+        self.assertFalse(IgPaymentEvent.objects.filter(deal=graph["deal"]).exists())
+        self.assertFalse(IgPaymentProjection.objects.filter(deal=graph["deal"]).exists())
         self.assertEqual(
-            graph["attempt"].event_state["terminalization"]["source"],
+            graph["attempt"].event_state["local_terminalization"]["source"],
             "system_expiry",
+        )
+        self.assertFalse(
+            graph["attempt"].event_state["local_terminalization"][
+                "provider_truth_changed"
+            ]
         )
 
     def test_null_expiry_uses_only_the_24_hour_legacy_fallback(self):
@@ -309,11 +335,14 @@ class AssistedAttemptTerminalizationTests(TestCase):
         graph["attempt"].refresh_from_db()
         graph["reservation"].refresh_from_db()
         graph["promo"].refresh_from_db()
-        event = IgPaymentEvent.objects.get(deal=graph["deal"])
         self.assertEqual(graph["attempt"].status, PaymentAttempt.Status.CANCELLED)
         self.assertEqual(graph["reservation"].state, IgCheckoutInventoryReservation.State.RELEASED)
         self.assertEqual(graph["promo"].current_uses, 0)
-        self.assertEqual(event.source, "checkout_session_reset")
+        self.assertEqual(
+            graph["attempt"].event_state["local_terminalization"]["source"],
+            "checkout_session_reset",
+        )
+        self.assertFalse(IgPaymentEvent.objects.filter(deal=graph["deal"]).exists())
         self.assertNotIn("monobank_pending_attempt_id", request.session)
 
     def test_terminalization_is_idempotent(self):
@@ -346,7 +375,11 @@ class AssistedAttemptTerminalizationTests(TestCase):
 
         self.assertEqual(first.outcome, "terminalized")
         self.assertEqual(second.outcome, "already_terminal")
-        self.assertEqual(IgPaymentEvent.objects.filter(deal=graph["deal"]).count(), 1)
+        graph["attempt"].refresh_from_db()
+        self.assertEqual(
+            len(graph["attempt"].event_state["local_terminalization_events"]),
+            1,
+        )
         graph["promo"].refresh_from_db()
         self.assertEqual(graph["promo"].current_uses, 0)
 
@@ -408,6 +441,179 @@ class AssistedAttemptTerminalizationTests(TestCase):
         self.assertIsNotNone(paid["attempt"].order_id)
         self.assertEqual(paid["attempt"].status, PaymentAttempt.Status.PROCESSING)
 
+    def test_typed_orphan_is_selected_and_concrete_expiry_precedes_legacy_null(self):
+        legacy = self._graph(
+            invoice_expires_at=None,
+            age=timedelta(hours=25),
+        )
+        concrete = self._graph(
+            invoice_expires_at=self.now - timedelta(seconds=1),
+            age=timedelta(minutes=1),
+        )
+        orphan = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"typed-orphan-expiry").hexdigest(),
+            full_name="Orphan Buyer",
+            phone="+380501112244",
+            city="Kyiv",
+            np_office="Branch 2",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("900.00"),
+            payment_amount=Decimal("900.00"),
+            invoice_expires_at=self.now - timedelta(seconds=1),
+        )
+
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        first = expire_due_assisted_attempts(now=self.now, limit=1)
+        concrete["attempt"].refresh_from_db()
+        legacy["attempt"].refresh_from_db()
+        self.assertEqual(first["expired_attempts"], 1)
+        self.assertEqual(concrete["attempt"].status, PaymentAttempt.Status.EXPIRED)
+        self.assertEqual(legacy["attempt"].status, PaymentAttempt.Status.PROCESSING)
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        orphan.refresh_from_db()
+        self.assertEqual(orphan.status, PaymentAttempt.Status.EXPIRED)
+        self.assertEqual(
+            orphan.event_state["local_terminalization"]["source"],
+            "system_expiry",
+        )
+
+    def test_same_digest_starts_fresh_deal_without_mutating_historical_invoice(self):
+        graph = self._graph(invoice_expires_at=self.now)
+        old_invoice = graph["attempt"].monobank_invoice_id
+
+        from management.services.ig_checkout import create_or_update_proposal
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        replacement = create_or_update_proposal(
+            client=graph["client"],
+            pay_type="online_full",
+            item_specs=[
+                {
+                    "product_id": self.product.pk,
+                    "color_variant_id": self.variant.pk,
+                    "qty": 1,
+                    "size": "S",
+                    "fit_option_code": self.fit.code,
+                }
+            ],
+        )
+
+        graph["attempt"].refresh_from_db()
+        graph["proposal"].refresh_from_db()
+        graph["deal"].refresh_from_db()
+        self.assertNotEqual(replacement.pk, graph["proposal"].pk)
+        self.assertNotEqual(replacement.deal_id, graph["deal"].pk)
+        self.assertEqual(graph["attempt"].monobank_invoice_id, old_invoice)
+        self.assertEqual(graph["proposal"].payment_attempt_id, graph["attempt"].pk)
+        self.assertIsNone(graph["deal"].active_checkout_proposal_id)
+        replacement.deal.refresh_from_db()
+        self.assertEqual(replacement.deal.active_checkout_proposal_id, replacement.pk)
+
+    def test_session_reset_failure_retains_browser_payment_identity(self):
+        graph = self._graph(
+            invoice_expires_at=self.now + timedelta(minutes=20),
+        )
+        request = RequestFactory().get("/cart/")
+        SessionMiddleware(lambda _request: None).process_request(request)
+        request.session["monobank_pending_attempt_id"] = graph["attempt"].pk
+        request.session["monobank_attempt_id"] = graph["attempt"].pk
+        request.session["monobank_invoice_id"] = graph["attempt"].monobank_invoice_id
+        request.session.save()
+
+        from storefront.views.utils import _reset_monobank_session
+
+        with patch(
+            "management.services.ig_checkout_terminalization.terminalize_payment_attempt",
+            side_effect=DatabaseError("db unavailable"),
+        ):
+            _reset_monobank_session(request, drop_pending=True)
+
+        self.assertEqual(
+            request.session["monobank_pending_attempt_id"], graph["attempt"].pk
+        )
+        self.assertEqual(request.session["monobank_attempt_id"], graph["attempt"].pk)
+        self.assertEqual(
+            request.session["monobank_invoice_id"], graph["attempt"].monobank_invoice_id
+        )
+
+    def test_mariadb_deadlock_retry_is_bounded(self):
+        from management.services.ig_checkout_terminalization import (
+            AttemptTerminalizationResult,
+            terminalize_payment_attempt,
+        )
+
+        expected = AttemptTerminalizationResult(99, "terminalized")
+        with patch(
+            "management.services.ig_checkout_terminalization._terminalize_payment_attempt_once",
+            side_effect=[DatabaseError(1213, "deadlock"), expected],
+        ) as terminalize_once, patch(
+            "management.services.ig_checkout_terminalization.time.sleep"
+        ) as wait:
+            result = terminalize_payment_attempt(
+                99,
+                terminal_status=PaymentAttempt.Status.EXPIRED,
+                reason="invoice_expired",
+                source="system_expiry",
+                now=self.now,
+                require_due=True,
+            )
+
+        self.assertEqual(result, expected)
+        self.assertEqual(terminalize_once.call_count, 2)
+        wait.assert_called_once()
+
+    def test_due_selector_dry_run_is_one_bounded_query(self):
+        self._graph(invoice_expires_at=self.now)
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        with CaptureQueriesContext(connection) as queries:
+            result = expire_due_assisted_attempts(
+                now=self.now,
+                limit=10,
+                dry_run=True,
+            )
+
+        self.assertEqual(result["expired_attempts"], 1)
+        self.assertLessEqual(len(queries), 1)
+
+    def test_manual_command_isolates_one_row_failure(self):
+        first = self._graph(invoice_expires_at=self.now)
+        second = self._graph(invoice_expires_at=self.now)
+        from management.services.ig_checkout_terminalization import (
+            AttemptTerminalizationResult,
+        )
+
+        stdout = StringIO()
+        stderr = StringIO()
+        with patch(
+            "orders.management.commands.expire_payment_attempts.terminalize_payment_attempt",
+            side_effect=[
+                DatabaseError("first failed"),
+                AttemptTerminalizationResult(second["attempt"].pk, "terminalized"),
+            ],
+        ):
+            call_command(
+                "expire_payment_attempts",
+                limit=10,
+                stdout=stdout,
+                stderr=stderr,
+            )
+
+        self.assertIn(str(first["attempt"].pk), stderr.getvalue())
+        self.assertIn("Expired 1 payment attempts; errors=1", stdout.getvalue())
+
     def test_late_verified_success_is_accepted_once_and_routes_to_inventory_review(self):
         graph = self._graph(
             invoice_expires_at=self.now,
@@ -445,11 +651,19 @@ class AssistedAttemptTerminalizationTests(TestCase):
         graph["attempt"].refresh_from_db()
         graph["proposal"].refresh_from_db()
         graph["reservation"].refresh_from_db()
-        self.assertTrue(first_created)
+        self.assertIsNone(first_order)
+        self.assertIsNone(second_order)
+        self.assertFalse(first_created)
         self.assertFalse(second_created)
-        self.assertEqual(first_order.pk, second_order.pk)
-        self.assertEqual(Order.objects.filter(pk=first_order.pk).count(), 1)
-        self.assertEqual(graph["attempt"].order_id, first_order.pk)
+        self.assertFalse(Order.objects.exists())
+        self.assertIsNone(graph["attempt"].order_id)
+        self.assertEqual(graph["attempt"].status, PaymentAttempt.Status.PAID)
+        self.assertEqual(
+            graph["attempt"].event_state["local_terminalization"][
+                "provider_check_state"
+            ],
+            "resolved",
+        )
         self.assertEqual(graph["proposal"].status, IgCheckoutProposal.Status.MANAGER_REVIEW)
         self.assertEqual(
             graph["reservation"].state,
@@ -462,3 +676,232 @@ class AssistedAttemptTerminalizationTests(TestCase):
             ).count(),
             1,
         )
+        from management.models import IgFollowUpTask
+
+        self.assertEqual(
+            IgFollowUpTask.objects.filter(
+                event_key=f"late-local-payment-review:{graph['attempt'].pk}"
+            ).count(),
+            1,
+        )
+
+    def test_authenticated_promo_late_success_never_consumes_reissued_capacity(self):
+        graph = self._graph(
+            invoice_expires_at=self.now,
+            with_promo=True,
+        )
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        graph["promo"].refresh_from_db()
+        self.assertEqual(graph["promo"].current_uses, 0)
+        _apply_payment_attempt_status(
+            graph["attempt"],
+            "success",
+            payload={
+                "status": "success",
+                "invoiceId": graph["attempt"].monobank_invoice_id,
+                "reference": graph["attempt"].reference,
+                "ccy": 980,
+                "paidAmount": 90000,
+            },
+            source="provider_pull",
+        )
+
+        graph["attempt"].refresh_from_db()
+        graph["promo"].refresh_from_db()
+        self.assertEqual(graph["attempt"].status, PaymentAttempt.Status.PAID)
+        self.assertIsNone(graph["attempt"].order_id)
+        self.assertEqual(graph["promo"].current_uses, 0)
+        self.assertFalse(PromoCodeUsage.objects.filter(promo_code=graph["promo"]).exists())
+
+    def test_reconciler_polls_locally_expired_invoice_without_changing_truth(self):
+        graph = self._graph(invoice_expires_at=self.now)
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status",
+            return_value=("processing", {"status": "processing"}),
+        ) as provider:
+            result = reconcile_ig_checkout(limit=10, pull_ambiguous=True)
+
+        graph["attempt"].refresh_from_db()
+        graph["deal"].refresh_from_db()
+        provider.assert_called_once()
+        self.assertEqual(result["late_status_checked"], 1)
+        self.assertEqual(graph["attempt"].status, PaymentAttempt.Status.EXPIRED)
+        self.assertEqual(graph["deal"].payment_truth, IgDeal.PaymentTruth.UNVERIFIED)
+        self.assertEqual(
+            graph["attempt"].event_state["local_terminalization"][
+                "provider_check_attempts"
+            ],
+            1,
+        )
+
+    def test_reconciler_late_success_routes_to_review_without_order(self):
+        graph = self._graph(invoice_expires_at=self.now)
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        payload = {
+            "status": "success",
+            "invoiceId": graph["attempt"].monobank_invoice_id,
+            "reference": graph["attempt"].reference,
+            "ccy": 980,
+            "paidAmount": 90000,
+        }
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status",
+            return_value=("success", payload),
+        ):
+            result = reconcile_ig_checkout(limit=10, pull_ambiguous=True)
+
+        graph["attempt"].refresh_from_db()
+        graph["proposal"].refresh_from_db()
+        self.assertEqual(result["late_status_checked"], 1)
+        self.assertEqual(graph["attempt"].status, PaymentAttempt.Status.PAID)
+        self.assertIsNone(graph["attempt"].order_id)
+        self.assertEqual(graph["proposal"].status, IgCheckoutProposal.Status.MANAGER_REVIEW)
+
+    def test_expired_backstop_escalates_without_provider_call(self):
+        graph = self._graph(invoice_expires_at=self.now)
+        from management.models import IgFollowUpTask
+        from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
+        from management.services.ig_checkout_terminalization import (
+            expire_due_assisted_attempts,
+        )
+
+        expire_due_assisted_attempts(now=self.now, limit=10)
+        graph["attempt"].refresh_from_db()
+        state = dict(graph["attempt"].event_state)
+        local = dict(state["local_terminalization"])
+        local["provider_check_until"] = (self.now - timedelta(seconds=1)).isoformat()
+        local["provider_next_check_at"] = (self.now - timedelta(seconds=1)).isoformat()
+        state["local_terminalization"] = local
+        graph["attempt"].event_state = state
+        graph["attempt"].save(update_fields=["event_state", "updated"])
+
+        with patch(
+            "storefront.views.monobank._resolve_attempt_invoice_status"
+        ) as provider:
+            result = reconcile_ig_checkout(limit=10, pull_ambiguous=True)
+
+        provider.assert_not_called()
+        graph["attempt"].refresh_from_db()
+        self.assertEqual(result["late_status_exhausted"], 1)
+        self.assertEqual(
+            graph["attempt"].event_state["local_terminalization"][
+                "provider_check_state"
+            ],
+            "exhausted",
+        )
+        self.assertTrue(
+            IgFollowUpTask.objects.filter(
+                event_key=f"local-invoice-status-review:{graph['attempt'].pk}"
+            ).exists()
+        )
+
+
+@skipUnless(
+    connection.features.has_select_for_update,
+    "requires MariaDB row-level SELECT FOR UPDATE",
+)
+class AssistedTerminalizationConcurrencyTests(TransactionTestCase):
+    reset_sequences = True
+
+    def _fixture_teardown(self):
+        # Production append-only triggers reject Django's default DELETE flush.
+        for db_name in self._databases_names(include_mirrors=False):
+            call_command(
+                "flush",
+                verbosity=0,
+                interactive=False,
+                database=db_name,
+                reset_sequences=True,
+                allow_cascade=self.available_apps is not None,
+                inhibit_post_migrate=True,
+            )
+
+    def test_two_workers_share_one_terminal_result_without_deadlock(self):
+        client = IgClient.get_or_create_for_sender("terminalization-concurrency")
+        deal = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.AWAITING_PAYMENT,
+            amount=Decimal("900.00"),
+            requested_payment_amount=Decimal("900.00"),
+        )
+        episode = ensure_episode_for_deal(deal)
+        proposal = IgCheckoutProposal.objects.create_current(
+            deal=deal,
+            commercial_episode=episode,
+            catalog_total=Decimal("900.00"),
+            quoted_total=Decimal("900.00"),
+            requested_payment_amount=Decimal("900.00"),
+            items_digest="c" * 64,
+            expires_at=timezone.now() + timedelta(hours=1),
+        )
+        attempt = PaymentAttempt.objects.create(
+            fingerprint=hashlib.sha256(b"terminalization-concurrency").hexdigest(),
+            full_name="Concurrent Buyer",
+            phone="+380501112255",
+            city="Kyiv",
+            np_office="Branch 3",
+            pay_type=PaymentAttempt.PayType.ONLINE_FULL,
+            status=PaymentAttempt.Status.PROCESSING,
+            cart_snapshot={"checkout_surface": "instagram_proposal", "cart": []},
+            gross_amount=Decimal("900.00"),
+            payable_amount=Decimal("900.00"),
+            payment_amount=Decimal("900.00"),
+            invoice_expires_at=timezone.now() - timedelta(seconds=1),
+        )
+        proposal.payment_attempt = attempt
+        proposal.status = IgCheckoutProposal.Status.INVOICE_CREATED
+        proposal.save(update_fields=["payment_attempt", "status", "updated_at"])
+
+        from management.services.ig_checkout_terminalization import (
+            terminalize_payment_attempt,
+        )
+
+        barrier = threading.Barrier(2)
+        outcomes = []
+        errors = []
+
+        def worker():
+            close_old_connections()
+            try:
+                barrier.wait(timeout=5)
+                result = terminalize_payment_attempt(
+                    attempt.pk,
+                    terminal_status=PaymentAttempt.Status.EXPIRED,
+                    reason="invoice_expired",
+                    source="system_expiry",
+                    require_due=True,
+                )
+                outcomes.append(result.outcome)
+            except Exception as exc:  # pragma: no cover - MariaDB diagnostic
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        threads = [threading.Thread(target=worker) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+
+        self.assertFalse(errors)
+        self.assertCountEqual(outcomes, ["terminalized", "already_terminal"])
+        attempt.refresh_from_db()
+        deal.refresh_from_db()
+        self.assertEqual(attempt.status, PaymentAttempt.Status.EXPIRED)
+        self.assertIsNone(deal.active_checkout_proposal_id)

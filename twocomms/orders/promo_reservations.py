@@ -129,6 +129,7 @@ def reserve_promo_for_checkout(*, promo_id=None, code=None, user=None, total_amo
 
     promo.current_uses += 1
     promo.save(update_fields=["current_uses", "updated_at"])
+    reservation_generation = secrets.token_urlsafe(32)
     guest_usage_id = None
     if user_id is None:
         from storefront.models import PromoCodeGuestUsage
@@ -173,6 +174,10 @@ def reserve_promo_for_checkout(*, promo_id=None, code=None, user=None, total_amo
                 "state": "reserved",
                 "capacity_reserved": True,
                 "reserved_at": timezone.now().isoformat(),
+                # Account-scoped reservations previously had no generation at
+                # all. Keep an opaque token on every new attempt so a late
+                # callback can never be confused with a reissued capacity slot.
+                "reservation_generation": reservation_generation,
                 "guest_usage_id": guest_usage_id,
                 "guest_reservation_key": (
                     guest_usage.reservation_key if guest_usage_id else None

@@ -455,6 +455,7 @@ def _reset_monobank_session(request, drop_pending=False):
         request: HTTP request
         drop_pending: Если True, отменяет pending заказ в БД
     """
+    safe_to_clear_attempt_identity = True
     if drop_pending:
         pending_id = request.session.get('monobank_pending_order_id')
         if pending_id:
@@ -476,21 +477,31 @@ def _reset_monobank_session(request, drop_pending=False):
         if attempt_id:
             try:
                 from management.services.ig_checkout_terminalization import (
+                    SAFE_BROWSER_CLEAR_OUTCOMES,
                     terminalize_payment_attempt,
                 )
                 from orders.models import PaymentAttempt
 
-                terminalize_payment_attempt(
+                outcome = terminalize_payment_attempt(
                     attempt_id,
                     terminal_status=PaymentAttempt.Status.CANCELLED,
                     reason='checkout_cancelled',
                     source='checkout_session_reset',
                 )
+                safe_to_clear_attempt_identity = (
+                    outcome.outcome in SAFE_BROWSER_CLEAR_OUTCOMES
+                )
             except Exception:
+                safe_to_clear_attempt_identity = False
                 monobank_logger.debug(
                     'Failed to cancel payment attempt %s', attempt_id, exc_info=True
                 )
 
+    attempt_identity_keys = {
+        'monobank_invoice_id',
+        'monobank_pending_attempt_id',
+        'monobank_attempt_id',
+    }
     for key in (
         'monobank_pending_order_id',
         'monobank_invoice_id',
@@ -499,6 +510,8 @@ def _reset_monobank_session(request, drop_pending=False):
         'monobank_pending_attempt_id',
         'monobank_attempt_id',
     ):
+        if not safe_to_clear_attempt_identity and key in attempt_identity_keys:
+            continue
         if key in request.session:
             request.session.pop(key, None)
 
