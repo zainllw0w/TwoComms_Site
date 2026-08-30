@@ -145,6 +145,12 @@ IG_ANALYSIS_MATERIALITY_MODE = os.environ.get(
 ).strip().casefold()
 if IG_ANALYSIS_MATERIALITY_MODE not in {'off', 'shadow'}:
     IG_ANALYSIS_MATERIALITY_MODE = 'off'
+IG_ANALYSIS_CURRENT_SELECTOR_MODE = os.environ.get(
+    'IG_ANALYSIS_CURRENT_SELECTOR_MODE',
+    'legacy',
+).strip().casefold()
+if IG_ANALYSIS_CURRENT_SELECTOR_MODE not in {'legacy', 'enforce'}:
+    IG_ANALYSIS_CURRENT_SELECTOR_MODE = 'legacy'
 
 # Ephemeral customer image/audio ownership. This directory must be outside
 # MEDIA_ROOT (and should be outside the checkout in production); no public URL

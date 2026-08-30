@@ -9,6 +9,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import IntegrityError, OperationalError, transaction
+from django.db.models import CharField, Subquery, Value
 from django.utils import timezone
 
 from management.models import (
@@ -32,6 +33,21 @@ def materiality_mode() -> str:
     return value if value in {"off", "shadow"} else "off"
 
 
+def selector_mode() -> str:
+    value = str(
+        getattr(settings, "IG_ANALYSIS_CURRENT_SELECTOR_MODE", "legacy")
+        or "legacy"
+    ).strip().casefold()
+    return value if value in {"legacy", "enforce"} else "legacy"
+
+
+def selector_enforced() -> bool:
+    # The read gate cannot activate without the shadow ledger that supplies
+    # its freshness cursor. In particular, materiality=off always preserves
+    # the exact legacy operational behavior even if an env value is stale.
+    return materiality_mode() == "shadow" and selector_mode() == "enforce"
+
+
 def _sha(payload) -> str:
     encoded = json.dumps(
         payload,
@@ -43,11 +59,17 @@ def _sha(payload) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
-def _normalized_digest(value) -> str:
-    text = str(value or "").strip().casefold()
-    if len(text) == 64 and all(char in "0123456789abcdef" for char in text):
-        return text
-    return _sha({"value": text})
+def _validated_digest(value) -> str:
+    """Accept only a caller-produced, content-free immutable revision digest.
+
+    Silently hashing an arbitrary string here is unsafe: a caller could pass
+    customer text and turn the ledger into a stable, dictionary-attackable PII
+    index. Adapters must digest immutable identifiers/revisions instead.
+    """
+    digest = str(value or "").strip().casefold()
+    if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+        raise ValueError("event_digest must be a 64-character hexadecimal digest")
+    return digest
 
 
 def record_materiality_event(
@@ -74,7 +96,7 @@ def record_materiality_event(
     if materiality_mode() != "shadow" or not client_id:
         return None
     relevant_at = relevant_at or timezone.now()
-    digest = _normalized_digest(event_digest)
+    digest = _validated_digest(event_digest)
     kind = str(event_kind or "")[:32]
     event_key = f"materiality:{client_id}:{kind}:{digest}"[:160]
     for attempt in range(3):
@@ -83,6 +105,18 @@ def record_materiality_event(
                 job = (
                     IgConversationAnalysisJob.objects.select_for_update()
                     .filter(client_id=client_id)
+                    .annotate(
+                        _source_message_role=(
+                            Subquery(
+                                InstagramBotMessage.objects.filter(
+                                    pk=source_message_id,
+                                    client_id=client_id,
+                                ).values("role")[:1]
+                            )
+                            if source_message_id
+                            else Value("", output_field=CharField())
+                        )
+                    )
                     .only(
                         "id", "first_unanalysed_at", "last_relevant_at",
                         "materiality_event_highwater", "materiality_episode_id",
@@ -93,13 +127,23 @@ def record_materiality_event(
                 )
                 if job is None:
                     return None
+                source_role_value = str(source_role or "system")[:16]
+                if kind == IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN and (
+                    source_role_value != IgAnalysisMaterialityEvent.SourceRole.USER
+                    or job._source_message_role != InstagramBotMessage.Role.USER
+                ):
+                    return None
+                if source_role_value == IgAnalysisMaterialityEvent.SourceRole.MANAGER and (
+                    job._source_message_role != InstagramBotMessage.Role.MANAGER
+                ):
+                    return None
                 event = IgAnalysisMaterialityEvent.objects.create(
                     client_id=client_id,
                     episode_id=episode_id,
                     line_id=str(line_id or "")[:96],
                     customer_turn_id=customer_turn_id,
                     source_message_id=source_message_id,
-                    source_role=str(source_role or "system")[:16],
+                    source_role=source_role_value,
                     event_kind=kind,
                     event_key=event_key,
                     event_digest=digest,
@@ -108,7 +152,11 @@ def record_materiality_event(
                     artifact_digest=str(artifact_digest or "")[:64],
                     relevant_at=relevant_at,
                 )
-                first_unanalysed_at = job.first_unanalysed_at or relevant_at
+                first_unanalysed_at = min(
+                    value
+                    for value in (job.first_unanalysed_at, relevant_at)
+                    if value is not None
+                )
                 last_relevant_at = max(
                     value
                     for value in (job.last_relevant_at, relevant_at)
@@ -214,12 +262,11 @@ def record_completed_customer_turn(turn_or_id):
     event_digest = _sha([
         {
             "message_id": row.pk,
-            "text_digest": hashlib.sha256(
-                str(row.text or "").encode("utf-8")
-            ).hexdigest(),
-            "quick_reply_digest": hashlib.sha256(
-                str(row.quick_reply_payload or "").encode("utf-8")
-            ).hexdigest(),
+            "event_at": (
+                row.provider_created_at or row.created_at
+            ).isoformat(),
+            "has_quick_reply": bool(row.quick_reply_payload),
+            "has_media": bool(row.attachments or row.attachment_media),
             "artifact_digest": str(
                 (row.turn_intelligence_artifact or {}).get("media_digest") or ""
             )[:64],
@@ -295,7 +342,7 @@ def current_analysis_snapshot(
     client_id = getattr(client, "pk", client_or_id)
     if not client_id:
         return None
-    if materiality_mode() != "shadow":
+    if not selector_enforced():
         if candidates is not None:
             for snapshot in candidates:
                 if include_manager or snapshot.interaction_type != (

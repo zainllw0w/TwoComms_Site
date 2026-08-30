@@ -61,6 +61,12 @@ def _turn(client, message, *, episode=None):
     return turn
 
 
+def _event_digest(label):
+    # Test-only semantic identity; production adapters use immutable revision
+    # metadata and never customer text.
+    return materiality._sha({"test_event": str(label)})
+
+
 class MaterialityOffContractTests(TestCase):
     @override_settings(IG_ANALYSIS_MATERIALITY_MODE="off")
     def test_off_mode_performs_zero_ledger_or_shadow_job_writes(self):
@@ -99,11 +105,13 @@ class MaterialityOffContractTests(TestCase):
     def test_ledger_identity_is_append_only_at_model_boundary(self):
         client = IgClient.objects.create(igsid="mat-append-only")
         _job(client)
+        source = _message(client, "append-only source")
         event = materiality.record_materiality_event(
             client_id=client.pk,
             event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
-            event_digest="append-only",
+            event_digest=_event_digest("append-only"),
             source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+            source_message_id=source.pk,
         )
 
         event.event_digest = "changed"
@@ -117,18 +125,103 @@ class MaterialityOffContractTests(TestCase):
             event.delete()
 
 
+class LegacySelectorCompatibilityTests(TestCase):
+    def setUp(self):
+        self.now = timezone.now().replace(microsecond=0)
+        self.client = IgClient.objects.create(igsid="mat-legacy-select")
+        self.episode = IgCommercialEpisode.objects.create(
+            client=self.client,
+            sequence=1,
+            open_slot=1,
+            materialization_key="mat-legacy-select:episode:1",
+        )
+        self.client.current_commercial_episode = self.episode
+        self.client.save(update_fields=["current_commercial_episode", "updated_at"])
+        self.source = _message(self.client, "Я подумаю")
+        self.job = _job(self.client, watermark=self.source.pk)
+        self.qualifying = IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            commercial_episode=self.episode,
+            last_analyzed_message=self.source,
+            dedupe_key="mat-legacy-select:qualifying",
+            score_band=IgConversationAnalysisSnapshot.Band.QUALIFIED,
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.PRICE_OBJECTION
+            ),
+            purchase_probability=Decimal("0.7000"),
+            confidence=Decimal("0.9000"),
+            analyzed_at=self.now - timedelta(minutes=2),
+        )
+        self.newer_unqualified = IgConversationAnalysisSnapshot.objects.create(
+            client=self.client,
+            commercial_episode=self.episode,
+            last_analyzed_message=self.source,
+            dedupe_key="mat-legacy-select:newer-unqualified",
+            score_band=IgConversationAnalysisSnapshot.Band.COLD,
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.WHOLESALE_B2B
+            ),
+            purchase_probability=Decimal("0.1000"),
+            confidence=Decimal("0.1000"),
+            analyzed_at=self.now - timedelta(minutes=1),
+        )
+
+    def _hesitation(self):
+        from management.services.ig_follow_cta import _latest_hesitation_analysis
+
+        return _latest_hesitation_analysis(
+            client=self.client,
+            episode=self.episode,
+            source_message=self.source,
+            now=self.now,
+        )
+
+    @override_settings(
+        IG_ANALYSIS_MATERIALITY_MODE="off",
+        IG_ANALYSIS_CURRENT_SELECTOR_MODE="enforce",
+    )
+    def test_off_mode_preserves_exact_legacy_cta_even_if_read_gate_is_stale(self):
+        self.assertEqual(self._hesitation().pk, self.qualifying.pk)
+        self.assertEqual(
+            materiality.current_analysis_snapshot(self.client).pk,
+            self.newer_unqualified.pk,
+        )
+
+    @override_settings(
+        IG_ANALYSIS_MATERIALITY_MODE="shadow",
+        IG_ANALYSIS_CURRENT_SELECTOR_MODE="legacy",
+    )
+    def test_shadow_mode_does_not_enforce_freshness_on_operational_consumers(self):
+        from management.services.bot_followups import _suppressed_interaction
+
+        self.job.materiality_digest = "a" * 64
+        self.job.analyzed_materiality_digest = "b" * 64
+        self.job.materiality_event_highwater = 2
+        self.job.analyzed_materiality_event_highwater = 1
+        self.job.save()
+
+        self.assertEqual(self._hesitation().pk, self.qualifying.pk)
+        self.assertEqual(_suppressed_interaction(self.client), "wholesale_b2b")
+        self.assertEqual(
+            materiality.current_analysis_snapshot(self.client).pk,
+            self.newer_unqualified.pk,
+        )
+
+
 @override_settings(IG_ANALYSIS_MATERIALITY_MODE="shadow")
 class MaterialityCadenceTests(TestCase):
     def setUp(self):
         self.client = IgClient.objects.create(igsid="mat-cadence")
         self.job = _job(self.client)
+        self.source = _message(self.client, "material event")
 
     def _record(self, suffix, at, **kwargs):
         return materiality.record_materiality_event(
             client_id=self.client.pk,
             event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
-            event_digest=f"event-{suffix}",
+            event_digest=_event_digest(f"event-{suffix}"),
             source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+            source_message_id=self.source.pk,
             relevant_at=at,
             **kwargs,
         )
@@ -294,6 +387,54 @@ class MaterialityCadenceTests(TestCase):
         self.assertEqual(self.job.materiality_line_id, "line:0")
         self.assertEqual(self.job.materiality_event_highwater, event.pk)
 
+    def test_out_of_order_event_backdates_first_unanalysed_at(self):
+        now = timezone.now().replace(microsecond=0)
+        self._record("later", now)
+        earlier = now - timedelta(minutes=4)
+        self._record("earlier", earlier)
+
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.first_unanalysed_at, earlier)
+
+    def test_manager_only_message_cannot_masquerade_as_customer_turn(self):
+        manager = _message(
+            self.client,
+            "manager-only evidence",
+            role=InstagramBotMessage.Role.MANAGER,
+        )
+        before = self.job.materiality_event_highwater
+
+        digest = _event_digest("manager-masquerade")
+        event = materiality.record_materiality_event(
+            client_id=self.client.pk,
+            event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+            event_digest=digest,
+            source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+            source_message_id=manager.pk,
+        )
+
+        self.assertIsNone(event)
+        self.assertFalse(IgAnalysisMaterialityEvent.objects.filter(
+            event_digest=digest,
+        ).exists())
+        self.job.refresh_from_db()
+        self.assertEqual(self.job.materiality_event_highwater, before)
+
+    def test_user_evidence_from_another_client_cannot_cross_the_guard(self):
+        other = IgClient.objects.create(igsid="mat-other-client")
+        foreign_source = _message(other, "foreign customer evidence")
+
+        event = materiality.record_materiality_event(
+            client_id=self.client.pk,
+            event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+            event_digest=_event_digest("foreign-customer-evidence"),
+            source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+            source_message_id=foreign_source.pk,
+        )
+
+        self.assertIsNone(event)
+        self.assertFalse(IgAnalysisMaterialityEvent.objects.exists())
+
 
 @override_settings(IG_ANALYSIS_MATERIALITY_MODE="shadow")
 class CompletedTurnMaterialityTests(TestCase):
@@ -337,6 +478,28 @@ class CompletedTurnMaterialityTests(TestCase):
         self.assertEqual(event.artifact_revision, 2)
         self.assertTrue(event.artifact_digest)
         self.assertNotIn("Оплатив", event.event_key)
+        self.assertNotEqual(
+            event.event_digest,
+            hashlib.sha256(message.text.encode("utf-8")).hexdigest(),
+        )
+        self.assertNotEqual(
+            event.event_digest,
+            materiality._sha({"value": message.text.casefold()}),
+        )
+
+    def test_raw_text_like_digest_is_rejected_before_ledger_write(self):
+        message = _message(self.client, "customer content")
+
+        with self.assertRaisesRegex(ValueError, "64-character hexadecimal"):
+            materiality.record_materiality_event(
+                client_id=self.client.pk,
+                source_message_id=message.pk,
+                source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+                event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+                event_digest=message.text,
+            )
+
+        self.assertFalse(IgAnalysisMaterialityEvent.objects.exists())
 
     @patch(
         "management.services.ig_analysis_materiality.record_completed_customer_turn",
@@ -353,7 +516,10 @@ class CompletedTurnMaterialityTests(TestCase):
         self.assertEqual(turn.claim_state, IgCustomerTurn.ClaimState.PROCESSED)
 
 
-@override_settings(IG_ANALYSIS_MATERIALITY_MODE="shadow")
+@override_settings(
+    IG_ANALYSIS_MATERIALITY_MODE="shadow",
+    IG_ANALYSIS_CURRENT_SELECTOR_MODE="enforce",
+)
 class CurrentAnalysisSnapshotTests(TestCase):
     def setUp(self):
         self.client = IgClient.objects.create(igsid="mat-selector")
@@ -478,7 +644,10 @@ class CurrentAnalysisSnapshotTests(TestCase):
         self.assertIsNone(stale_payload["probability"])
 
 
-@override_settings(IG_ANALYSIS_MATERIALITY_MODE="shadow")
+@override_settings(
+    IG_ANALYSIS_MATERIALITY_MODE="shadow",
+    IG_ANALYSIS_CURRENT_SELECTOR_MODE="enforce",
+)
 class ShadowAnalysisCompletionTests(TestCase):
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
     def test_existing_analysis_completion_advances_shadow_cursor(self, generate):
@@ -507,7 +676,7 @@ class ShadowAnalysisCompletionTests(TestCase):
             source_message_id=message.pk,
             source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
             event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
-            event_digest="completion-event",
+            event_digest=_event_digest("completion-event"),
             relevant_at=now,
         )
         generate.return_value = {
@@ -550,6 +719,7 @@ class MaterialityConcurrencyTests(TransactionTestCase):
     def test_same_digest_concurrency_appends_once_and_bumps_once(self):
         client = IgClient.objects.create(igsid="mat-concurrency")
         _job(client)
+        source = _message(client, "concurrent source")
         barrier = threading.Barrier(2)
         results = []
         errors = []
@@ -561,8 +731,9 @@ class MaterialityConcurrencyTests(TransactionTestCase):
                 result = materiality.record_materiality_event(
                     client_id=client.pk,
                     event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
-                    event_digest="same-concurrent-event",
+                    event_digest=_event_digest("same-concurrent-event"),
                     source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+                    source_message_id=source.pk,
                     relevant_at=timezone.now(),
                 )
                 results.append(bool(result))

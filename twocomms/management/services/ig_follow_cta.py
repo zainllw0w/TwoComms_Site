@@ -300,9 +300,26 @@ def _latest_hesitation_analysis(*, client, episode, source_message, now):
     }
     from management.services.ig_analysis_materiality import (
         current_analysis_snapshot,
+        selector_enforced,
     )
 
-    analysis = current_analysis_snapshot(client)
+    if selector_enforced():
+        analysis = current_analysis_snapshot(client)
+    else:
+        # Exact legacy behavior: select the newest snapshot *among qualifying
+        # rows*. Selecting newest overall and filtering afterwards suppresses
+        # a valid older hesitation signal and changes operational CTA behavior.
+        analysis = (
+            IgConversationAnalysisSnapshot.objects.filter(
+                client_id=client.pk,
+                score_band__in=allowed_bands,
+                confidence__gte=Decimal("0.70"),
+                analyzed_at__gte=now - timedelta(hours=24),
+                analyzed_at__lte=now,
+            )
+            .order_by("-id")
+            .first()
+        )
     if analysis is None:
         return None
     if (
