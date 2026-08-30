@@ -45,7 +45,7 @@ from .models import (
 from .ig_bot_models import IgCheckoutAccessToken, IgCheckoutProposal, IgCheckoutRevision, IgLifecycleEvent, IgFollowUpTask
 from .services import instagram_bot as bot
 from .services import bot_followups
-from .services import gemini_health, gemini_keys, gemini_probe
+from .services import gemini_health, gemini_keys, gemini_probe, gemini_v2_read_model
 from .services.bot_payment_truth import (
     CONFIRMED_ORDER_PAYMENT_STATUSES,
     annotate_confirmed_purchase,
@@ -1014,6 +1014,58 @@ def bot_gemini_health_api(request):
     # This endpoint is intentionally passive: build_snapshot reads only the
     # bounded local attempt ledger and key-state projection.
     return JsonResponse(gemini_health.build_snapshot())
+
+
+@login_required(login_url="management_login")
+@require_GET
+def bot_gemini_v2_quotas_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    try:
+        payload = gemini_v2_read_model.build_quotas_payload()
+    except gemini_v2_read_model.PublicProjectionError:
+        return JsonResponse(
+            {"success": False, "error": "projection_unavailable"}, status=503
+        )
+    return JsonResponse(payload)
+
+
+@login_required(login_url="management_login")
+@require_GET
+def bot_gemini_v2_routes_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    try:
+        payload = gemini_v2_read_model.build_routes_payload()
+    except gemini_v2_read_model.PublicProjectionError:
+        return JsonResponse(
+            {"success": False, "error": "projection_unavailable"}, status=503
+        )
+    return JsonResponse(payload)
+
+
+@login_required(login_url="management_login")
+@require_GET
+def bot_gemini_v2_attempts_api(request):
+    blocked = _require_admin_json(request)
+    if blocked:
+        return blocked
+    try:
+        payload = gemini_v2_read_model.build_attempts_payload(
+            cursor=request.GET.get("cursor", ""),
+            limit=request.GET.get("limit"),
+        )
+    except gemini_v2_read_model.InvalidCursor:
+        return JsonResponse(
+            {"success": False, "error": "invalid_cursor"}, status=400
+        )
+    except gemini_v2_read_model.PublicProjectionError:
+        return JsonResponse(
+            {"success": False, "error": "projection_unavailable"}, status=503
+        )
+    return JsonResponse(payload)
 
 
 @login_required(login_url="management_login")
