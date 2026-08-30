@@ -71,13 +71,7 @@ def build_checkout_series_identity(
 ) -> CheckoutSeriesIdentity:
     """Build a deterministic schema identity; this function performs no I/O."""
     _require_enabled()
-    if isinstance(generation, bool):
-        raise ValueError("generation must be a positive integer")
-    try:
-        generation = int(generation)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("generation must be a positive integer") from exc
-    if generation < 1:
+    if type(generation) is not int or generation < 1:
         raise ValueError("generation must be a positive integer")
     series_key = stable_checkout_series_key(proposal_public_id)
     return CheckoutSeriesIdentity(

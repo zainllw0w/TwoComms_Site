@@ -1,3 +1,5 @@
+import re
+
 from django.db import migrations, models
 
 from management.migration_operations import (
@@ -44,6 +46,36 @@ CHECK_COLUMNS = {
     "checkout_generation",
     "checkout_winner_claimed",
 }
+_EXPECTED_CHECK_CLAUSES = {
+    "mysql": (
+        """checkout_generation is null and checkout_series_key is null
+        and checkout_winner_claimed = 0x00 or checkout_generation >= 1
+        and checkout_generation is not null and checkout_series_key is not null
+        and (checkout_series_key <> '' or checkout_series_key is null)""",
+    ),
+    "sqlite": (
+        """((checkout_generation is null and checkout_series_key is null
+        and checkout_winner_claimed = 0) or (checkout_generation >= 1
+        and checkout_generation is not null and checkout_series_key is not null
+        and not (checkout_series_key = '' and checkout_series_key is not null)))""",
+    ),
+}
+_CHECK_TRUTH_TABLE = (
+    (None, None, 0, True),
+    ("a" * 64, 1, 0, True),
+    ("b" * 64, 1, 1, True),
+    ("c" * 64, 2, 0, True),
+    ("d" * 64, 99, 1, True),
+    (None, None, 1, False),
+    (None, 1, 0, False),
+    (None, 1, 1, False),
+    ("e" * 64, None, 0, False),
+    ("f" * 64, None, 1, False),
+    ("", 1, 0, False),
+    ("", 1, 1, False),
+    ("g" * 64, 0, 0, False),
+    ("h" * 64, 0, 1, False),
+)
 
 
 def _description(schema_editor):
@@ -140,12 +172,136 @@ def _validate_unique(actual):
         raise RuntimeError(f"{TABLE}.{UNIQUE_NAME} has incompatible unique shape")
 
 
-def _validate_check(actual):
+def _strip_outer_parentheses(value):
+    value = str(value or "").strip()
+    while value.startswith("(") and value.endswith(")"):
+        depth = 0
+        closes_at_end = True
+        for index, character in enumerate(value):
+            if character == "(":
+                depth += 1
+            elif character == ")":
+                depth -= 1
+                if depth == 0 and index != len(value) - 1:
+                    closes_at_end = False
+                    break
+        if not closes_at_end or depth != 0:
+            break
+        value = value[1:-1].strip()
+    return value
+
+
+def _normalize_check_clause(value):
+    value = _strip_outer_parentheses(value)
+    value = value.replace("`", "").replace('"', "").casefold()
+    value = value.replace("0x00", "0")
+    return re.sub(r"\s+", "", value)
+
+
+def _sqlite_check_clause(schema_editor):
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=%s",
+            [TABLE],
+        )
+        row = cursor.fetchone()
+    create_sql = str(row[0] if row else "")
+    match = re.search(
+        rf"CONSTRAINT\s+['\"`]?{re.escape(CHECK_NAME)}['\"`]?\s+CHECK\s*\(",
+        create_sql,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return ""
+    start = match.end() - 1
+    depth = 0
+    quote = ""
+    for index in range(start, len(create_sql)):
+        character = create_sql[index]
+        if quote:
+            if character == quote:
+                if index + 1 < len(create_sql) and create_sql[index + 1] == quote:
+                    continue
+                quote = ""
+            continue
+        if character in {"'", '"'}:
+            quote = character
+            continue
+        if character == "(":
+            depth += 1
+        elif character == ")":
+            depth -= 1
+            if depth == 0:
+                return create_sql[start + 1:index]
+    return ""
+
+
+def _physical_check_clause(schema_editor):
+    vendor = schema_editor.connection.vendor
+    if vendor == "mysql":
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT cc.CHECK_CLAUSE "
+                "FROM information_schema.CHECK_CONSTRAINTS cc "
+                "JOIN information_schema.TABLE_CONSTRAINTS tc ON "
+                "tc.CONSTRAINT_SCHEMA=cc.CONSTRAINT_SCHEMA AND "
+                "tc.CONSTRAINT_NAME=cc.CONSTRAINT_NAME "
+                "WHERE tc.TABLE_SCHEMA=DATABASE() AND tc.TABLE_NAME=%s AND "
+                "tc.CONSTRAINT_NAME=%s AND tc.CONSTRAINT_TYPE='CHECK'",
+                [TABLE, CHECK_NAME],
+            )
+            rows = cursor.fetchall()
+        if len(rows) != 1:
+            return ""
+        return str(rows[0][0] or "")
+    if vendor == "sqlite":
+        return _sqlite_check_clause(schema_editor)
+    raise RuntimeError(
+        f"{TABLE}.{CHECK_NAME} predicate validation unsupported for {vendor}"
+    )
+
+
+def _validate_check_truth_table(schema_editor, clause):
+    quote = schema_editor.quote_name
+    expression = str(clause or "")
+    if not expression:
+        raise RuntimeError(f"{TABLE}.{CHECK_NAME} physical predicate is missing")
+    for series_key, generation, winner, expected in _CHECK_TRUTH_TABLE:
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT CASE WHEN ({expression}) THEN 1 ELSE 0 END FROM ("
+                f"SELECT %s AS {quote('checkout_series_key')}, "
+                f"%s AS {quote('checkout_generation')}, "
+                f"%s AS {quote('checkout_winner_claimed')}) candidate",
+                [series_key, generation, winner],
+            )
+            actual = bool(cursor.fetchone()[0])
+        if actual != expected:
+            raise RuntimeError(
+                f"{TABLE}.{CHECK_NAME} rejects the required truth table"
+            )
+
+
+def _validate_check(schema_editor, actual):
     actual_columns = set(actual.get("columns") or ())
     if not bool(actual.get("check")) or (
         actual_columns and actual_columns != CHECK_COLUMNS
     ):
         raise RuntimeError(f"{TABLE}.{CHECK_NAME} has incompatible check shape")
+    clause = _physical_check_clause(schema_editor)
+    normalized = _normalize_check_clause(clause)
+    expected = {
+        _normalize_check_clause(value)
+        for value in _EXPECTED_CHECK_CLAUSES.get(
+            schema_editor.connection.vendor,
+            (),
+        )
+    }
+    if normalized not in expected:
+        raise RuntimeError(
+            f"{TABLE}.{CHECK_NAME} has incompatible normalized predicate"
+        )
+    _validate_check_truth_table(schema_editor, clause)
 
 
 def _validate_rows(schema_editor):
@@ -198,7 +354,7 @@ def _validate_schema(schema_editor, *, require_complete):
         if require_complete:
             raise RuntimeError(f"{TABLE}.{CHECK_NAME} is missing")
     else:
-        _validate_check(check)
+        _validate_check(schema_editor, check)
 
     if set(FIELD_EXPECTATIONS).issubset(columns):
         _validate_rows(schema_editor)

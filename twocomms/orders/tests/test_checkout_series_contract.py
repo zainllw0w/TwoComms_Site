@@ -59,7 +59,18 @@ class CheckoutSeriesIdentityTests(SimpleTestCase):
             with self.subTest(proposal_id=proposal_id):
                 with self.assertRaises(ValueError):
                     stable_checkout_series_key(proposal_id)
-        for generation in (0, -1, True, "bad"):
+        for generation in (
+            0,
+            -1,
+            True,
+            1.0,
+            1.9,
+            "1",
+            "01",
+            "+1",
+            "bad",
+            None,
+        ):
             with self.subTest(generation=generation):
                 with self.assertRaises(ValueError):
                     build_checkout_series_identity(

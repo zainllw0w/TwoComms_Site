@@ -1,9 +1,9 @@
 from importlib import import_module
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
-from django.db import migrations
-from django.test import SimpleTestCase
+from django.db import connection, migrations
+from django.test import SimpleTestCase, TestCase
 
 from management.migration_operations import (
     IdempotentAddConstraint,
@@ -56,10 +56,18 @@ class CheckoutSeriesMigrationTests(SimpleTestCase):
             "columns": list(migration.UNIQUE_COLUMNS),
             "unique": True,
         })
-        migration._validate_check({
-            "columns": list(migration.CHECK_COLUMNS),
-            "check": True,
-        })
+        editor = Mock()
+        editor.connection.vendor = "mysql"
+        expected_clause = migration._EXPECTED_CHECK_CLAUSES["mysql"][0]
+        with patch.object(
+            migration,
+            "_physical_check_clause",
+            return_value=expected_clause,
+        ), patch.object(migration, "_validate_check_truth_table"):
+            migration._validate_check(editor, {
+                "columns": list(migration.CHECK_COLUMNS),
+                "check": True,
+            })
 
         with self.assertRaisesRegex(RuntimeError, "index shape"):
             migration._validate_index(
@@ -72,8 +80,28 @@ class CheckoutSeriesMigrationTests(SimpleTestCase):
                 "unique": True,
             })
         with self.assertRaisesRegex(RuntimeError, "check shape"):
-            migration._validate_check({
-                "columns": ["checkout_series_key"],
+            with patch.object(
+                migration,
+                "_physical_check_clause",
+                return_value=expected_clause,
+            ), patch.object(migration, "_validate_check_truth_table"):
+                migration._validate_check(editor, {
+                    "columns": ["checkout_series_key"],
+                    "check": True,
+                })
+
+    def test_wrong_same_name_check_predicate_is_rejected(self):
+        migration = self.migration
+        editor = Mock()
+        editor.connection.vendor = "mysql"
+
+        with patch.object(
+            migration,
+            "_physical_check_clause",
+            return_value="checkout_series_key is null or 1 = 1",
+        ), self.assertRaisesRegex(RuntimeError, "normalized predicate"):
+            migration._validate_check(editor, {
+                "columns": list(migration.CHECK_COLUMNS),
                 "check": True,
             })
 
@@ -156,3 +184,24 @@ class CheckoutSeriesMigrationTests(SimpleTestCase):
             )
             for operation in operations[1:-1]
         ))
+
+
+class CheckoutSeriesPhysicalPredicateTests(TestCase):
+    def test_sqlite_named_check_matches_exact_predicate_and_truth_table(self):
+        migration = import_module(
+            "orders.migrations.0058_paymentattempt_checkout_series"
+        )
+        editor = SimpleNamespace(
+            connection=connection,
+            quote_name=connection.ops.quote_name,
+        )
+        with connection.cursor() as cursor:
+            constraints = connection.introspection.get_constraints(
+                cursor,
+                migration.TABLE,
+            )
+
+        migration._validate_check(
+            editor,
+            constraints[migration.CHECK_NAME],
+        )
