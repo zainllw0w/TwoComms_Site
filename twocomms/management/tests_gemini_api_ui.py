@@ -157,7 +157,7 @@ class GeminiV2PanelTemplateContractTests(SimpleTestCase):
             "details.addEventListener('toggle'",
             "other.open=false",
             "Input TPM",
-            "Fallback",
+            "Резерв",
             "In-flight",
             "p50",
             "p95",
@@ -190,7 +190,7 @@ class GeminiV2PanelTemplateContractTests(SimpleTestCase):
         for contract in (
             "Базова черга",
             "Ефективна черга",
-            "Модель переміщено на перше місце зі збереженням усіх fallback-маршрутів.",
+            "Модель переміщено на перше місце зі збереженням усіх резервних маршрутів.",
             "Це не ексклюзивне блокування.",
             "Вторинна ескалація аналізу:",
         ):
@@ -202,6 +202,41 @@ class GeminiV2PanelTemplateContractTests(SimpleTestCase):
         self.assertNotIn("document.createElement('form')", route_renderer)
         self.assertNotIn("fetch(", route_renderer)
         self.assertNotIn("addEventListener", route_renderer)
+
+    def test_primary_operational_copy_is_ukrainian_without_enum_contract_changes(self):
+        for contract in (
+            "const ROUTE_ORDER=['no_model','ordinary_live','complex_live','durable_analysis']",
+            "const ROUTE_PRESENTATION={",
+            "title:'Без моделі'",
+            "title:'Звичайна відповідь наживо'",
+            "title:'Складна відповідь наживо'",
+            "title:'Фоновий довгий аналіз'",
+            "document.createTextNode(route.task_class.toUpperCase())",
+            "node('h4','',presentation.title)",
+            "node('p','gemini-v2-route-definition',presentation.definition)",
+            "provider_success:'успішна відповідь провайдера'",
+            "sent:'надіслано'",
+            "квитанцію провайдера зафіксовано",
+            "shadow:'тіньовий'",
+            "accountingModeLabel(item.accounting_mode)",
+            "mapLabel(RESOLUTION_REASON_LABELS,item.resolution.reason",
+        ):
+            self.assertIn(contract, self.script)
+
+        for leaked_copy in (
+            "node('h4','',route.title)",
+            "node('p','gemini-v2-route-definition',route.definition)",
+            "receipt є",
+            "receipt немає",
+            "codeLabel(item.resolution.reason)",
+            "'Облік '+(item.accounting_mode||'unknown')",
+        ):
+            self.assertNotIn(leaked_copy, self.script)
+
+        self.assertIn(
+            "accountingValue.title='Технічний режим: '+mode",
+            self.script,
+        )
 
     def test_attempt_graph_preserves_winner_late_losers_and_cursor_errors(self):
         for contract in (

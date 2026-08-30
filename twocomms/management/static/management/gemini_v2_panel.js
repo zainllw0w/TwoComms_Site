@@ -21,18 +21,36 @@
     unknown:'Модель невідома',
   };
   const LANE_LABELS={
-    live:'Live-відповідь',analysis:'Довгий аналіз',recovery:'Відновлення',holding:'Утримання',
-    followup:'Follow-up',call:'Виклик',checker:'Перевірка',diagnostic:'Діагностика',
-    metadata_probe:'Metadata-діагностика',unknown:'Лінія невідома',
+    live:'Відповідь наживо',analysis:'Фоновий аналіз',recovery:'Відновлення',holding:'Утримання',
+    followup:'Повторний контакт',call:'Виклик',checker:'Перевірка',diagnostic:'Діагностика',
+    metadata_probe:'Діагностика метаданих',unknown:'Лінія невідома',
   };
   const TASK_LABELS={
-    no_model:'Без моделі',ordinary_live:'Звичайний live',complex_live:'Складний live',
+    no_model:'Без моделі',ordinary_live:'Звичайна відповідь наживо',complex_live:'Складна відповідь наживо',
     durable_analysis:'Довгий аналіз',diagnostic:'Діагностика',unknown:'Клас невідомий',
+  };
+  const ROUTE_PRESENTATION={
+    no_model:{
+      title:'Без моделі',
+      definition:'Відповідь або дія повністю визначена перевіреними даними бекенда; генерація Gemini не потрібна.',
+    },
+    ordinary_live:{
+      title:'Звичайна відповідь наживо',
+      definition:'Факти бекенда повні; Gemini лише формулює коротку відповідь клієнту.',
+    },
+    complex_live:{
+      title:'Складна відповідь наживо',
+      definition:'Неоднозначність або медіа впливають на вибір товару, конфігурацію чи крок воронки.',
+    },
+    durable_analysis:{
+      title:'Фоновий довгий аналіз',
+      definition:'Фоновий CRM-аналіз зберігає структуровані пропозиції й не затримує відповідь клієнту.',
+    },
   };
   const STATUS_LABELS={
     confirmed_recent_success:'Підтверджений недавній успіх',available_assumed:'Доступність лише припускається',
     in_flight:'Запит виконується',rpm_limited:'RPM тимчасово обмежено',tpm_limited:'TPM тимчасово обмежено',
-    rpd_exhausted_until_reset:'RPD вичерпано до reset',provider_degraded:'Провайдер деградував',
+    rpd_exhausted_until_reset:'RPD вичерпано до скидання',provider_degraded:'Провайдер деградував',
     auth_failed:'Помилка авторизації',model_unavailable_for_project:'Модель недоступна для проєкту',
     not_configured:'Проєкт не налаштовано',accounting_unknown:'Облік невідомий',
   };
@@ -46,30 +64,47 @@
   };
   const FAILURE_LABELS={
     blocked:'Заблоковано',empty:'Порожня відповідь',forbidden:'Доступ заборонено',http_408:'HTTP 408',
-    http_5xx:'HTTP 5xx',invalid_key:'Ключ відхилено',invalid_payload:'Некоректний payload',
+    http_5xx:'HTTP 5xx',invalid_key:'Ключ відхилено',invalid_payload:'Некоректні вхідні дані',
     invalid_response:'Некоректна відповідь',lease_busy:'Ресурс зайнятий',malformed_response:'Пошкоджена відповідь',
     model_not_found:'Модель не знайдена',model_overload:'Модель перевантажена',model_unavailable:'Модель недоступна',
     overload:'Перевантаження',permission_denied:'Немає дозволу',provider_error:'Помилка провайдера',
     provider_overload:'Провайдер перевантажений',quarantined:'Проєкт у карантині',quota_429:'Квота 429',
-    read_timeout:'Read timeout',request_error:'Помилка запиту',stale_provider_boundary:'Застаріла межа провайдера',
+    read_timeout:'Таймаут читання',request_error:'Помилка запиту',stale_provider_boundary:'Застаріла межа провайдера',
     transport:'Транспортна помилка',other:'Інша типізована помилка',
   };
   const SKIP_LABELS={
-    circuit_open:'Circuit відкритий',deadline:'Дедлайн вичерпано',duplicate_credential:'Дублікат credential',
-    duplicate_project:'Дублікат проєкту',fatal_payload:'Фатальний payload',lease_busy:'Ресурс зайнятий',
+    circuit_open:'Контур захисту відкритий',deadline:'Дедлайн вичерпано',duplicate_credential:'Дублікат облікових даних',
+    duplicate_project:'Дублікат проєкту',fatal_payload:'Фатальна помилка вхідних даних',lease_busy:'Ресурс зайнятий',
     model_overload:'Модель перевантажена',model_terminal:'Модель зупинила ланцюг',model_unavailable:'Модель недоступна',
     not_available_plan:'Немає доступного плану',policy_stop:'Зупинка політикою',quarantine:'Карантин',
-    quota_cooldown:'Quota cooldown',quota_exhausted:'Квоту вичерпано',sla_model_budget:'Бюджет SLA вичерпано',
+    quota_cooldown:'Період очікування квоти',quota_exhausted:'Квоту вичерпано',sla_model_budget:'Бюджет SLA вичерпано',
     unconfigured:'Не налаштовано',winner_found:'Переможця вже знайдено',
   };
   const RESOLUTION_LABELS={succeeded:'Завершено успішно',failed:'Завершено помилкою',pending:'Ще виконується',other:'Результат невідомий'};
+  const RESOLUTION_REASON_LABELS={
+    deadline:'вичерпано дедлайн',exhausted:'вичерпано кандидатів',fatal_payload:'фатальна помилка вхідних даних',
+    model_terminal:'модель завершила ланцюг',model_unavailable:'модель недоступна',no_candidates:'немає кандидатів',
+    provider_success:'успішна відповідь провайдера',quota_cooldown:'період очікування квоти',
+    quota_exhausted:'квоту вичерпано',sla_model_budget:'вичерпано бюджет SLA',winner_found:'переможця зафіксовано',
+  };
   const REPLY_LABELS={
     persisted:'Відповідь збережена',not_linked:'Відповідь не прив’язана',missing:'Пов’язаний запис не знайдено',
     link_conflict:'Конфлікт зв’язку відповіді',
   };
+  const SEND_STATE_LABELS={
+    sent:'надіслано',sending:'надсилається',failed:'не надіслано',cancelled:'скасовано',
+    duplicate:'дубль не надсилався',unknown:'результат доставки невідомий','':'стан доставки відсутній',
+  };
+  const MESSAGE_STATUS_LABELS={
+    done:'запис завершено',failed:'запис із помилкою',pending:'запис очікує',processing:'запис обробляється',
+    unknown:'стан запису невідомий','':'стан запису відсутній',
+  };
+  const ACCOUNTING_MODE_LABELS={
+    off:'вимкнений',shadow:'тіньовий',enforced:'примусовий',emergency:'аварійний',invalid:'невідомий',unknown:'невідомий',
+  };
   const PROBE_STATUS_LABELS={
-    ok:'Metadata доступна',metadata_ok:'Metadata доступна',invalid_key:'Ключ відхилено',permission_denied:'Немає дозволу',
-    model_not_found:'Модель не знайдена',quota_429:'Provider повернув 429',read_timeout:'Таймаут',
+    ok:'Метадані доступні',metadata_ok:'Метадані доступні',invalid_key:'Ключ відхилено',permission_denied:'Немає дозволу',
+    model_not_found:'Модель не знайдена',quota_429:'Провайдер повернув 429',read_timeout:'Таймаут',
     transport:'Транспортна помилка',provider_error:'Помилка провайдера',invalid_response:'Некоректна відповідь',
   };
 
@@ -191,7 +226,7 @@
   function laneLabel(value){return LANE_LABELS[value]||LANE_LABELS.unknown;}
   function taskLabel(value){return TASK_LABELS[value]||TASK_LABELS.unknown;}
   function mapLabel(map,value,fallback){return Object.prototype.hasOwnProperty.call(map,value)?map[value]:fallback;}
-  function codeLabel(value){return String(value||'').replaceAll('_',' ');}
+  function accountingModeLabel(value){return ACCOUNTING_MODE_LABELS[value]||ACCOUNTING_MODE_LABELS.unknown;}
 
   function statusTone(status){
     if(status==='confirmed_recent_success'||status==='in_flight')return 'is-live';
@@ -252,8 +287,9 @@
     const data=isObject(accounting)?accounting:{};
     const mode=String(data.mode||'unknown');
     const active=Boolean(data.runtime_active);
-    const labels={off:'вимкнений',shadow:'shadow',enforced:'enforced',emergency:'emergency',invalid:'невідомо',unknown:'невідомо'};
-    accountingValue.textContent=(labels[mode]||'невідомо')+(active?' · активний':' · неактивний');
+    accountingValue.textContent=accountingModeLabel(mode)+(active?' · активний':' · неактивний');
+    if(Object.prototype.hasOwnProperty.call(ACCOUNTING_MODE_LABELS,mode))accountingValue.title='Технічний режим: '+mode;
+    else accountingValue.removeAttribute('title');
     if(!active||!['shadow','enforced','emergency'].includes(mode)){
       setNotice('is-neutral','Облік вимкнений або невідомий.','Показані значення є локальними чи невідомими; «—» не означає нульове використання.');
     }else{
@@ -308,21 +344,21 @@
   }
   function dimensionsText(dimensions){
     if(!isObject(dimensions)||!Object.keys(dimensions).length)return '';
-    const labels={location:'location',model:'model',region:'region',tier:'tier'};
+    const labels={location:'локація',model:'модель',region:'регіон',tier:'рівень'};
     return Object.entries(dimensions).filter(([key])=>Object.prototype.hasOwnProperty.call(labels,key)).map(([key,value])=>labels[key]+' '+String(value)).join(' · ');
   }
   function blocksText(project,pacificReset){
     const complete=project.rpm.complete&&project.input_tpm.complete&&project.rpd.complete;
-    if(!complete)return ['Provider-блок невідомий.'];
-    if(!project.provider_blocks.length)return ['Активного типізованого provider-блоку немає.','Pacific reset: '+formatDate(pacificReset)];
+    if(!complete)return ['Блокування провайдера невідоме.'];
+    if(!project.provider_blocks.length)return ['Активного типізованого блокування провайдера немає.','Скидання за тихоокеанським часом: '+formatDate(pacificReset)];
     return project.provider_blocks.map(block=>{
       const metric=String(block.metric||'unknown').toUpperCase();
       const quota=block.quota_id?' · '+String(block.quota_id):'';
       const dimensions=dimensionsText(block.dimensions);
-      const retry=block.retry_after_seconds?' · retry '+formatSeconds(block.retry_after_seconds):'';
+      const retry=block.retry_after_seconds?' · повтор через '+formatSeconds(block.retry_after_seconds):'';
       const until=block.until?' · до '+formatDate(block.until):'';
       return metric+quota+(dimensions?' · '+dimensions:'')+retry+until;
-    }).concat('Pacific reset: '+formatDate(pacificReset));
+    }).concat('Скидання за тихоокеанським часом: '+formatDate(pacificReset));
   }
 
   function projectRow(project,index,pacificReset){
@@ -341,7 +377,7 @@
     metrics.append(projectMetric('RPM',project.rpm),projectMetric('Input TPM',project.input_tpm),projectMetric('RPD',project.rpd));
     const flightKnown=typeof project.in_flight==='number'&&Number.isFinite(project.in_flight);
     const flight=node('div','gemini-v2-project-metric');
-    flight.append(node('dt','','In-flight'),node('dd',flightKnown?'':'is-unknown',flightKnown?formatNumber(project.in_flight):'—'),node('small','',flightKnown?'поточні локальні permit':'Облік невідомий'));
+    flight.append(node('dt','','In-flight'),node('dd',flightKnown?'':'is-unknown',flightKnown?formatNumber(project.in_flight):'—'),node('small','',flightKnown?'поточні локальні дозволи':'Облік невідомий'));
     metrics.append(flight);
     article.append(metrics);
 
@@ -355,9 +391,9 @@
     const latency=(project.latency_ms&&isNumberOrNull(project.latency_ms.p50)&&isNumberOrNull(project.latency_ms.p95))
       ?'p50 '+formatDuration(project.latency_ms.p50)+' · p95 '+formatDuration(project.latency_ms.p95)
       :'Латентність невідома';
-    usage.append(node('p','',latency+' · fallback-перемог '+formatNumber(project.fallback_wins)));
+    usage.append(node('p','',latency+' · резервних перемог '+formatNumber(project.fallback_wins)));
     const blocks=node('section');
-    blocks.append(node('h5','','Provider-блок / reset'));
+    blocks.append(node('h5','','Блокування провайдера / скидання'));
     blocksText(project,pacificReset).forEach(copy=>blocks.append(node('p','',copy)));
     if(project.external_usage_suspected)blocks.append(node('p','gemini-v2-warning-copy','Є ознака зовнішнього використання. Це попередження, а не доведена причина.'));
     details.append(evidence,usage,blocks);
@@ -386,10 +422,10 @@
       railMetric('RPM',rpm.value,rpm.detail,rpm.unknown),
       railMetric('Input TPM',tpm.value,tpm.detail,tpm.unknown),
       railMetric('RPD',rpd.value,rpd.detail,rpd.unknown),
-      scalarMetric('In-flight',model.in_flight,'активні permit'),
+      scalarMetric('In-flight',model.in_flight,'активні дозволи'),
       latencyMetric('p50',model.latency_ms.p50),
       latencyMetric('p95',model.latency_ms.p95),
-      railMetric('Fallback',typeof model.fallbacks_from==='number'&&typeof model.fallbacks_to==='number'?formatNumber(model.fallbacks_from)+' / '+formatNumber(model.fallbacks_to):'—',typeof model.fallbacks_from==='number'?'вихід / перемога':'Облік невідомий',typeof model.fallbacks_from!=='number')
+      railMetric('Резерв',typeof model.fallbacks_from==='number'&&typeof model.fallbacks_to==='number'?formatNumber(model.fallbacks_from)+' / '+formatNumber(model.fallbacks_to):'—',typeof model.fallbacks_from==='number'?'перехід / перемога':'Облік невідомий',typeof model.fallbacks_from!=='number')
     );
     summary.append(identity,metrics,node('span','gemini-v2-chevron','⌄'));
     const body=node('div','gemini-v2-model-body');
@@ -420,9 +456,10 @@
   function routeRow(route,index){
     const article=node('article','gemini-v2-route'+(route.task_class==='durable_analysis'?' is-secondary':''));
     const summary=node('div');
+    const presentation=ROUTE_PRESENTATION[route.task_class];
     const classLine=node('div','gemini-v2-route-class');
     classLine.append(node('span','',String(index+1).padStart(2,'0')),document.createTextNode(route.task_class.toUpperCase()));
-    summary.append(classLine,node('h4','',route.title),node('p','gemini-v2-route-definition',route.definition));
+    summary.append(classLine,node('h4','',presentation.title),node('p','gemini-v2-route-definition',presentation.definition));
     const facts=node('div','gemini-v2-route-facts');
     facts.append(node('span','',laneLabel(route.lane)),node('span','',route.deadline_ms?'дедлайн '+formatDuration(route.deadline_ms):'без model-дедлайну'));
     summary.append(facts);
@@ -442,16 +479,16 @@
     const pin=node('div','gemini-v2-pin'+(data.emergency_pin.active?' is-active':''));
     const pinCopy=node('div');
     if(data.emergency_pin.active){
-      pinCopy.append(node('strong','','Emergency pin активний · '+modelLabel(data.emergency_pin.model)),node('p','','Модель переміщено на перше місце зі збереженням усіх fallback-маршрутів. Це не ексклюзивне блокування.'));
+      pinCopy.append(node('strong','','Аварійне закріплення активне · '+modelLabel(data.emergency_pin.model)),node('p','','Модель переміщено на перше місце зі збереженням усіх резервних маршрутів. Це не ексклюзивне блокування.'));
     }else{
-      pinCopy.append(node('strong','','Emergency pin неактивний'),node('p','','Ефективні черги відповідають базовій політиці; fallback-маршрути збережені.'));
+      pinCopy.append(node('strong','','Аварійне закріплення неактивне'),node('p','','Ефективні черги відповідають базовій політиці; резервні маршрути збережені.'));
     }
     const pinTime=node('time','',data.emergency_pin.active?'до '+formatDate(data.emergency_pin.expires_at):'без строку');
     if(data.emergency_pin.expires_at)pinTime.setAttribute('datetime',String(data.emergency_pin.expires_at));
     pin.append(node('span','gemini-v2-pin-index','PIN'),pinCopy,pinTime);
     fragment.append(pin);
     const authority=node('div','gemini-v2-request-context');
-    authority.append(node('span','','Policy '+(data.policy_version||'—')),node('span','','Authority '+(data.authority_snapshot_version||'—')),node('span','','Діє від '+formatDate(data.accounting.effective_from)));
+    authority.append(node('span','','Політика '+(data.policy_version||'—')),node('span','','Версія правил '+(data.authority_snapshot_version||'—')),node('span','','Діє від '+formatDate(data.accounting.effective_from)));
     fragment.append(authority);
     const ledger=node('div','gemini-v2-route-ledger');
     data.routes.forEach((route,index)=>ledger.append(routeRow(route,index)));
@@ -461,20 +498,21 @@
 
   function replyText(reply){
     const stateLabel=REPLY_LABELS[reply.state]||'Стан відповіді невідомий';
-    const receipt=reply.provider_receipt_present?'receipt є':'receipt немає';
+    const receipt=reply.provider_receipt_present?'квитанцію провайдера зафіксовано':'квитанції провайдера немає';
     if(reply.state!=='persisted')return stateLabel+' · '+receipt;
-    const delivery=String(reply.send_state||'unknown');
-    const chunks=Number(reply.planned_chunks||0)?' · '+formatNumber(reply.delivered_chunks)+'/'+formatNumber(reply.planned_chunks)+' част.':'';
-    return stateLabel+' · '+delivery+' · '+receipt+chunks;
+    const delivery=mapLabel(SEND_STATE_LABELS,String(reply.send_state||'unknown'),SEND_STATE_LABELS.unknown);
+    const messageStatus=mapLabel(MESSAGE_STATUS_LABELS,String(reply.message_status||'unknown'),MESSAGE_STATUS_LABELS.unknown);
+    const chunks=Number(reply.planned_chunks||0)?' · доставлено частин '+formatNumber(reply.delivered_chunks)+'/'+formatNumber(reply.planned_chunks):'';
+    return stateLabel+' · '+messageStatus+' · '+delivery+' · '+receipt+chunks;
   }
   function quotaBlockText(block){
     if(!isObject(block))return '';
     const metric=String(block.metric||'unknown').toUpperCase();
     const quota=block.quota_id?' · '+String(block.quota_id):'';
     const dimensions=dimensionsText(block.dimensions);
-    const retry=block.retry_after_seconds?' · retry '+formatSeconds(block.retry_after_seconds):'';
+    const retry=block.retry_after_seconds?' · повтор через '+formatSeconds(block.retry_after_seconds):'';
     const until=block.until?' · до '+formatDate(block.until):'';
-    return 'Quota block '+metric+quota+(dimensions?' · '+dimensions:'')+retry+until;
+    return 'Блокування квоти '+metric+quota+(dimensions?' · '+dimensions:'')+retry+until;
   }
   function outcomeRow(outcome){
     let classes='gemini-v2-outcome';
@@ -506,7 +544,7 @@
     item.append(head);
     const outcomes=node('div','gemini-v2-outcomes');
     if(candidate.outcomes.length)candidate.outcomes.forEach(outcome=>outcomes.append(outcomeRow(outcome)));
-    else outcomes.append(node('div','gemini-v2-outcome',execution==='not_recorded'?'Подію спроби не зафіксовано.':'Provider-виклику не було.'));
+    else outcomes.append(node('div','gemini-v2-outcome',execution==='not_recorded'?'Подію спроби не зафіксовано.':'Виклику провайдера не було.'));
     item.append(outcomes);
     return item;
   }
@@ -519,7 +557,7 @@
     const details=node('details','gemini-v2-attempt');
     const summary=node('summary');
     const request=node('span');
-    request.append(node('span','gemini-v2-request-ref',item.request_ref||'Непрозорий ref відсутній'),node('time','gemini-v2-request-time',formatDate(item.created_at)));
+    request.append(node('span','gemini-v2-request-ref',item.request_ref||'Непрозоре посилання відсутнє'),node('time','gemini-v2-request-time',formatDate(item.created_at)));
     if(item.created_at)request.lastElementChild.setAttribute('datetime',String(item.created_at));
     const resolution=String(item.resolution.state||'pending');
     const winner=item.winner?modelLabel(item.winner.model)+' · '+projectLabel(item.winner.slot_id):'Переможця немає';
@@ -535,9 +573,9 @@
     const context=node('div','gemini-v2-request-context');
     context.append(
       node('span','','Політика '+(item.policy_version||'—')),
-      node('span','','Облік '+(item.accounting_mode||'unknown')),
+      node('span','','Облік '+accountingModeLabel(item.accounting_mode)),
       node('span','','Дедлайн '+formatDuration(item.deadline_ms)),
-      node('span','','Причина '+(item.resolution.reason?codeLabel(item.resolution.reason):'—'))
+      node('span','','Причина '+(item.resolution.reason?mapLabel(RESOLUTION_REASON_LABELS,item.resolution.reason,'типізовану причину не визначено'):'—'))
     );
     body.append(context);
     const candidates=node('ol','gemini-v2-candidates');
@@ -592,7 +630,7 @@
     state.controllers[viewName]=null;
   }
   function abortInactive(){VIEW_ORDER.forEach(name=>{if(name!==state.active)abortView(name);});}
-  function invalidSchemaMessage(){return 'Схема endpoint не підтримується цією версією панелі. Оновлення зупинено без припущень про дані.';}
+  function invalidSchemaMessage(){return 'Схема локальної адреси не підтримується цією версією панелі. Оновлення зупинено без припущень про дані.';}
 
   async function loadView(viewName,{passive=false,force=false,append=false}={}){
     if(!VIEW_ORDER.includes(viewName)||document.hidden||!isOuterActive())return false;
@@ -601,7 +639,7 @@
     const now=Date.now();
     if(passive&&now-state.lastRequestAt[viewName]<refreshInterval-1000)return false;
     const endpoint=endpointFor(viewName,append);
-    if(!endpoint){showFatal(viewName,'Endpoint недоступний','URL локального V2 endpoint не пройшов same-origin перевірку.');setStatus('Локальний endpoint недоступний.','is-error');return false;}
+    if(!endpoint){showFatal(viewName,'Локальна адреса недоступна','Адреса V2 не пройшла перевірку спільного походження.');setStatus('Локальна адреса V2 недоступна.','is-error');return false;}
     abortView(viewName);
     const controller=new AbortController();
     state.controllers[viewName]=controller;
@@ -649,8 +687,8 @@
         setNotice('is-warning','Новий зріз недоступний.','Показано останні валідні локальні дані; вони позначені як застарілі.');
         setStatus('Новий зріз недоступний · останні валідні дані залишено на екрані.','is-stale');
       }else{
-        showFatal(viewName,'Локальні дані недоступні','Спробуйте оновити активний розділ пізніше. Жодних provider-запитів панель не виконує.');
-        setNotice('is-danger','Локальний endpoint не відповів.','Дані не замінено нульовими або припущеними значеннями.');
+        showFatal(viewName,'Локальні дані недоступні','Спробуйте оновити активний розділ пізніше. Панель не виконує жодних запитів до провайдера.');
+        setNotice('is-danger','Локальна адреса не відповіла.','Дані не замінено нульовими або припущеними значеннями.');
         setStatus('Не вдалося завантажити локальний зріз.','is-error');
       }
       return false;
@@ -726,7 +764,7 @@
       setStatus(success?'Capability/auth підтверджено. Це не доказ залишку генераційної квоти.':'Capability/auth не підтверджено. Генераційний баланс залишається невідомим.',success?'is-success':'is-error');
     }catch(error){
       if(error&&error.name==='AbortError')return;
-      const labels={key_unconfigured:'Проєкт не налаштовано.',key_cooldown:'Проєкт на cooldown.',key_busy:'Проєкт зайнятий.',probe_in_progress:'Перевірка вже виконується.',probe_rate_limited:'Ручну перевірку тимчасово обмежено.'};
+      const labels={key_unconfigured:'Проєкт не налаштовано.',key_cooldown:'Проєкт у періоді очікування.',key_busy:'Проєкт зайнятий.',probe_in_progress:'Перевірка вже виконується.',probe_rate_limited:'Ручну перевірку тимчасово обмежено.'};
       probeResult.textContent=labels[error.message]||'Ручну capability/auth діагностику не завершено.';
       probeResult.className='gemini-v2-diagnostic-result is-error';
       setStatus(probeResult.textContent,'is-error');
