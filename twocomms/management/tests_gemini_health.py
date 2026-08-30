@@ -55,6 +55,9 @@ class GeminiHealthSnapshotTests(TestCase):
             provider_reason=kwargs.get("provider_reason", ""),
             decision=kwargs.get("decision", ""),
             latency_ms=kwargs.get("latency_ms", 0),
+            candidate_index=kwargs.get("candidate_index", 0),
+            winner_claimed=kwargs.get("winner_claimed", False),
+            reply_message_id=kwargs.get("reply_message_id"),
         )
         # Historical fixture setup intentionally bypasses the public immutable
         # V2 manager; production writers may not rewrite attempt identity time.
@@ -615,6 +618,155 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(row["active_model"], "gemini-3.6-flash")
         self.assertTrue(row["generation_quota_proven"])
 
+    def test_ordinary_chain_lite_failure_then_flash_winner_is_degraded(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="ordinary-model-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=1,
+            at=at,
+        )
+        self._attempt(
+            request_id="ordinary-model-fallback",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=7,
+            winner_claimed=True,
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        winner_row = self._build()["keys"][1]
+
+        self.assertEqual(winner_row["live_state"], "DEGRADED")
+        self.assertEqual(winner_row["active_model"], "gemini-3.5-flash")
+
+    def test_complex_chain_37_failure_then_lite_winner_is_degraded(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="complex-model-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=1,
+            at=at,
+        )
+        self._attempt(
+            request_id="complex-model-fallback",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=19,
+            winner_claimed=True,
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        winner_row = self._build()["keys"][1]
+
+        self.assertEqual(winner_row["live_state"], "DEGRADED")
+        self.assertEqual(winner_row["active_model"], "gemini-3.5-flash-lite")
+
+    def test_analysis_chain_36_failure_then_35_winner_is_degraded(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="analysis-model-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            outcome="failed",
+            failure_kind="quota_429",
+            role="analysis",
+            candidate_index=1,
+            at=at,
+        )
+        self._attempt(
+            request_id="analysis-model-fallback",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash",
+            outcome="succeeded",
+            role="analysis",
+            candidate_index=7,
+            winner_claimed=True,
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        winner_row = self._build()["keys"][1]
+
+        self.assertEqual(winner_row["live_state"], "DEGRADED")
+        self.assertEqual(winner_row["active_model"], "gemini-3.5-flash")
+
+    def test_same_model_project_rotation_keeps_winner_live(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="same-model-rotation",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed",
+            failure_kind="quota_429",
+            role="chat",
+            candidate_index=1,
+            at=at,
+        )
+        self._attempt(
+            request_id="same-model-rotation",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=2,
+            winner_claimed=True,
+            at=at + datetime.timedelta(seconds=1),
+        )
+
+        winner_row = self._build()["keys"][1]
+
+        self.assertEqual(winner_row["live_state"], "LIVE")
+        self.assertEqual(winner_row["active_model"], "gemini-3.5-flash-lite")
+
+    def test_claimed_winner_beats_a_later_successful_loser(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="hedged-winner",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=1,
+            at=at,
+        )
+        self._attempt(
+            request_id="hedged-winner",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=7,
+            winner_claimed=True,
+            at=at + datetime.timedelta(seconds=1),
+        )
+        self._attempt(
+            request_id="hedged-winner",
+            key_name="GEMINI_API2",
+            model="gemini-3.6-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=13,
+            at=at + datetime.timedelta(seconds=2),
+        )
+
+        winner_row = self._build()["keys"][1]
+
+        self.assertEqual(winner_row["live_state"], "DEGRADED")
+        self.assertEqual(winner_row["active_model"], "gemini-3.5-flash")
+
     def test_metadata_primary_failure_without_observed_fallback_is_stale(self):
         self._attempt(
             request_id="metadata-partial-deadline",
@@ -669,6 +821,35 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(row["models"]["gemini-3.7-flash"]["observations"], 0)
         self.assertEqual(row["metadata_models"]["gemini-3.7-flash"]["observations"], 1)
         self.assertFalse(row["generation_quota_proven"])
+
+    def test_fresh_metadata_does_not_mask_stale_generation_state(self):
+        self._attempt(
+            request_id="old-generation",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            role="chat",
+            at=self.now - datetime.timedelta(hours=3),
+        )
+        self._attempt(
+            request_id="fresh-metadata",
+            key_name="GEMINI_API",
+            model="gemini-3.7-flash",
+            outcome="succeeded",
+            role="health_metadata",
+            at=self.now - datetime.timedelta(minutes=4),
+        )
+
+        row = self._build()["keys"][0]
+
+        self.assertEqual(row["live_state"], "STALE")
+        self.assertEqual(row["source"], "generation")
+        self.assertEqual(row["freshness"], "stale")
+        self.assertFalse(row["generation_quota_proven"])
+        self.assertEqual(
+            row["metadata_models"]["gemini-3.7-flash"]["successes"],
+            1,
+        )
 
     def test_legacy_health_probe_is_capability_only_and_lite_generation_is_visible(self):
         self._attempt(
@@ -741,17 +922,16 @@ class GeminiHealthSnapshotTests(TestCase):
             ("GEMINI_API3", "gemini-3.5-flash-lite", "succeeded", "", 3),
         )
         for offset, (key, model, outcome, failure, candidate_index) in enumerate(rows):
-            row = self._attempt(
+            self._attempt(
                 request_id="cross-key-chain",
                 key_name=key,
                 model=model,
                 outcome=outcome,
                 failure_kind=failure,
                 role="chat",
+                candidate_index=candidate_index,
                 at=at + datetime.timedelta(seconds=offset),
             )
-            row.candidate_index = candidate_index
-            row.save(update_fields=["candidate_index"])
 
         snapshot = self._build()
 

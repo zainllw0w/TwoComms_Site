@@ -100,6 +100,52 @@ def _attempt_sort_key(row: dict[str, Any]) -> tuple[dt.datetime, int]:
     return (_as_utc(row["created_at"]), int(row.get("id") or 0))
 
 
+def _candidate_sort_key(row: dict[str, Any]) -> tuple[int, dt.datetime, int]:
+    candidate_index = int(row.get("candidate_index") or 0)
+    return (
+        candidate_index if candidate_index > 0 else 65535,
+        *_attempt_sort_key(row),
+    )
+
+
+def _actual_winner(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return the persisted winner, with a conservative legacy fallback."""
+    successes = [
+        row
+        for row in rows
+        if _attempt_succeeded(row) and not _attempt_not_needed(row)
+    ]
+    if not successes:
+        return None
+    claimed = [row for row in successes if bool(row.get("winner_claimed"))]
+    if claimed:
+        return max(claimed, key=_attempt_sort_key)
+    delivered = [row for row in successes if row.get("reply_message_id")]
+    if delivered:
+        return max(delivered, key=_attempt_sort_key)
+    # Legacy attempts predate the atomic winner marker.  Preserve their former
+    # latest-success semantics instead of inventing a winner from plan order.
+    return max(successes, key=_attempt_sort_key)
+
+
+def _winner_used_fallback(
+    request_rows: list[dict[str, Any]],
+    winner: dict[str, Any],
+) -> bool:
+    """Whether the actual winner moved past the request's first model tier."""
+    ordered = sorted(request_rows, key=_candidate_sort_key)
+    primary = next(
+        (
+            str(row.get("model") or "")
+            for row in ordered
+            if str(row.get("model") or "") in DISPLAY_MODELS
+        ),
+        "",
+    )
+    winner_model = str(winner.get("model") or "")
+    return bool(primary and winner_model and winner_model != primary)
+
+
 def _status_for_attempts(
     rows: list[dict[str, Any]],
     *,
@@ -408,24 +454,31 @@ def _fresh(rows: list[dict[str, Any]], generated_at: dt.datetime) -> bool:
 
 
 def _runtime_live_state(
-    rows: list[dict[str, Any]], generated_at: dt.datetime,
+    rows: list[dict[str, Any]],
+    generated_at: dt.datetime,
+    *,
+    request_rows: list[dict[str, Any]] | None = None,
 ) -> tuple[str, str | None] | None:
     """Classify fresh real generation evidence without metadata inference."""
-    request_rows = [row for row in _latest_request_rows(rows) if not _attempt_not_needed(row)]
-    if not _fresh(request_rows, generated_at):
+    local_request_rows = [
+        row for row in _latest_request_rows(rows) if not _attempt_not_needed(row)
+    ]
+    if not _fresh(local_request_rows, generated_at):
         return None
-    latest = request_rows[-1]
+    latest = local_request_rows[-1]
     if _attempt_succeeded(latest):
         model = str(latest.get("model") or "")
-        if model == DISPLAY_MODELS[1]:
-            primary_failed = any(
-                row.get("model") == DISPLAY_MODELS[0]
-                and not _attempt_succeeded(row)
-                and not _attempt_not_needed(row)
-                for row in request_rows[:-1]
+        route_rows = request_rows or local_request_rows
+        winner = _actual_winner(route_rows)
+        if (
+            winner is not None
+            and str(winner.get("key_name") or "") == str(latest.get("key_name") or "")
+        ):
+            winner_model = str(winner.get("model") or model)
+            return (
+                "DEGRADED" if _winner_used_fallback(route_rows, winner) else "LIVE",
+                winner_model if winner_model in GENERATION_MODELS else None,
             )
-            if primary_failed:
-                return "DEGRADED", model
         return "LIVE", model if model in GENERATION_MODELS else None
     return "OFFLINE", None
 
@@ -541,6 +594,8 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         "latency_ms",
         "not_attempted_reason",
         "candidate_index",
+        "winner_claimed",
+        "reply_message_id",
         "created_at",
     )
     runtime_rows = list(
@@ -562,6 +617,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
     runtime_attempts = [
         row for row in attempt_rows if row.get("role") not in METADATA_ROLES
     ]
+    runtime_by_request = _group_global_request(runtime_attempts)
     metadata_attempts = [
         row for row in attempt_rows if row.get("role") in METADATA_ROLES
     ]
@@ -573,7 +629,14 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         metadata_rows = [row for row in row_attempts if row.get("role") in METADATA_ROLES]
         runtime_rows = [row for row in row_attempts if row.get("role") not in METADATA_ROLES]
         latest_metadata = max(metadata_rows, key=_attempt_sort_key, default=None)
-        latest_runtime = max(runtime_rows, key=_attempt_sort_key, default=None)
+        meaningful_runtime_rows = [
+            row for row in runtime_rows if not _attempt_not_needed(row)
+        ]
+        latest_runtime = max(
+            meaningful_runtime_rows,
+            key=_attempt_sort_key,
+            default=None,
+        )
         latest_evidence = max(
             [row for row in (latest_metadata, latest_runtime) if row is not None],
             key=_attempt_sort_key,
@@ -583,12 +646,25 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         if not pool_row.get("present"):
             live_state, active_model = "NOT_CONFIGURED", None
         else:
-            classified = _runtime_live_state(runtime_rows, generated_at)
-            evidence_source = "generation" if classified else ""
-            if classified is None:
+            classified = None
+            if meaningful_runtime_rows:
+                latest_request_id = str(
+                    latest_runtime.get("request_id") if latest_runtime else ""
+                ).strip()
+                classified = _runtime_live_state(
+                    meaningful_runtime_rows,
+                    generated_at,
+                    request_rows=runtime_by_request.get(latest_request_id),
+                )
+                # Once real generation evidence exists, a newer metadata GET
+                # may describe capability but must not replace generation
+                # freshness or failure truth.
+                evidence_source = "generation"
+                live_state, active_model = classified or ("STALE", None)
+            else:
                 classified = _metadata_live_state(metadata_rows, generated_at)
                 evidence_source = "manual_metadata" if classified else "none"
-            live_state, active_model = classified or ("STALE", None)
+                live_state, active_model = classified or ("STALE", None)
         if not pool_row.get("present"):
             evidence_source = "none"
         keys.append({
@@ -612,7 +688,11 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             "checked_at": _iso(latest_evidence["created_at"]) if latest_evidence else None,
             "last_check_at": _iso(latest_metadata["created_at"]) if latest_metadata else None,
             "last_generation_at": _iso(latest_runtime["created_at"]) if latest_runtime else None,
-            "freshness": "fresh" if evidence_source != "none" else "stale",
+            "freshness": (
+                "fresh"
+                if evidence_source != "none" and live_state != "STALE"
+                else "stale"
+            ),
             "generation_quota_proven": (
                 evidence_source == "generation"
                 and live_state in {"LIVE", "DEGRADED"}
