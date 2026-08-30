@@ -4188,6 +4188,220 @@ class GeminiModelQuotaUsage(models.Model):
         return f"GeminiModelQuotaUsage({self.key_name}/{self.model}@{self.day_date})"
 
 
+class GeminiQuotaProfile(models.Model):
+    """Immutable observed quota contract for one Gemini model version.
+
+    Runtime activation is deliberately outside this additive schema slice.
+    Profiles contain only non-secret model limits and provenance labels; they
+    never contain a credential, Google project id, provider body or prompt.
+    """
+
+    class Source(models.TextChoices):
+        OWNER_OBSERVED = "owner_observed", _("Підтверджено власником")
+        PROVIDER_DOCS = "provider_docs", _("Документація провайдера")
+        PROVIDER_ERROR = "provider_error", _("Структурована помилка провайдера")
+        ADMIN = "admin", _("Версія адміністратора")
+
+    profile_version = models.CharField(max_length=40)
+    model = models.CharField(max_length=80)
+    rpm_limit = models.PositiveIntegerField()
+    input_tpm_limit = models.PositiveBigIntegerField()
+    rpd_limit = models.PositiveIntegerField()
+    permit_limit = models.PositiveSmallIntegerField()
+    estimator_version = models.CharField(max_length=32)
+    source = models.CharField(max_length=24, choices=Source.choices)
+    source_reference = models.CharField(max_length=120, blank=True, default="")
+    observed_at = models.DateTimeField()
+    effective_from = models.DateTimeField()
+    effective_until = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("Профіль квоти Gemini")
+        verbose_name_plural = _("Профілі квот Gemini")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["profile_version", "model"],
+                name="gem_qprof_version_model_uniq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(rpm_limit__gt=0),
+                name="gem_qprof_rpm_gt_zero",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(input_tpm_limit__gt=0),
+                name="gem_qprof_tpm_gt_zero",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(rpd_limit__gt=0),
+                name="gem_qprof_rpd_gt_zero",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(permit_limit__gt=0),
+                name="gem_qprof_permit_gt_zero",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["model", "effective_from"],
+                name="gem_qprof_model_effective",
+            ),
+        ]
+
+    def __str__(self):
+        return f"GeminiQuotaProfile({self.profile_version}/{self.model})"
+
+
+class GeminiQuotaState(models.Model):
+    """Future V2 coordination row keyed by stable project identity and model.
+
+    The table is intentionally dormant until a later shadow-runtime release.
+    Missing rows therefore mean "no V2 traffic observed", not an implicit
+    provider-health assertion.
+    """
+
+    class AccountingStatus(models.TextChoices):
+        UNKNOWN = "unknown", _("Невідомо")
+        AVAILABLE = "available", _("Доступно за локальним станом")
+        BLOCKED = "blocked", _("Заблоковано провайдером")
+        DEGRADED = "degraded", _("Облік деградував")
+
+    project_identity = models.CharField(max_length=80)
+    model = models.CharField(max_length=80)
+    quota_profile = models.ForeignKey(
+        GeminiQuotaProfile,
+        on_delete=models.PROTECT,
+        related_name="quota_states",
+    )
+    pacific_day = models.DateField(null=True, blank=True)
+    rpd_reserved = models.PositiveIntegerField(default=0)
+    rpd_dispatched = models.PositiveIntegerField(default=0)
+    rpd_uncertain = models.PositiveIntegerField(default=0)
+    in_flight_count = models.PositiveSmallIntegerField(default=0)
+    next_permit_expiry_at = models.DateTimeField(null=True, blank=True)
+    # Metric -> bounded structured block. Runtime code must never place a raw
+    # provider response in this field.
+    provider_blocks = models.JSONField(default=dict, blank=True)
+    external_usage_suspected = models.BooleanField(default=False)
+    accounting_status = models.CharField(
+        max_length=12,
+        choices=AccountingStatus.choices,
+        default=AccountingStatus.UNKNOWN,
+    )
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+    last_failure_kind = models.CharField(max_length=32, blank=True, default="")
+    last_http_code = models.PositiveSmallIntegerField(null=True, blank=True)
+    last_latency_ms = models.PositiveIntegerField(default=0)
+    latency_ewma_ms = models.PositiveIntegerField(default=0)
+    revision = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Стан квоти Gemini V2")
+        verbose_name_plural = _("Стани квот Gemini V2")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project_identity", "model"],
+                name="gem_qstate_project_model_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["accounting_status", "updated_at"],
+                name="gem_qstate_status_updated",
+            ),
+            models.Index(
+                fields=["next_permit_expiry_at"],
+                name="gem_qstate_permit_expiry",
+            ),
+        ]
+
+    def __str__(self):
+        return f"GeminiQuotaState({self.project_identity}/{self.model})"
+
+
+class GeminiRequest(models.Model):
+    """Sanitized parent graph for one logical Gemini request.
+
+    Candidate plans contain only safe project identities and model names. The
+    schema has no field for credentials, prompts, customer text or raw provider
+    bodies. Runtime writes remain disabled until the separate shadow slice.
+    """
+
+    class AccountingMode(models.TextChoices):
+        OFF = "off", _("Вимкнено")
+        SHADOW = "shadow", _("Тіньовий облік")
+        ENFORCED = "enforced", _("Обов'язковий облік")
+        EMERGENCY = "emergency", _("Аварійний Lite")
+
+    request_id = models.CharField(max_length=40, unique=True)
+    parent_request = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="child_requests",
+    )
+    lane = models.CharField(max_length=16, blank=True, default="")
+    task_class = models.CharField(max_length=24, blank=True, default="")
+    reasoning_task = models.CharField(max_length=40, blank=True, default="")
+    logical_turn_id = models.CharField(max_length=64, blank=True, default="")
+    source_message_id = models.PositiveBigIntegerField(null=True, blank=True)
+    client_id = models.PositiveBigIntegerField(null=True, blank=True)
+    recovery_job_id = models.PositiveBigIntegerField(null=True, blank=True)
+    reply_message_id = models.PositiveBigIntegerField(null=True, blank=True)
+    routing_policy_version = models.CharField(max_length=32, blank=True, default="")
+    accounting_policy_version = models.CharField(max_length=32, blank=True, default="")
+    quota_profile_version = models.CharField(max_length=40, blank=True, default="")
+    authority_snapshot_version = models.CharField(max_length=32, blank=True, default="")
+    routing_mode = models.CharField(max_length=12, blank=True, default="")
+    commercial_risk = models.CharField(max_length=16, blank=True, default="")
+    requires_media_reasoning = models.BooleanField(default=False)
+    candidate_plan = models.JSONField(default=list, blank=True)
+    candidate_plan_digest = models.CharField(max_length=64, blank=True, default="")
+    candidate_outcomes = models.JSONField(default=dict, blank=True)
+    deadline_ms = models.PositiveIntegerField(default=0)
+    deadline_at = models.DateTimeField(null=True, blank=True)
+    accounting_mode = models.CharField(
+        max_length=12,
+        choices=AccountingMode.choices,
+        default=AccountingMode.OFF,
+    )
+    terminal_resolution = models.CharField(max_length=24, blank=True, default="")
+    terminal_reason = models.CharField(max_length=48, blank=True, default="")
+    winner_attempt = models.ForeignKey(
+        "management.GeminiRequestAttempt",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="won_gemini_requests",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    provider_phase_started_at = models.DateTimeField(null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Запит Gemini")
+        verbose_name_plural = _("Запити Gemini")
+        indexes = [
+            models.Index(fields=["lane", "-created_at"], name="gem_req_lane_created"),
+            models.Index(
+                fields=["logical_turn_id", "-created_at"],
+                name="gem_req_turn_created",
+            ),
+            models.Index(
+                fields=["terminal_resolution", "deadline_at"],
+                name="gem_req_resolution_deadline",
+            ),
+        ]
+
+    def __str__(self):
+        return f"GeminiRequest({self.request_id}:{self.terminal_resolution or 'open'})"
+
+
 class GeminiKeyState(models.Model):
     """Стан одного Gemini-ключа (проекту) для менеджера пулів: кулдаун за квотою,
     лічильники, причина. Квота в Gemini рахується на проект, тож трекаємо per-key."""
@@ -4259,12 +4473,55 @@ class GeminiModelState(models.Model):
 class GeminiRequestAttempt(models.Model):
     """Redacted provider-attempt evidence, never customer or provider bodies."""
 
+    class FsmState(models.TextChoices):
+        LEGACY = "legacy", _("Legacy telemetry")
+        PLANNED = "planned", _("Заплановано")
+        RESERVED = "reserved", _("Квоту зарезервовано")
+        PROVIDER_STARTED = "provider_started", _("Виклик провайдера розпочато")
+        SUCCEEDED = "succeeded", _("Успішно")
+        FAILED = "failed", _("Помилка")
+        TIMEOUT_AMBIGUOUS = "timeout_ambiguous", _("Неоднозначний таймаут")
+        SUCCEEDED_LATE = "succeeded_late", _("Пізній успіх")
+        CANCELLED_PRE_DISPATCH = "cancelled_pre_dispatch", _("Скасовано до виклику")
+
+    class ShadowDecision(models.TextChoices):
+        UNKNOWN = "unknown", _("Невідомо")
+        ALLOW = "allow", _("Було б дозволено")
+        DENY = "deny", _("Було б відхилено")
+
     request_id = models.CharField(max_length=40, db_index=True)
+    request_graph = models.ForeignKey(
+        GeminiRequest,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="attempts",
+    )
     role = models.CharField(max_length=20)
     key_name = models.CharField(max_length=40)
     project_group = models.CharField(max_length=80, blank=True, default="")
+    project_identity = models.CharField(max_length=80, blank=True, default="")
     model = models.CharField(max_length=80)
     outcome = models.CharField(max_length=24)
+    fsm_state = models.CharField(
+        max_length=24,
+        choices=FsmState.choices,
+        default=FsmState.LEGACY,
+    )
+    quota_profile = models.ForeignKey(
+        GeminiQuotaProfile,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="attempts",
+    )
+    accounting_mode = models.CharField(max_length=12, blank=True, default="")
+    shadow_decision = models.CharField(
+        max_length=8,
+        choices=ShadowDecision.choices,
+        default=ShadowDecision.UNKNOWN,
+    )
+    shadow_deny_reason = models.CharField(max_length=32, blank=True, default="")
     failure_kind = models.CharField(max_length=32, blank=True, default="")
     http_code = models.PositiveSmallIntegerField(null=True, blank=True)
     provider_reason = models.CharField(max_length=80, blank=True, default="")
@@ -4274,6 +4531,9 @@ class GeminiRequestAttempt(models.Model):
     prompt_tokens = models.PositiveIntegerField(default=0)
     thoughts_tokens = models.PositiveIntegerField(default=0)
     candidates_tokens = models.PositiveIntegerField(default=0)
+    total_tokens = models.PositiveBigIntegerField(default=0)
+    estimated_prompt_tokens = models.PositiveBigIntegerField(default=0)
+    reserved_prompt_tokens = models.PositiveBigIntegerField(default=0)
     error_detail = models.CharField(max_length=120, blank=True, default="")
     # Lineage ходу (ЭА.1): без цих полів ланцюг «вхідне → спроби → holding →
     # recovery → receipt» не побудувати запитом, а значить не довести жодну
@@ -4292,6 +4552,21 @@ class GeminiRequestAttempt(models.Model):
     incident_id = models.PositiveBigIntegerField(null=True, blank=True)
     recovery_job_id = models.PositiveBigIntegerField(null=True, blank=True)
     reply_message_id = models.PositiveBigIntegerField(null=True, blank=True)
+    reserved_at = models.DateTimeField(null=True, blank=True)
+    reservation_expires_at = models.DateTimeField(null=True, blank=True)
+    provider_started_at = models.DateTimeField(null=True, blank=True)
+    dispatch_pacific_day = models.DateField(null=True, blank=True)
+    permit_expires_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    settled_at = models.DateTimeField(null=True, blank=True)
+    reservation_released_at = models.DateTimeField(null=True, blank=True)
+    permit_released_at = models.DateTimeField(null=True, blank=True)
+    provider_quota_metric = models.CharField(max_length=16, blank=True, default="")
+    provider_quota_id = models.CharField(max_length=120, blank=True, default="")
+    provider_quota_dimensions = models.JSONField(default=dict, blank=True)
+    provider_retry_after_seconds = models.PositiveIntegerField(default=0)
+    provider_block_until = models.DateTimeField(null=True, blank=True)
+    winner_claimed = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
@@ -4302,6 +4577,35 @@ class GeminiRequestAttempt(models.Model):
             models.Index(fields=["source_message_id", "-id"], name="gemini_attempt_source"),
             models.Index(fields=["client_id", "-id"], name="gemini_attempt_client"),
             models.Index(fields=["lane", "-id"], name="gemini_attempt_lane"),
+            models.Index(
+                fields=["project_identity", "model", "provider_started_at"],
+                name="gem_att_pair_started",
+            ),
+            models.Index(
+                fields=["project_identity", "model", "dispatch_pacific_day", "fsm_state"],
+                name="gem_att_pair_day_state",
+            ),
+            models.Index(
+                fields=["fsm_state", "reservation_expires_at"],
+                name="gem_att_state_reserve",
+            ),
+            models.Index(
+                fields=["fsm_state", "permit_expires_at"],
+                name="gem_att_state_permit",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["request_graph", "attempt_index"],
+                name="gem_att_graph_index_unique",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(provider_started_at__isnull=True)
+                    | models.Q(dispatch_pacific_day__isnull=False)
+                ),
+                name="gem_att_started_has_day",
+            ),
         ]
 
     def __str__(self):
