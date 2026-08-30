@@ -218,6 +218,9 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
             | Q(
                 payment_attempt__event_state__promo_consumption_pending=True,
             )
+            | Q(
+                payment_attempt__event_state__payment_amount_reconciliation_pending=True,
+            )
             | (
                 Q(
                     payment_attempt__order_id__isnull=False,
@@ -281,9 +284,18 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
             promo_consumption_pending = bool(
                 (attempt.event_state or {}).get("promo_consumption_pending")
             )
+            amount_reconciliation_pending = bool(
+                (attempt.event_state or {}).get(
+                    "payment_amount_reconciliation_pending"
+                )
+            )
             if (
                 pull_ambiguous
-                and (ambiguous or promo_consumption_pending)
+                and (
+                    ambiguous
+                    or promo_consumption_pending
+                    or amount_reconciliation_pending
+                )
                 and attempt.monobank_invoice_id
             ):
                 if ambiguous:

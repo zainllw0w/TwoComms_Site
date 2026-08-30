@@ -338,6 +338,17 @@
   }
 
   if (root.dataset.checkoutState === "pending" && root.dataset.statusUrl) {
+    const generationExpiresAt = Date.parse(root.dataset.generationExpiresAt || "");
+    let generationExpiryTimer;
+    if (Number.isFinite(generationExpiresAt)) {
+      const remaining = Math.max(0, generationExpiresAt - Date.now() + 500);
+      generationExpiryTimer = window.setTimeout(() => window.location.reload(), remaining);
+      window.addEventListener(
+        "beforeunload",
+        () => window.clearTimeout(generationExpiryTimer),
+        { once: true },
+      );
+    }
     let polling = false;
     let pollCount = 0;
     const pollDelays = [3000, 5000, 8000, 12000, 18000, 25000, 30000, 30000];
@@ -357,7 +368,7 @@
           window.location.assign(payload.redirect);
           return;
         }
-        if (payload.state && ["failed", "expired", "cancellation_ambiguous"].includes(payload.state)) {
+        if (payload.state && ["failed", "expired", "cancellation_ambiguous", "reissue"].includes(payload.state)) {
           window.location.reload();
         }
       } catch (_error) {

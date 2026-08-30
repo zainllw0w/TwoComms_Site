@@ -145,6 +145,8 @@ CHECKOUT_COPY = {
         "state_cancelled_body": "Оплата за цим рахунком більше не приймається. Запросіть нову пропозицію в Direct.",
         "state_cancellation_ambiguous_title": "Перевіряємо стан рахунку",
         "state_cancellation_ambiguous_body": "Не повторюйте оплату. Ми спочатку звіримо статус із банком.",
+        "state_generation_expired_reissuable_title": "Рахунок завершився — можна створити новий",
+        "state_generation_expired_reissuable_body": "Пропозиція ще активна. Перевірте збережені дані доставки й створіть один новий 25-хвилинний рахунок.",
     },
     "ru": {
         "page_title": "Проверьте заказ",
@@ -259,6 +261,8 @@ CHECKOUT_COPY = {
         "state_cancelled_body": "Оплата по этому счету больше не принимается. Запросите новое предложение в Direct.",
         "state_cancellation_ambiguous_title": "Проверяем состояние счета",
         "state_cancellation_ambiguous_body": "Не повторяйте оплату. Сначала мы сверим статус с банком.",
+        "state_generation_expired_reissuable_title": "Счёт завершился — можно создать новый",
+        "state_generation_expired_reissuable_body": "Предложение ещё активно. Проверьте сохранённые данные доставки и создайте один новый 25-минутный счёт.",
     },
     "en": {
         "page_title": "Review your order",
@@ -373,6 +377,8 @@ CHECKOUT_COPY = {
         "state_cancelled_body": "This invoice can no longer be paid. Request a new offer in Direct.",
         "state_cancellation_ambiguous_title": "Checking invoice status",
         "state_cancellation_ambiguous_body": "Do not pay again. We will first verify the status with the bank.",
+        "state_generation_expired_reissuable_title": "The invoice expired — you can create a new one",
+        "state_generation_expired_reissuable_body": "The offer is still active. Review the saved delivery details and create one new 25-minute invoice.",
     },
 }
 
@@ -577,7 +583,22 @@ def _analytics_event_id(event_name, proposal, grant_id=""):
     return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()[:40]
 
 
-def _checkout_state(proposal):
+_GENERATION_UNSET = object()
+
+
+def _checkout_generation(proposal):
+    if not proposal.assisted_checkout_v2:
+        return None
+    if proposal.current_invoice_generation_id:
+        return proposal.current_invoice_generation
+    return (
+        proposal.invoice_generations.select_related("payment_attempt")
+        .order_by("-generation", "-pk")
+        .first()
+    )
+
+
+def _checkout_state(proposal, generation=_GENERATION_UNSET):
     if proposal.status == proposal.Status.PAID:
         return "paid"
     if proposal.status == proposal.Status.REVOKED:
@@ -588,11 +609,8 @@ def _checkout_state(proposal):
         return "cancellation_ambiguous"
     if proposal.status == proposal.Status.EXPIRED or proposal.is_expired:
         return "expired"
-    generation = (
-        proposal.current_invoice_generation
-        if proposal.assisted_checkout_v2
-        else None
-    )
+    if generation is _GENERATION_UNSET:
+        generation = _checkout_generation(proposal)
     attempt = (
         generation.payment_attempt
         if generation is not None and generation.payment_attempt_id
@@ -607,6 +625,22 @@ def _checkout_state(proposal):
             generation.State.LATE_PROVIDER_REVIEW,
         }:
             return "cancellation_ambiguous"
+        if (
+            proposal.expires_at > timezone.now()
+            and (
+                generation.state == generation.State.EXPIRED
+                or (
+                    generation.expires_at <= timezone.now()
+                    and generation.state
+                    in {
+                        generation.State.PLANNED,
+                        generation.State.PROVIDER_INFLIGHT,
+                        generation.State.INVOICE_CREATED,
+                    }
+                )
+            )
+        ):
+            return "generation_expired_reissuable"
         if generation.state in {
             generation.State.FAILED,
             generation.State.EXPIRED,
@@ -615,12 +649,6 @@ def _checkout_state(proposal):
             return "ready" if proposal.expires_at > timezone.now() else "expired"
         if generation.state == generation.State.LATE_PAID_REVIEW:
             return "cancellation_ambiguous"
-        if generation.expires_at <= timezone.now() and generation.state in {
-            generation.State.PLANNED,
-            generation.State.PROVIDER_INFLIGHT,
-            generation.State.INVOICE_CREATED,
-        }:
-            return "ready" if proposal.expires_at > timezone.now() else "expired"
     if attempt is not None and (attempt.event_state or {}).get("invoice_creation_ambiguous"):
         return "cancellation_ambiguous"
     if proposal.status == proposal.Status.CANCELLED:
@@ -667,30 +695,72 @@ def _item_context(item):
     }
 
 
+def _captured_delivery_form(attempt, generation, *, warehouse_kind=""):
+    if attempt is None:
+        return {}
+    values = {
+        "full_name": attempt.full_name or "",
+        "phone": attempt.phone or "",
+        "email": attempt.email or "",
+        "city": attempt.city or "",
+        "np_settlement_ref": attempt.np_settlement_ref or "",
+        "np_city_ref": attempt.np_city_ref or "",
+        "np_office": attempt.np_office or "",
+        "np_warehouse_ref": attempt.np_warehouse_ref or "",
+        "payment_choice": (
+            generation.payment_choice if generation is not None else "online_full"
+        ),
+    }
+    try:
+        from orders.nova_poshta_checkout import (
+            build_city_choice_token,
+            build_warehouse_choice_token,
+        )
+
+        values["np_city_token"] = build_city_choice_token({
+            "label": values["city"],
+            "settlement_ref": values["np_settlement_ref"],
+            "city_ref": values["np_city_ref"],
+        })
+        values["np_warehouse_token"] = build_warehouse_choice_token({
+            "label": values["np_office"],
+            "ref": values["np_warehouse_ref"],
+            "kind": warehouse_kind,
+            "city_ref": values["np_city_ref"],
+        })
+    except Exception:
+        # The form remains usable for manual reselection; no provider lookup is
+        # allowed on GET just to reconstruct a local signed selector token.
+        values["np_city_token"] = ""
+        values["np_warehouse_token"] = ""
+    return values
+
+
 def _proposal_context(proposal, *, request, grant_id="", form_error="", form_error_field="", form_values=None):
     language = _checkout_language(request, proposal)
     copy = dict(CHECKOUT_COPY[language])
     if proposal.assisted_checkout_v2:
         copy["fixed_price_title"] = copy["fixed_price_title_v2"]
         copy["price_dialog_body"] = copy["price_dialog_body_v2"]
-    state = _checkout_state(proposal)
-    generation = (
-        proposal.current_invoice_generation
-        if proposal.assisted_checkout_v2
-        else None
-    )
+    generation = _checkout_generation(proposal)
+    state = _checkout_state(proposal, generation)
     attempt = (
         generation.payment_attempt
         if generation is not None and generation.payment_attempt_id
         else proposal.payment_attempt
     )
-    delivery_locked = bool(proposal.details_locked_at) or state in {
+    delivery_locked = (
+        state != "generation_expired_reissuable"
+        and (bool(proposal.details_locked_at) or state in {
         "locked",
         "pending",
         "paid",
+        })
+    )
+    payable = state in {"ready", "generation_expired_reissuable"} and not delivery_locked
+    share_allowed = state in {
+        "ready", "locked", "pending", "generation_expired_reissuable",
     }
-    payable = state == "ready" and not delivery_locked
-    share_allowed = state in {"ready", "locked", "pending"}
     payment_url = ""
     if (
         attempt is not None
@@ -733,7 +803,14 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         }
         for item in CHECKOUT_LANGUAGES
     ]
-    form_values = form_values or {}
+    if form_values is None and state == "generation_expired_reissuable":
+        form_values = _captured_delivery_form(
+            attempt,
+            generation,
+            warehouse_kind=proposal.deal.np_warehouse_kind,
+        )
+    else:
+        form_values = form_values or {}
     selected_payment_choice = str(
         form_values.get("payment_choice") or "online_full"
     )
@@ -789,6 +866,9 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
             else copy["expires_explanation"]
         ),
         "payment_options": payment_options,
+        "generation_expires_at_iso": (
+            generation.expires_at.isoformat() if generation is not None else ""
+        ),
         "delivery_locked": delivery_locked,
         "masked_delivery": masked_delivery,
         "paid_summary": paid_summary,
@@ -955,11 +1035,16 @@ def ig_checkout_proposal(request, proposal_id):
 @never_cache
 def ig_checkout_status(request, proposal_id):
     """Expose only state/revision for truthful pending-payment polling."""
-    proposal = get_object_or_404(IgCheckoutProposal, public_id=proposal_id)
+    proposal = get_object_or_404(
+        IgCheckoutProposal.objects.select_related("current_invoice_generation"),
+        public_id=proposal_id,
+    )
     _load_grant(request, proposal)
-    ui_state = _checkout_state(proposal)
+    generation = _checkout_generation(proposal)
+    ui_state = _checkout_state(proposal, generation)
     public_state = (
         "verified" if ui_state == "paid" else
+        "reissue" if ui_state == "generation_expired_reissuable" else
         "expired" if ui_state == "expired" else
         "cancellation_ambiguous" if ui_state == "cancellation_ambiguous" else
         "failed" if ui_state in {"failed", "unavailable", "cancelled", "superseded"} else
@@ -970,9 +1055,8 @@ def ig_checkout_status(request, proposal_id):
         "ui_state": ui_state,
         "revision": proposal.revision,
         "generation": (
-            proposal.current_invoice_generation.generation
-            if proposal.assisted_checkout_v2
-            and proposal.current_invoice_generation_id
+            generation.generation
+            if proposal.assisted_checkout_v2 and generation is not None
             else None
         ),
         "expires_at": proposal.expires_at.isoformat(),

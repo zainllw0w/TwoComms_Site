@@ -2191,21 +2191,65 @@ def _resolve_attempt_invoice_status(attempt, invoice_id, fallback_status=None):
                     'Assisted attempt %s provider identity/currency mismatch -> checking',
                     attempt.pk,
                 )
+                status_payload = {
+                    **status_payload,
+                    "_twc_reconciliation_reason": "identity_currency_mismatch",
+                }
                 return 'processing', status_payload
         expected = attempt.payment_amount
-        paid = None
+        observed_amounts = []
         if isinstance(status_payload, dict):
-            paid = status_payload.get('paidAmount')
-            if paid is None:
-                paid = status_payload.get('finalAmount')
-            if paid is None:
-                paid = status_payload.get('amount')
-        if paid is not None:
-            try:
-                if int(paid) != int(Decimal(str(expected)) * 100):
-                    return 'processing', status_payload
-            except (TypeError, ValueError, ArithmeticError):
+            for field in ('paidAmount', 'finalAmount', 'amount'):
+                paid = status_payload.get(field)
+                if paid is None:
+                    continue
+                if isinstance(paid, bool):
+                    observed_amounts = None
+                    break
+                if isinstance(paid, int):
+                    observed_amounts.append(paid)
+                elif (
+                    isinstance(paid, str)
+                    and paid.isdigit()
+                    and len(paid) <= 18
+                    and (paid == '0' or not paid.startswith('0'))
+                ):
+                    observed_amounts.append(int(paid))
+                else:
+                    observed_amounts = None
+                    break
+        if observed_amounts == []:
+            status_payload = {
+                **status_payload,
+                "_twc_reconciliation_reason": "amount_missing",
+            }
+            return 'processing', status_payload
+        if observed_amounts is None:
+            status_payload = {
+                **status_payload,
+                "_twc_reconciliation_reason": "amount_malformed",
+            }
+            return 'processing', status_payload
+        if len(set(observed_amounts)) != 1:
+            status_payload = {
+                **status_payload,
+                "_twc_reconciliation_reason": "amount_conflict",
+            }
+            return 'processing', status_payload
+        paid_minor = observed_amounts[0]
+        try:
+            if paid_minor != int(Decimal(str(expected)) * 100):
+                status_payload = {
+                    **status_payload,
+                    "_twc_reconciliation_reason": "amount_mismatch",
+                }
                 return 'processing', status_payload
+        except (TypeError, ValueError, ArithmeticError):
+            status_payload = {
+                **status_payload,
+                "_twc_reconciliation_reason": "amount_malformed",
+            }
+            return 'processing', status_payload
     return status_lower, status_payload
 
 

@@ -58,6 +58,79 @@ def _event(generation, kind, suffix, *, payload=None):
     )[0]
 
 
+def _exact_provider_paid_amount(attempt, payload):
+    if not isinstance(payload, dict):
+        return False, "amount_payload_missing"
+    observed = []
+    for field in ("paidAmount", "finalAmount", "amount"):
+        raw = payload.get(field)
+        if raw is None:
+            continue
+        if isinstance(raw, bool):
+            return False, "amount_malformed"
+        if isinstance(raw, int):
+            paid_minor = raw
+        elif (
+            isinstance(raw, str)
+            and raw.isdigit()
+            and len(raw) <= 18
+            and (raw == "0" or not raw.startswith("0"))
+        ):
+            paid_minor = int(raw)
+        else:
+            return False, "amount_malformed"
+        observed.append((field, paid_minor))
+    if not observed:
+        return False, "amount_missing"
+    if len({value for _field, value in observed}) != 1:
+        return False, "amount_conflict"
+    paid_minor = observed[0][1]
+    expected_minor = int(
+        (Decimal(str(attempt.payment_amount)) * Decimal("100")).to_integral_value()
+    )
+    if paid_minor != expected_minor:
+        return False, "amount_mismatch"
+    return True, ",".join(field for field, _value in observed)
+
+
+def _record_amount_reconciliation(generation, attempt, *, reason):
+    now = timezone.now()
+    event_state = dict(attempt.event_state or {})
+    event_state["payment_amount_reconciliation"] = {
+        "reason": str(reason or "amount_unverified")[:64],
+        "expected_minor": int(
+            (Decimal(str(attempt.payment_amount)) * Decimal("100")).to_integral_value()
+        ),
+        "observed_at": now.isoformat(),
+    }
+    event_state["payment_amount_reconciliation_pending"] = True
+    attempt.event_state = event_state
+    if (
+        not attempt.order_id
+        and not attempt.checkout_winner_claimed
+        and attempt.status in {
+            PaymentAttempt.Status.INITIATED,
+            PaymentAttempt.Status.PROCESSING,
+        }
+    ):
+        attempt.status = PaymentAttempt.Status.PROCESSING
+    attempt.error_reason = f"provider_{reason}"[:500]
+    attempt.last_status_at = now
+    attempt.save(update_fields=[
+        "status", "event_state", "error_reason", "last_status_at", "updated",
+    ])
+    _event(
+        generation,
+        "provider_ambiguous",
+        f"amount:{attempt.pk}:{reason}",
+        payload={
+            "attempt_reference": attempt.reference,
+            "amount_valid": False,
+            "reason_code": str(reason or "amount_unverified")[:64],
+        },
+    )
+
+
 def generation_for_attempt(attempt_id):
     from management.models import IgCheckoutInvoiceGeneration
 
@@ -503,6 +576,92 @@ def _persist_provider_success(
     if graph is None:
         raise CheckoutPaymentError("provider_ambiguous", "Generation ownership missing.")
     deal, proposal, generation, attempt = graph
+    terminal_or_winner = bool(
+        attempt.order_id
+        or attempt.checkout_winner_claimed
+        or attempt.status in {
+            PaymentAttempt.Status.PAID,
+            PaymentAttempt.Status.PREPAID,
+            PaymentAttempt.Status.CONVERTED,
+        }
+        or deal.order_id
+        or proposal.winner_invoice_generation_id
+        or proposal.status == proposal.Status.PAID
+        or generation.winner_slot == 1
+        or generation.state in {
+            generation.State.WINNER_CLAIMED,
+            generation.State.PAID_WINNER,
+            generation.State.RESOURCE_REVIEW,
+            generation.State.LATE_PAID_REVIEW,
+        }
+    )
+    if terminal_or_winner:
+        now = timezone.now()
+        returned_invoice_id = str(invoice_id or "")[:128]
+        known_invoice_id = str(
+            generation.provider_invoice_id or attempt.monobank_invoice_id or ""
+        )[:128]
+        identity_conflict = bool(
+            known_invoice_id
+            and returned_invoice_id
+            and known_invoice_id != returned_invoice_id
+        )
+        if not generation.provider_invoice_id:
+            generation.provider_invoice_id = known_invoice_id or returned_invoice_id
+        if (
+            generation.winner_slot != 1
+            and generation.state
+            not in {
+                generation.State.PAID_WINNER,
+                generation.State.RESOURCE_REVIEW,
+                generation.State.LATE_PAID_REVIEW,
+            }
+        ):
+            generation.state = generation.State.LATE_PROVIDER_REVIEW
+            generation.active_slot = None
+            generation.review_reason = "provider_create_settled_after_winner"
+        generation.provider_completed_at = generation.provider_completed_at or now
+        generation.save(update_fields=[
+            "provider_invoice_id", "state", "active_slot", "review_reason",
+            "provider_completed_at", "updated_at",
+        ])
+        if not attempt.monobank_invoice_id:
+            attempt.monobank_invoice_id = (
+                generation.provider_invoice_id or returned_invoice_id
+            )
+        if invoice_url and not attempt.invoice_url:
+            attempt.invoice_url = str(invoice_url)[:600]
+        attempt.invoice_payload = {
+            "request": invoice_payload,
+            "create": creation,
+            "ignored_late_transport_outcome": True,
+        }
+        attempt.invoice_expires_at = attempt.invoice_expires_at or generation.expires_at
+        attempt.save(update_fields=[
+            "monobank_invoice_id", "invoice_url", "invoice_payload",
+            "invoice_expires_at", "updated",
+        ])
+        _event(
+            generation,
+            "provider_succeeded",
+            f"ignored-after-winner:{attempt.pk}",
+            payload={
+                "attempt_reference": attempt.reference,
+                "returned_provider_invoice_id": returned_invoice_id,
+                "stored_provider_invoice_id": generation.provider_invoice_id or "",
+                "identity_conflict": identity_conflict,
+                "ignored_late_transport_outcome": True,
+                "winner_generation_id": proposal.winner_invoice_generation_id,
+                "order_id": attempt.order_id or deal.order_id,
+            },
+        )
+        _queue_ambiguity_review(
+            proposal,
+            generation,
+            attempt,
+            reason="provider_create_settled_after_winner",
+        )
+        return proposal, generation, attempt, False
     if generation.provider_invoice_id:
         if generation.provider_invoice_id != str(invoice_id):
             raise CheckoutPaymentError("provider_ambiguous", "Invoice identity conflict.")
@@ -622,8 +781,47 @@ def _persist_provider_failure(attempt_id, *, ambiguous, reason):
     graph = _lock_generation_graph(attempt_id)
     if graph is None:
         return
-    _deal, proposal, generation, attempt = graph
+    deal, proposal, generation, attempt = graph
     now = timezone.now()
+    if (
+        attempt.order_id
+        or attempt.checkout_winner_claimed
+        or attempt.status in {
+            PaymentAttempt.Status.PAID,
+            PaymentAttempt.Status.PREPAID,
+            PaymentAttempt.Status.CONVERTED,
+        }
+        or deal.order_id
+        or proposal.winner_invoice_generation_id
+        or proposal.status == proposal.Status.PAID
+        or generation.winner_slot == 1
+        or generation.state in {
+            generation.State.WINNER_CLAIMED,
+            generation.State.PAID_WINNER,
+            generation.State.RESOURCE_REVIEW,
+            generation.State.LATE_PAID_REVIEW,
+        }
+    ):
+        _event(
+            generation,
+            "provider_ambiguous" if ambiguous else "provider_failed",
+            f"ignored-after-winner:{attempt.pk}",
+            payload={
+                "attempt_reference": attempt.reference,
+                "ignored_late_transport_outcome": True,
+                "transport_ambiguous": bool(ambiguous),
+                "reason_code": type(reason).__name__ if not isinstance(reason, str) else "transport_error",
+                "winner_generation_id": proposal.winner_invoice_generation_id,
+                "order_id": attempt.order_id or deal.order_id,
+            },
+        )
+        _queue_ambiguity_review(
+            proposal,
+            generation,
+            attempt,
+            reason="ignored_transport_after_winner",
+        )
+        return "ignored_after_winner"
     if ambiguous:
         generation.state = generation.State.PROVIDER_AMBIGUOUS
         generation.review_reason = "provider_creation_ambiguous"
@@ -1145,6 +1343,20 @@ def apply_verified_generation_payment(
         deal, proposal, generation, attempt = graph
         if attempt.order_id:
             return attempt.order, False
+        amount_valid, amount_reason = _exact_provider_paid_amount(attempt, payload)
+        if not amount_valid:
+            _record_amount_reconciliation(
+                generation,
+                attempt,
+                reason=amount_reason,
+            )
+            return None, False
+        if (attempt.event_state or {}).get("payment_amount_reconciliation_pending"):
+            event_state = dict(attempt.event_state or {})
+            event_state.pop("payment_amount_reconciliation_pending", None)
+            event_state.pop("payment_amount_reconciliation", None)
+            attempt.event_state = event_state
+            attempt.save(update_fields=["event_state", "updated"])
         if generation.state == generation.State.RESOURCE_REVIEW:
             _queue_paid_review(
                 proposal,
@@ -1349,6 +1561,17 @@ def apply_generation_provider_status(
                         generation.State.LATE_PROVIDER_REVIEW,
                     }
                 ):
+                    reconciliation_reason = str(
+                        (payload or {}).get("_twc_reconciliation_reason")
+                        if isinstance(payload, dict)
+                        else ""
+                    )[:64]
+                    if reconciliation_reason:
+                        _record_amount_reconciliation(
+                            generation,
+                            attempt,
+                            reason=reconciliation_reason,
+                        )
                     attempt.status = PaymentAttempt.Status.PROCESSING
                     attempt.last_status_at = timezone.now()
                     attempt.save(update_fields=["status", "last_status_at", "updated"])

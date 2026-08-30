@@ -32,7 +32,7 @@
     <symbol id="ig-icon-alert" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4L12 3Z"></path><path d="M12 9v5M12 17.5v.1"></path></symbol>
   </svg>
 
-  <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-status-url="{{ status_url }}" data-checkout-state="{{ checkout_state }}" data-created-at="{{ proposal.created_at_iso }}" data-expires-at="{{ proposal.expires_at_iso }}" data-analytics-value="{{ analytics.value }}" data-analytics-currency="{{ analytics.currency }}">
+  <main class="ig-page" data-ig-checkout data-proposal-url="{{ proposal_url }}" data-status-url="{{ status_url }}" data-checkout-state="{{ checkout_state }}" data-created-at="{{ proposal.created_at_iso }}" data-expires-at="{{ proposal.expires_at_iso }}" data-generation-expires-at="{{ generation_expires_at_iso }}" data-analytics-value="{{ analytics.value }}" data-analytics-currency="{{ analytics.currency }}">
     <header class="ig-topbar">
       <a class="ig-brand" href="/" aria-label="TwoComms" data-checkout-exit>
         <img src="{% static 'img/logo.svg' %}" alt="" width="28" height="28">
@@ -168,6 +168,12 @@
 
       <section class="ig-checkout-panel" aria-labelledby="ig-delivery-title">
         {% if payable %}
+          {% if checkout_state == 'generation_expired_reissuable' %}
+            <div class="ig-terminal ig-terminal--generation-expired-reissuable" role="status" data-generation-reissue>
+              <h2>{{ state_title }}</h2>
+              <p>{{ state_body }}</p>
+            </div>
+          {% endif %}
           <div class="ig-panel-heading">
             <div><p class="ig-panel-step">{{ copy.delivery_step }}</p><h2 id="ig-delivery-title">{{ copy.delivery_title }}</h2></div>
             <span class="ig-delivery-time" data-delivery-time><svg aria-hidden="true"><use href="#ig-icon-timer"></use></svg>{{ copy.delivery_time }}</span>
