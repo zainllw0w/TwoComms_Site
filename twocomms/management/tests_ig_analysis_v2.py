@@ -86,7 +86,7 @@ class AnalysisV2RuntimeTests(TestCase):
             commercial_episode=self.episode,
             required_state_fingerprint=self.raw_fingerprint,
             analysis_model="gemini-3.6-flash",
-            analysis_prompt_version="legacy-v3",
+            analysis_prompt_version="2026-07-30.crm.episode-potential.v3",
             analyzed_at=timezone.now(),
         )
         self.by_id = {
@@ -170,7 +170,7 @@ class AnalysisV2RuntimeTests(TestCase):
             "meta": {
                 "key": "GEMINI_API2",
                 "request_id": "internal-request-id",
-                "reasoning_policy_version": "reasoning-v1",
+                "reasoning_policy_version": "2026-07-23.v1",
                 "latency_ms": 345,
             },
         }

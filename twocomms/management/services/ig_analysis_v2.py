@@ -139,6 +139,7 @@ def state_correlation(required_state_fingerprint: str) -> str:
     return salted_hmac(
         "management.analysis-v2.state-correlation",
         value,
+        algorithm="sha256",
     ).hexdigest()[:64]
 
 

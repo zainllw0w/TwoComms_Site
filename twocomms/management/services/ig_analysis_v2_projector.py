@@ -290,7 +290,10 @@ def project_shadow_proposals(proposal_ids, *, now=None) -> dict:
             else:
                 counts["rejected"] += 1
         if decided:
-            IgAnalysisProposal.objects.bulk_update(
+            # Objects were fully validated above; the base manager avoids the
+            # public QuerySet.update boundary seeing Django's internal CASE
+            # expressions while still issuing one bounded SQL UPDATE.
+            IgAnalysisProposal._base_manager.bulk_update(
                 decided,
                 [
                     "status", "decision_code", "projector_version",

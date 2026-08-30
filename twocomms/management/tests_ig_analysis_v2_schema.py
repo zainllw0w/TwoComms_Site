@@ -1,4 +1,5 @@
 from decimal import Decimal
+import hashlib
 
 from django.test import TestCase
 from django.utils import timezone
@@ -26,7 +27,7 @@ class AnalysisV2SchemaTests(TestCase):
 
     def _result(self, **overrides):
         defaults = {
-            "result_key": "analysis-v2-schema:result",
+            "result_key": "analysis-v2:" + hashlib.sha256(b"schema-result").hexdigest(),
             "legacy_snapshot": self.snapshot,
             "client": self.client_row,
             "watermark_message_id": 10,
@@ -43,6 +44,12 @@ class AnalysisV2SchemaTests(TestCase):
             "purchase_probability": Decimal("0.5000"),
             "purchase_confidence": Decimal("0.8000"),
             "probability_basis": IgConversationAnalysisResult.ProbabilityBasis.CUSTOMER_EVIDENCE,
+            "evidence_manifest": [{
+                "message_id": 1,
+                "source_role": "user",
+                "claim_codes": ["purchase_intent"],
+            }],
+            "customer_evidence_count": 1,
             "result_digest": "e" * 64,
             "analyzed_at": timezone.now(),
         }
@@ -51,13 +58,16 @@ class AnalysisV2SchemaTests(TestCase):
 
     def _proposal(self, result, **overrides):
         defaults = {
-            "proposal_key": "analysis-v2-schema:proposal",
+            "proposal_key": "analysis-proposal:" + hashlib.sha256(b"schema-proposal").hexdigest(),
             "analysis_result": result,
             "ordinal": 1,
             "client": self.client_row,
             "proposal_type": IgAnalysisProposal.ProposalType.UPDATE_PROBABILITY,
             "target_scope": IgAnalysisProposal.TargetScope.CLIENT,
-            "typed_value": {"probability": "0.5000"},
+            "typed_value": {
+                "probability": "0.5000",
+                "basis": "customer_evidence",
+            },
             "evidence_message_ids": [10],
             "confidence": Decimal("0.8000"),
             "source_result_digest": result.result_digest,
@@ -97,8 +107,45 @@ class AnalysisV2SchemaTests(TestCase):
         with self.assertRaises(ValidationError):
             self._proposal(
                 result,
-                proposal_key="analysis-v2-schema:raw-proposal",
+                proposal_key="analysis-proposal:" + hashlib.sha256(b"raw-proposal").hexdigest(),
                 typed_value={"free_text": "call this customer tomorrow"},
+            )
+
+    def test_exact_enums_refs_and_finite_numbers_reject_pii_like_codes(self):
+        with self.assertRaises(ValidationError):
+            self._result(active_objection_type="customername")
+        with self.assertRaises(ValidationError):
+            self._result(project_slot="gslot_customername")
+        with self.assertRaises(ValidationError):
+            self._result(gemini_request_ref="internal-request-id")
+        result = self._result()
+        with self.assertRaises(ValidationError):
+            self._proposal(
+                result,
+                proposal_key="analysis-proposal:" + hashlib.sha256(b"pii-kind").hexdigest(),
+                proposal_type=IgAnalysisProposal.ProposalType.RECORD_DEFERRED_INTENT,
+                typed_value={
+                    "kind": "customername",
+                    "condition_code": "payday",
+                    "deferred_until": "",
+                },
+            )
+        with self.assertRaises(ValidationError):
+            self._proposal(
+                result,
+                proposal_key="analysis-proposal:" + hashlib.sha256(b"nan").hexdigest(),
+                typed_value={
+                    "probability": float("nan"),
+                    "basis": "customer_evidence",
+                },
+            )
+        proposal = self._proposal(
+            result,
+            proposal_key="analysis-proposal:" + hashlib.sha256(b"mutable").hexdigest(),
+        )
+        with self.assertRaises(ValidationError):
+            IgAnalysisProposal.objects.filter(pk=proposal.pk).update(
+                decision_code="customername"
             )
 
     def test_result_is_append_only_at_every_orm_boundary(self):

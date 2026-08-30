@@ -1,4 +1,5 @@
 from importlib import import_module
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, call, patch
@@ -200,7 +201,7 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
             score_band=IgConversationAnalysisSnapshot.Band.COLD,
         )
         result = IgConversationAnalysisResult.objects.create(
-            result_key="analysis-v2-trigger:result",
+            result_key="analysis-v2:" + hashlib.sha256(b"trigger-result").hexdigest(),
             legacy_snapshot=snapshot,
             client=client,
             watermark_message_id=1,
@@ -215,7 +216,7 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
             analyzed_at=timezone.now(),
         )
         proposal = IgAnalysisProposal.objects.create(
-            proposal_key="analysis-v2-trigger:proposal",
+            proposal_key="analysis-proposal:" + hashlib.sha256(b"trigger-proposal").hexdigest(),
             analysis_result=result,
             ordinal=1,
             client=client,

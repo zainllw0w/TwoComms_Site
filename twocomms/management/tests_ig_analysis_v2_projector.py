@@ -1,5 +1,6 @@
 from decimal import Decimal
 import inspect
+import hashlib
 
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -73,7 +74,7 @@ class AnalysisV2ProjectorTests(TestCase):
             required_state_fingerprint=self.raw_fingerprint,
         )
         self.result = IgConversationAnalysisResult(
-            result_key="analysis-v2-projector:result",
+            result_key="analysis-v2:" + hashlib.sha256(b"projector-result").hexdigest(),
             legacy_snapshot=self.snapshot,
             client=self.client_row,
             commercial_episode=self.episode,

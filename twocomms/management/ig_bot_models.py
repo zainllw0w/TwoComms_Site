@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import secrets
 import uuid
@@ -24,6 +25,7 @@ from django.core.signing import salted_hmac
 from django.db import transaction
 from django.db import models
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.utils.translation import gettext_lazy as _
 
 __all__ = [
@@ -4864,7 +4866,74 @@ class IgConversationAnalysisSnapshot(models.Model):
         return f"{self.client_id}: {self.score_band} ({self.purchase_probability})"
 
 
-_ANALYSIS_V2_CODE_RE = re.compile(r"^[A-Za-z0-9_.:+-]{0,160}$")
+_ANALYSIS_V2_CODE_RE = re.compile(r"^[a-z0-9_.:+-]{0,160}$")
+_ANALYSIS_V2_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+_ANALYSIS_V2_PROJECT_SLOTS = frozenset({
+    "", "gslot_7f3a", "gslot_c921", "gslot_18de",
+    "gslot_a604", "gslot_52bb", "gslot_e17c",
+})
+_ANALYSIS_V2_CLAIM_CODES = frozenset({
+    "interaction", "purchase_intent", "objection", "deferred_intent",
+    "repeat_intent", "injection_risk", "conflict",
+})
+_ANALYSIS_V2_CONFLICT_CODES = frozenset({
+    "product_conflict", "recipient_conflict", "line_conflict",
+    "payment_claim_conflict", "manager_customer_conflict",
+    "artifact_conflict", "live_agent_inconsistency",
+})
+_ANALYSIS_V2_UNCERTAINTY_CODES = frozenset({
+    "analysis_v2_missing", "custom_print_user_evidence_missing",
+    "deferred_evidence_missing", "evidence_unverified", "injection_signal",
+    "manager_evidence_not_customer_intent", "payment_unverified",
+    "probability_evidence_missing", "product", "size",
+})
+_ANALYSIS_V2_REPEAT_KINDS = frozenset({
+    "", "explicit_more", "reorder", "gift", "another_recipient",
+})
+_ANALYSIS_V2_DECISION_CODES = frozenset({
+    "", "shadow_valid", "funnel_registry_missing", "legacy_repeat_event_owner",
+    "not_pending", "result_missing", "legacy_snapshot_scope_mismatch",
+    "client_mismatch", "episode_mismatch", "line_mismatch",
+    "result_digest_invalid", "result_digest_mismatch", "proposal_key_invalid",
+    "materiality_digest_mismatch", "authority_digest_mismatch",
+    "state_correlation_mismatch", "client_hidden", "client_blocked",
+    "client_opted_out", "manager_takeover", "analysis_job_missing",
+    "analysis_state_superseded", "state_correlation_stale",
+    "current_episode_changed", "invalid_evidence_id", "evidence_missing",
+    "evidence_not_current_or_owned", "evidence_not_customer_owned",
+    "invalid_probability_value", "invalid_objection_type",
+    "invalid_deferred_kind", "invalid_clarification_codes",
+    "unsupported_proposal_type",
+})
+
+
+def _validate_positive_message_ids(values, *, field_name):
+    if (
+        not isinstance(values, list)
+        or len(values) > 40
+        or len(values) != len(set(values))
+        or any(not isinstance(value, int) or value <= 0 for value in values)
+    ):
+        raise ValidationError({field_name: "Only unique bounded message identities are allowed."})
+
+
+def _validate_hex(value, *, field_name, optional=False):
+    normalized = str(value or "")
+    if optional and not normalized:
+        return
+    if not _ANALYSIS_V2_HEX_RE.fullmatch(normalized):
+        raise ValidationError({field_name: "Expected a 64-character hexadecimal identity."})
+
+
+def _validate_finite_01(value, *, field_name, optional=False):
+    if value is None and optional:
+        return
+    try:
+        parsed = Decimal(str(value))
+    except Exception as exc:
+        raise ValidationError({field_name: "Expected a finite 0..1 value."}) from exc
+    if not parsed.is_finite() or not Decimal("0") <= parsed <= Decimal("1"):
+        raise ValidationError({field_name: "Expected a finite 0..1 value."})
 
 
 def _validate_analysis_v2_codes(values, *, field_name):
@@ -4889,22 +4958,94 @@ def _validate_analysis_result_payload(result):
             raise ValidationError({"evidence_manifest": "Invalid message identity."})
         if row.get("source_role") not in allowed_roles:
             raise ValidationError({"evidence_manifest": "Invalid source role."})
-        _validate_analysis_v2_codes(
-            row.get("claim_codes"),
-            field_name="evidence_manifest",
-        )
+        claim_codes = row.get("claim_codes")
+        _validate_analysis_v2_codes(claim_codes, field_name="evidence_manifest")
+        if any(code not in _ANALYSIS_V2_CLAIM_CODES for code in claim_codes):
+            raise ValidationError({"evidence_manifest": "Unknown claim code."})
+    if len(manifest) > 40 or len({row["message_id"] for row in manifest}) != len(manifest):
+        raise ValidationError({"evidence_manifest": "Evidence identities must be unique and bounded."})
     _validate_analysis_v2_codes(result.conflict_codes, field_name="conflict_codes")
-    _validate_analysis_v2_codes(
-        result.uncertainty_codes,
-        field_name="uncertainty_codes",
+    if any(code not in _ANALYSIS_V2_CONFLICT_CODES for code in result.conflict_codes):
+        raise ValidationError({"conflict_codes": "Unknown conflict code."})
+    _validate_analysis_v2_codes(result.uncertainty_codes, field_name="uncertainty_codes")
+    if any(code not in _ANALYSIS_V2_UNCERTAINTY_CODES for code in result.uncertainty_codes):
+        raise ValidationError({"uncertainty_codes": "Unknown uncertainty code."})
+    _validate_positive_message_ids(
+        result.injection_evidence_message_ids,
+        field_name="injection_evidence_message_ids",
     )
-    if not isinstance(result.injection_evidence_message_ids, list) or any(
-        not isinstance(value, int) or value <= 0
-        for value in result.injection_evidence_message_ids
+    for field_name in (
+        "materiality_digest", "state_correlation", "result_digest",
     ):
-        raise ValidationError({
-            "injection_evidence_message_ids": "Only message identities are allowed."
-        })
+        _validate_hex(getattr(result, field_name), field_name=field_name)
+    for field_name in ("authority_digest", "artifact_digest"):
+        _validate_hex(getattr(result, field_name), field_name=field_name, optional=True)
+    if not re.fullmatch(r"analysis-v2:[0-9a-f]{64}", str(result.result_key or "")):
+        raise ValidationError({"result_key": "Invalid Analysis V2 result identity."})
+    if result.result_schema_version != "analysis-v2.1":
+        raise ValidationError({"result_schema_version": "Unsupported result schema."})
+    if result.normalizer_version != "analysis-v2-normalizer.1":
+        raise ValidationError({"normalizer_version": "Unsupported normalizer."})
+    if result.source_kind not in {"ai", "rules"}:
+        raise ValidationError({"source_kind": "Unsupported source kind."})
+    if result.interaction_type not in IgConversationAnalysisSnapshot.InteractionType.values:
+        raise ValidationError({"interaction_type": "Unsupported interaction type."})
+    if result.score_band not in IgConversationAnalysisSnapshot.Band.values:
+        raise ValidationError({"score_band": "Unsupported score band."})
+    if result.detected_language not in {"", "uk", "ru", "en", "mixed", "unknown"}:
+        raise ValidationError({"detected_language": "Unsupported language code."})
+    if result.probability_basis not in {
+        "customer_evidence", "deterministic_no_buy", "deterministic_opt_out",
+        "insufficient_evidence",
+    }:
+        raise ValidationError({"probability_basis": "Unsupported probability basis."})
+    _validate_finite_01(result.purchase_probability, field_name="purchase_probability", optional=True)
+    _validate_finite_01(result.purchase_confidence, field_name="purchase_confidence", optional=True)
+    _validate_finite_01(
+        result.active_objection_confidence,
+        field_name="active_objection_confidence",
+        optional=True,
+    )
+    _validate_finite_01(
+        result.repeat_intent_confidence,
+        field_name="repeat_intent_confidence",
+        optional=True,
+    )
+    if result.probability_basis == "insufficient_evidence" and (
+        result.purchase_probability is not None or result.purchase_confidence is not None
+    ):
+        raise ValidationError({"probability_basis": "Insufficient evidence must remain nullable."})
+    if result.probability_basis in {"customer_evidence", "deterministic_no_buy", "deterministic_opt_out"} and result.customer_evidence_count <= 0:
+        raise ValidationError({"customer_evidence_count": "Customer evidence is required."})
+    if result.active_objection_type not in {"", *IgObjection.Type.values}:
+        raise ValidationError({"active_objection_type": "Unsupported objection type."})
+    deferred_conditions = {
+        "none": {""}, "date": {"customer_date"}, "event": {"after_event"},
+        "payday": {"payday"}, "indefinite": {"indefinite"},
+    }
+    if result.deferred_kind not in deferred_conditions or result.deferred_condition_code not in deferred_conditions[result.deferred_kind]:
+        raise ValidationError({"deferred_condition_code": "Invalid deferred intent schema."})
+    if (result.deferred_kind == "date") != bool(result.deferred_until):
+        raise ValidationError({"deferred_until": "Only date deferrals require a timestamp."})
+    if result.repeat_intent_kind not in _ANALYSIS_V2_REPEAT_KINDS:
+        raise ValidationError({"repeat_intent_kind": "Unsupported repeat kind."})
+    if result.project_slot not in _ANALYSIS_V2_PROJECT_SLOTS:
+        raise ValidationError({"project_slot": "Unknown project slot."})
+    if result.gemini_request_ref and not re.fullmatch(r"greq_[0-9a-f]{20}", result.gemini_request_ref):
+        raise ValidationError({"gemini_request_ref": "Invalid opaque request reference."})
+    if result.prompt_version not in {"", "2026-07-30.crm.episode-potential.v3"}:
+        raise ValidationError({"prompt_version": "Unknown prompt version."})
+    if result.routing_policy_version not in {"", "gemini-routing-v2.1"}:
+        raise ValidationError({"routing_policy_version": "Unknown routing policy."})
+    if result.reasoning_policy_version not in {"", "2026-07-23.v1"}:
+        raise ValidationError({"reasoning_policy_version": "Unknown reasoning policy."})
+    if result.analysis_model not in {
+        "", "unknown", "rules", "gemini-3.7-flash", "gemini-3.6-flash",
+        "gemini-3.5-flash", "gemini-3.5-flash-lite",
+    }:
+        raise ValidationError({"analysis_model": "Unknown analysis model."})
+    if result.usage_status not in {"accounting_unknown", "provider_reported", "estimated"}:
+        raise ValidationError({"usage_status": "Unknown usage status."})
 
 
 _ANALYSIS_PROPOSAL_VALUE_KEYS = frozenset({
@@ -4921,29 +5062,90 @@ _ANALYSIS_PROPOSAL_VALUE_KEYS = frozenset({
 
 def _validate_analysis_proposal_payload(proposal):
     value = proposal.typed_value
-    if not isinstance(value, dict) or set(value) - _ANALYSIS_PROPOSAL_VALUE_KEYS:
+    if not isinstance(value, dict):
         raise ValidationError({"typed_value": "Only typed proposal fields are allowed."})
-    for key, item in value.items():
-        values = item if isinstance(item, list) else [item]
-        if any(
-            not isinstance(entry, (str, int, float, bool))
-            or (
-                isinstance(entry, str)
-                and not _ANALYSIS_V2_CODE_RE.fullmatch(entry)
-            )
-            for entry in values
-        ):
-            raise ValidationError({"typed_value": f"Invalid typed value for {key}."})
-    if not isinstance(proposal.evidence_message_ids, list) or any(
-        not isinstance(value, int) or value <= 0
-        for value in proposal.evidence_message_ids
-    ):
-        raise ValidationError({"evidence_message_ids": "Only message identities are allowed."})
+    schemas = {
+        "update_probability": {"probability", "basis"},
+        "record_objection": {"objection_type"},
+        "record_deferred_intent": {"kind", "condition_code", "deferred_until"},
+        "start_repeat_episode": {"repeat_kind"},
+        "request_clarification": {"reason_codes"},
+        "close_node": set(), "invalidate_node": set(),
+        "open_subfunnel": set(), "switch_active_line": set(),
+    }
+    expected_keys = schemas.get(proposal.proposal_type)
+    if expected_keys is None or set(value) != expected_keys:
+        raise ValidationError({"typed_value": "Proposal payload does not match its type."})
+    if proposal.proposal_type == "update_probability":
+        _validate_finite_01(value.get("probability"), field_name="typed_value")
+        if value.get("basis") != "customer_evidence":
+            raise ValidationError({"typed_value": "Probability basis must be customer evidence."})
+    elif proposal.proposal_type == "record_objection":
+        if value.get("objection_type") not in IgObjection.Type.values:
+            raise ValidationError({"typed_value": "Unsupported objection type."})
+    elif proposal.proposal_type == "record_deferred_intent":
+        deferred_conditions = {
+            "date": "customer_date", "event": "after_event",
+            "payday": "payday", "indefinite": "indefinite",
+        }
+        kind = value.get("kind")
+        if kind not in deferred_conditions or value.get("condition_code") != deferred_conditions[kind]:
+            raise ValidationError({"typed_value": "Invalid deferred intent."})
+        parsed = parse_datetime(str(value.get("deferred_until") or ""))
+        if (kind == "date") != bool(parsed):
+            raise ValidationError({"typed_value": "Invalid deferred timestamp."})
+    elif proposal.proposal_type == "start_repeat_episode":
+        if value.get("repeat_kind") not in _ANALYSIS_V2_REPEAT_KINDS - {""}:
+            raise ValidationError({"typed_value": "Unsupported repeat kind."})
+    elif proposal.proposal_type == "request_clarification":
+        codes = value.get("reason_codes")
+        if not isinstance(codes, list) or not codes or len(codes) > 20 or len(codes) != len(set(codes)) or any(code not in _ANALYSIS_V2_CONFLICT_CODES for code in codes):
+            raise ValidationError({"typed_value": "Unsupported clarification codes."})
+    _validate_positive_message_ids(
+        proposal.evidence_message_ids,
+        field_name="evidence_message_ids",
+    )
+    _validate_finite_01(proposal.confidence, field_name="confidence")
     for field_name in (
         "line_id", "target_definition_key", "target_definition_version", "target_key",
     ):
         if not _ANALYSIS_V2_CODE_RE.fullmatch(str(getattr(proposal, field_name) or "")):
             raise ValidationError({field_name: "Only bounded typed identifiers are allowed."})
+    if not re.fullmatch(r"analysis-proposal:[0-9a-f]{64}", str(proposal.proposal_key or "")):
+        raise ValidationError({"proposal_key": "Invalid proposal identity."})
+    for field_name in (
+        "source_result_digest", "expected_materiality_digest",
+        "expected_state_correlation",
+    ):
+        _validate_hex(getattr(proposal, field_name), field_name=field_name)
+    _validate_hex(
+        proposal.expected_authority_digest,
+        field_name="expected_authority_digest",
+        optional=True,
+    )
+    if proposal.status not in {
+        "pending", "shadow_validated", "blocked_dependency",
+        "blocked_legacy_owner", "rejected", "applied",
+    }:
+        raise ValidationError({"status": "Unsupported proposal status."})
+    if proposal.decision_code not in _ANALYSIS_V2_DECISION_CODES:
+        raise ValidationError({"decision_code": "Unsupported projector decision."})
+    if proposal.projector_version not in {"", "analysis-v2-projector.1"}:
+        raise ValidationError({"projector_version": "Unsupported projector version."})
+
+
+def _validate_analysis_proposal_mutable_values(values):
+    if "status" in values and values["status"] not in {
+        "pending", "shadow_validated", "blocked_dependency",
+        "blocked_legacy_owner", "rejected", "applied",
+    }:
+        raise ValidationError({"status": "Unsupported proposal status."})
+    if "decision_code" in values and values["decision_code"] not in _ANALYSIS_V2_DECISION_CODES:
+        raise ValidationError({"decision_code": "Unsupported projector decision."})
+    if "projector_version" in values and values["projector_version"] not in {
+        "", "analysis-v2-projector.1",
+    }:
+        raise ValidationError({"projector_version": "Unsupported projector version."})
 
 
 class _IgConversationAnalysisResultQuerySet(models.QuerySet):
@@ -5229,11 +5431,14 @@ class _IgAnalysisProposalQuerySet(models.QuerySet):
     def update(self, **kwargs):
         if set(kwargs) - self._MUTABLE_FIELDS:
             raise ValueError("IgAnalysisProposal identity is immutable")
+        _validate_analysis_proposal_mutable_values(kwargs)
         return super().update(**kwargs)
 
     def bulk_update(self, objs, fields, batch_size=None):
         if set(fields) - self._MUTABLE_FIELDS:
             raise ValueError("IgAnalysisProposal identity is immutable")
+        for obj in objs:
+            _validate_analysis_proposal_payload(obj)
         return super().bulk_update(objs, fields, batch_size=batch_size)
 
     def bulk_create(self, objs, *args, **kwargs):
