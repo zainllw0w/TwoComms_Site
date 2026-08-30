@@ -87,7 +87,7 @@ _REVIEWER_STATUS_ALLOWED_KEYS = frozenset({
 
 def _reviewer_safe_status(request):
     """Return only the documented liveness telemetry to an external reviewer."""
-    status = bot.status_snapshot()
+    status = gemini_health.public_projection(bot.status_snapshot())
     if not _is_reviewer_only(request.user):
         return status
     return {
@@ -906,21 +906,28 @@ def _audit_reviewer_action(request, action: str) -> None:
         pass
 
 
+_PUBLIC_BOT_LOG_LEVELS = frozenset({
+    "debug", "info", "success", "warning", "error",
+})
+
+
+def _public_bot_log_item(row, *, include_date: bool = False) -> dict:
+    """Project current and historical log rows through one safe boundary."""
+    payload = {
+        "id": row.id,
+        "level": row.level if row.level in _PUBLIC_BOT_LOG_LEVELS else "info",
+        "event": row.event,
+        "detail": row.detail,
+        "time": row.created_at.strftime("%H:%M:%S"),
+    }
+    if include_date:
+        payload["date"] = row.created_at.strftime("%d.%m.%Y")
+    return gemini_health.public_projection(payload)
+
+
 def _log_items(limit: int = 80):
     rows = InstagramBotLog.objects.all()[:limit]
-    return [
-        {
-            "id": r.id,
-            "level": r.level,
-            # Historical rows predate write-boundary redaction.  Never expose
-            # their internal credential aliases through HTML or status JSON.
-            "event": gemini_health.redact_key_aliases(r.event),
-            "detail": gemini_health.redact_key_aliases(r.detail),
-            "time": r.created_at.strftime("%H:%M:%S"),
-            "date": r.created_at.strftime("%d.%m.%Y"),
-        }
-        for r in rows
-    ]
+    return [_public_bot_log_item(row, include_date=True) for row in rows]
 
 
 @login_required(login_url="management_login")
@@ -994,16 +1001,7 @@ def bot_status_api(request):
 
     rows = retry_mysql_read(load_rows, fallback=[])
     rows.reverse()  # від старіших до новіших для дозапису в консоль
-    items = [
-        {
-            "id": r.id,
-            "level": r.level,
-            "event": gemini_health.redact_key_aliases(r.event),
-            "detail": gemini_health.redact_key_aliases(r.detail),
-            "time": r.created_at.strftime("%H:%M:%S"),
-        }
-        for r in rows
-    ]
+    items = [_public_bot_log_item(row) for row in rows]
     return JsonResponse({"success": True, "status": _reviewer_safe_status(request), "log": items})
 
 

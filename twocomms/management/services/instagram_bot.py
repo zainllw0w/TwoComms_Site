@@ -2797,6 +2797,8 @@ def log(level: str, event: str, detail: str = "") -> None:
     from management.services import gemini_health
 
     level = str(level or "info").lower()
+    if level not in _LOG_LEVELS:
+        level = "info"
     event = gemini_health.redact_key_aliases(event or "unknown")[:120]
     detail = gemini_health.redact_key_aliases(detail)[:4000]
     try:

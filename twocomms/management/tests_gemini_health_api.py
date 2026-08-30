@@ -68,7 +68,7 @@ class GeminiHealthApiTests(TestCase):
 
     def test_get_returns_snapshot_and_never_calls_provider(self):
         snapshot = {
-            "schema_version": 4,
+            "schema_version": 5,
             "generated_at": "2026-08-18T12:00:00+00:00",
             "window": {"hours": 24},
             "summary": {"configured": 0},
@@ -130,6 +130,32 @@ class GeminiHealthApiTests(TestCase):
 
         settings_obj.refresh_from_db()
         self.assertEqual(settings_obj.last_gemini_key, "GEMINI_API2")
+
+    def test_status_last_error_is_recursively_redacted_for_json_and_dashboard(self):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.last_error = " | ".join(
+            f"failure={env_alias}" for env_alias in gemini_keys.ALL_KEYS
+        )
+        settings_obj.save(update_fields=["last_error", "updated_at"])
+
+        status_response = self.client.get(reverse("management_bot_status_api"))
+        dashboard_response = self.client.get(reverse("management_bot"))
+
+        self.assertEqual(status_response.status_code, 200)
+        self.assertEqual(dashboard_response.status_code, 200)
+        status_serialized = json.dumps(status_response.json(), sort_keys=True)
+        dashboard_html = dashboard_response.content.decode("utf-8")
+        for env_alias in gemini_keys.ALL_KEYS:
+            self.assertNotIn(env_alias, status_serialized)
+            self.assertNotIn(env_alias, dashboard_html)
+            self.assertIn(
+                gemini_health.public_key_reference(env_alias),
+                status_serialized,
+            )
+
+        settings_obj.refresh_from_db()
+        for env_alias in gemini_keys.ALL_KEYS:
+            self.assertIn(env_alias, settings_obj.last_error)
 
     def test_log_write_boundary_persists_only_opaque_project_references(self):
         for index, env_alias in enumerate(gemini_keys.ALL_KEYS):

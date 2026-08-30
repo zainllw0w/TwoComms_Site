@@ -58,6 +58,7 @@ class GeminiHealthSnapshotTests(TestCase):
             candidate_index=kwargs.get("candidate_index", 0),
             winner_claimed=kwargs.get("winner_claimed", False),
             reply_message_id=kwargs.get("reply_message_id"),
+            not_attempted_reason=kwargs.get("not_attempted_reason", ""),
         )
         # Historical fixture setup intentionally bypasses the public immutable
         # V2 manager; production writers may not rewrite attempt identity time.
@@ -320,7 +321,7 @@ class GeminiHealthSnapshotTests(TestCase):
     def test_empty_pool_is_stable_six_rows_with_gray_24_bucket_histories(self):
         snapshot = self._build()
 
-        self.assertEqual(snapshot["schema_version"], 4)
+        self.assertEqual(snapshot["schema_version"], 5)
         self.assertEqual(snapshot["window"]["hours"], 24)
         self.assertEqual(snapshot["window"]["bucket_count"], 24)
         self.assertEqual([row["alias"] for row in snapshot["keys"]], [
@@ -562,6 +563,24 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertNotIn("key_value", serialized)
         self.assertNotIn("api_key", serialized.lower())
 
+    def test_public_projection_recursively_redacts_keys_and_nested_values(self):
+        projected = gemini_health.public_projection({
+            "route_GEMINI_API": [
+                {"reason": "timeout on gemini_api2"},
+                {"status": {"GEMINI_API3": "failed GEMINI_API4"}},
+            ],
+        })
+
+        serialized = json.dumps(projected, sort_keys=True)
+        upper_serialized = serialized.upper()
+        for env_alias in gemini_health.KEY_ALIASES:
+            self.assertNotIn(env_alias, upper_serialized)
+        for env_alias in gemini_health.KEY_ALIASES[:4]:
+            self.assertIn(
+                gemini_health.public_key_reference(env_alias),
+                serialized,
+            )
+
     def test_metadata_failure_then_secondary_success_is_degraded(self):
         at = self.now - datetime.timedelta(minutes=4)
         self._attempt(
@@ -729,10 +748,12 @@ class GeminiHealthSnapshotTests(TestCase):
             at=at + datetime.timedelta(seconds=1),
         )
 
-        winner_row = self._build()["keys"][1]
+        snapshot = self._build()
+        winner_row = snapshot["keys"][1]
 
         self.assertEqual(winner_row["live_state"], "LIVE")
         self.assertEqual(winner_row["active_model"], "gemini-3.5-flash-lite")
+        self.assertIsNone(snapshot["fallback"])
 
     def test_claimed_winner_beats_a_later_successful_loser(self):
         at = self.now - datetime.timedelta(minutes=4)
@@ -766,10 +787,13 @@ class GeminiHealthSnapshotTests(TestCase):
             at=at + datetime.timedelta(seconds=2),
         )
 
-        winner_row = self._build()["keys"][1]
+        snapshot = self._build()
+        winner_row = snapshot["keys"][1]
 
         self.assertEqual(winner_row["live_state"], "DEGRADED")
         self.assertEqual(winner_row["active_model"], "gemini-3.5-flash")
+        self.assertEqual(snapshot["fallback"]["from_model"], "gemini-3.5-flash-lite")
+        self.assertEqual(snapshot["fallback"]["to_model"], "gemini-3.5-flash")
 
     def test_claimed_winner_beats_a_later_failed_loser_on_same_project(self):
         at = self.now - datetime.timedelta(minutes=4)
@@ -994,6 +1018,63 @@ class GeminiHealthSnapshotTests(TestCase):
         )
         self.assertEqual(snapshot["fallback"]["from_model"], "gemini-3.7-flash")
         self.assertEqual(snapshot["fallback"]["to_model"], "gemini-3.5-flash-lite")
+
+    def test_health_route_projects_request_and_untrusted_enums_safely(self):
+        request_id = "route-GEMINI_API2-private"
+        at = self.now - datetime.timedelta(minutes=3)
+        self._attempt(
+            request_id=request_id,
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed_GEMINI_API3",
+            failure_kind="read_timeout_GEMINI_API4",
+            role="chat",
+            candidate_index=1,
+            at=at,
+        )
+        self._attempt(
+            request_id=request_id,
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=7,
+            winner_claimed=True,
+            at=at + datetime.timedelta(seconds=1),
+        )
+        self._attempt(
+            request_id=request_id,
+            key_name="GEMINI_API3",
+            model="gemini-3.5-flash",
+            outcome="not_attempted",
+            failure_kind="not_needed",
+            not_attempted_reason="winner_GEMINI_API5",
+            role="chat",
+            candidate_index=8,
+            at=at + datetime.timedelta(seconds=2),
+        )
+
+        snapshot = self._build()
+        route = snapshot["latest_route"]
+
+        self.assertNotIn("request_id", route)
+        self.assertEqual(
+            route["request_ref"],
+            gemini_health.public_request_reference(request_id),
+        )
+        self.assertTrue(route["request_ref"].startswith("greq_"))
+        self.assertNotIn(request_id, json.dumps(snapshot, sort_keys=True))
+        first, _winner, skipped = route["steps"]
+        self.assertEqual(first["outcome"], "unknown")
+        self.assertEqual(first["failure_kind"], "other")
+        self.assertEqual(first["reason"], "unknown")
+        self.assertEqual(skipped["outcome"], "not_attempted")
+        self.assertEqual(skipped["failure_kind"], "not_needed")
+        self.assertEqual(skipped["not_attempted_reason"], "other")
+        self.assertEqual(skipped["reason"], "other")
+        serialized = json.dumps(snapshot, sort_keys=True)
+        for env_alias in gemini_health.KEY_ALIASES:
+            self.assertNotIn(env_alias, serialized)
 
     def test_snapshot_reports_latest_metadata_batch_completeness(self):
         completed_at = self.now - datetime.timedelta(minutes=3)

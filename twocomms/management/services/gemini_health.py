@@ -8,12 +8,13 @@ from collections import defaultdict
 from typing import Any
 
 from django.utils import timezone
+from django.utils.crypto import salted_hmac
 
 from management.models import GeminiRequestAttempt
 from management.services import gemini_keys
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 WINDOW_HOURS = 24
 BUCKET_COUNT = 24
 ATTEMPT_QUERY_CAP = 2000
@@ -47,6 +48,10 @@ DISPLAY_ALIASES = {
     key_name: f"API key {index}"
     for index, key_name in enumerate(KEY_ALIASES, start=1)
 }
+_KEY_ALIAS_PATTERN = re.compile(
+    "|".join(re.escape(alias) for alias in sorted(KEY_ALIASES, key=len, reverse=True)),
+    flags=re.IGNORECASE,
+)
 _METADATA_BATCH_RE = re.compile(r"^(meta-\d{10}-[0-9a-f]{8})-(?:I|[2-6])$")
 
 _SUCCESS_OUTCOMES = frozenset(("success", "succeeded", "ok"))
@@ -67,6 +72,40 @@ _FAILURE_REASON_LABELS = {
     "lease_busy": "key busy/quarantined",
     "quarantined": "key busy/quarantined",
 }
+_PUBLIC_FAILURE_KINDS = frozenset({
+    *_FAILURE_REASON_LABELS,
+    "blocked",
+    "forbidden",
+    "malformed_response",
+    "provider_error",
+    "request_error",
+    "model_overload",
+    "model_unavailable",
+    "not_needed",
+})
+_PUBLIC_NOT_ATTEMPTED_REASONS = frozenset({
+    "circuit_open",
+    "deadline",
+    "duplicate_credential",
+    "duplicate_project",
+    "fatal_payload",
+    "lease_busy",
+    "model_overload",
+    "model_terminal",
+    "model_unavailable",
+    "quarantine",
+    "quota_cooldown",
+    "quota_exhausted",
+    "sla_model_budget",
+    "unconfigured",
+    "winner_found",
+})
+_PENDING_ROUTE_OUTCOMES = frozenset({
+    "planned",
+    "provider_started",
+    "reserved",
+    "started",
+})
 
 
 def public_key_reference(key_name: str) -> str:
@@ -81,10 +120,87 @@ def public_key_reference(key_name: str) -> str:
 
 def redact_key_aliases(value: Any) -> str:
     """Remove every internal env alias from operator-visible text."""
-    redacted = str(value or "")
-    for alias in sorted(KEY_ALIASES, key=len, reverse=True):
-        redacted = redacted.replace(alias, public_key_reference(alias))
-    return redacted
+    return _KEY_ALIAS_PATTERN.sub(
+        lambda match: public_key_reference(match.group(0).upper()),
+        str(value or ""),
+    )
+
+
+def public_projection(value: Any) -> Any:
+    """Recursively remove internal aliases at every JSON/HTML boundary."""
+    if isinstance(value, dict):
+        return {
+            redact_key_aliases(key): public_projection(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [public_projection(item) for item in value]
+    if isinstance(value, str):
+        return redact_key_aliases(value)
+    return value
+
+
+def public_request_reference(request_id: str) -> str:
+    """Return an opaque correlation id without exposing the persisted request id."""
+    normalized = str(request_id or "").strip()
+    if not normalized:
+        return ""
+    digest = salted_hmac(
+        "management.gemini-health.request-ref",
+        normalized,
+    ).hexdigest()[:20]
+    return f"greq_{digest}"
+
+
+def _public_failure_kind(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return ""
+    return normalized if normalized in _PUBLIC_FAILURE_KINDS else "other"
+
+
+def _public_not_attempted_reason(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    if not normalized:
+        return ""
+    return (
+        normalized
+        if normalized in _PUBLIC_NOT_ATTEMPTED_REASONS
+        else "other"
+    )
+
+
+def _public_route_outcome(row: dict[str, Any]) -> str:
+    normalized = str(row.get("outcome") or "").strip().lower()
+    if _attempt_succeeded(row):
+        return "succeeded"
+    if _attempt_not_needed(row):
+        return "not_attempted"
+    if normalized in {"failed", "error", "timeout", "timeout_ambiguous"}:
+        return "failed"
+    if normalized in _PENDING_ROUTE_OUTCOMES:
+        return "pending"
+    return "unknown"
+
+
+def _public_route_reason(
+    *,
+    outcome: str,
+    failure_kind: str,
+    not_attempted_reason: str,
+) -> str:
+    if outcome == "failed":
+        return _FAILURE_REASON_LABELS.get(
+            failure_kind,
+            "provider request failed",
+        )
+    if outcome == "not_attempted":
+        return not_attempted_reason or "not attempted"
+    if outcome == "succeeded":
+        return "succeeded"
+    if outcome == "pending":
+        return "pending"
+    return "unknown"
 
 
 def _as_utc(value: dt.datetime) -> dt.datetime:
@@ -369,26 +485,72 @@ def _group_global_request(rows: list[dict[str, Any]]) -> dict[str, list[dict[str
 def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | int | None] | None:
     latest: tuple[tuple[dt.datetime, int], dict[str, str | int | None]] | None = None
     for request_rows in _group_global_request(rows).values():
-        for index, row in enumerate(request_rows):
-            if _attempt_succeeded(row) or _attempt_not_needed(row):
-                continue
-            for next_row in request_rows[index + 1:]:
-                if not _attempt_succeeded(next_row):
-                    continue
-                if next_row.get("model") == row.get("model"):
-                    continue
-                failure_kind = str(row.get("failure_kind") or "").strip().lower()
-                fallback = {
-                    "from_model": str(row.get("model") or ""),
-                    "to_model": str(next_row.get("model") or ""),
-                    "reason": _FAILURE_REASON_LABELS.get(failure_kind, "provider request failed"),
-                    "http_code": int(row.get("http_code") or 0) or None,
-                    "observed_at": _iso(next_row["created_at"]),
-                }
-                observed_at = _attempt_sort_key(next_row)
-                if latest is None or observed_at > latest[0]:
-                    latest = (observed_at, fallback)
-                break
+        ordered = sorted(request_rows, key=_candidate_sort_key)
+        primary_model = next(
+            (
+                str(row.get("model") or "")
+                for row in ordered
+                if str(row.get("model") or "") in DISPLAY_MODELS
+            ),
+            "",
+        )
+        winner = _actual_winner(ordered)
+        if winner is None or not primary_model:
+            continue
+        winner_model = str(winner.get("model") or "")
+        # Rotating projects within one model is pool recovery, not a model
+        # fallback.  A late successful loser must likewise never replace the
+        # atomically claimed winner selected above.
+        if winner_model not in DISPLAY_MODELS or winner_model == primary_model:
+            continue
+
+        winner_order = _candidate_sort_key(winner)
+        primary_rows = [
+            row
+            for row in ordered
+            if str(row.get("model") or "") == primary_model
+            and _candidate_sort_key(row) <= winner_order
+        ]
+        failed_rows = [
+            row
+            for row in primary_rows
+            if not _attempt_succeeded(row) and not _attempt_not_needed(row)
+        ]
+        failure_row = max(failed_rows, key=_candidate_sort_key, default=None)
+        if failure_row is not None:
+            failure_kind = _public_failure_kind(failure_row.get("failure_kind"))
+            reason = _FAILURE_REASON_LABELS.get(
+                failure_kind,
+                "provider request failed",
+            )
+            http_code = int(failure_row.get("http_code") or 0) or None
+        else:
+            skip_reasons = {
+                _public_not_attempted_reason(row.get("not_attempted_reason"))
+                for row in primary_rows
+                if _attempt_not_needed(row)
+            }
+            if skip_reasons.intersection({"quota_cooldown", "quota_exhausted"}):
+                reason = "quota cooldown"
+            elif skip_reasons.intersection({"model_terminal", "model_unavailable"}):
+                reason = "model unavailable"
+            elif skip_reasons.intersection({"deadline", "sla_model_budget"}):
+                reason = "deadline"
+            elif skip_reasons.intersection({"lease_busy", "quarantine"}):
+                reason = "key busy/quarantined"
+            else:
+                reason = "primary route did not win"
+            http_code = None
+        fallback = {
+            "from_model": primary_model,
+            "to_model": winner_model,
+            "reason": reason,
+            "http_code": http_code,
+            "observed_at": _iso(winner["created_at"]),
+        }
+        observed_at = _attempt_sort_key(winner)
+        if latest is None or observed_at > latest[0]:
+            latest = (observed_at, fallback)
     return latest[1] if latest else None
 
 
@@ -400,19 +562,33 @@ def _latest_route(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
         groups.items(),
         key=lambda item: _attempt_sort_key(max(item[1], key=_attempt_sort_key)),
     )
-    return {
-        "request_id": request_id,
+    return public_projection({
+        "request_ref": public_request_reference(request_id),
         "steps": [
-            {
-                "slot_id": SLOT_BY_ALIAS[str(row.get("key_name") or "")],
-                "model": str(row.get("model") or ""),
-                "outcome": str(row.get("outcome") or ""),
-                "failure_kind": str(row.get("failure_kind") or ""),
-                "not_attempted_reason": str(row.get("not_attempted_reason") or ""),
-                "candidate_index": int(row.get("candidate_index") or 0),
-            }
+            _public_route_step(row)
             for row in request_rows
         ],
+    })
+
+
+def _public_route_step(row: dict[str, Any]) -> dict[str, Any]:
+    outcome = _public_route_outcome(row)
+    failure_kind = _public_failure_kind(row.get("failure_kind"))
+    not_attempted_reason = _public_not_attempted_reason(
+        row.get("not_attempted_reason")
+    )
+    return {
+        "slot_id": SLOT_BY_ALIAS[str(row.get("key_name") or "")],
+        "model": str(row.get("model") or ""),
+        "outcome": outcome,
+        "failure_kind": failure_kind,
+        "not_attempted_reason": not_attempted_reason,
+        "reason": _public_route_reason(
+            outcome=outcome,
+            failure_kind=failure_kind,
+            not_attempted_reason=not_attempted_reason,
+        ),
+        "candidate_index": int(row.get("candidate_index") or 0),
     }
 
 
@@ -723,7 +899,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             },
         })
 
-    return {
+    return public_projection({
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso(generated_at),
         "window": {
@@ -747,4 +923,4 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         "fallback": _latest_fallback(runtime_attempts),
         "latest_route": _latest_route(runtime_attempts),
         "keys": keys,
-    }
+    })

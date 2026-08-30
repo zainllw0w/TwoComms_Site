@@ -1531,7 +1531,7 @@ body.bot-drawer-open{overflow:hidden;}
           <span><i class="recovered"></i>Відновлено</span>
           <span><i class="terminal"></i>Помилка</span>
           <span><i class="empty"></i>Немає даних</span>
-          <span><i class="not-needed"></i>Не перевірялась: 3.7 успішна</span>
+          <span><i class="not-needed"></i>Не перевірялась: основний маршрут уже успішний</span>
         </div>
         <div class="gemini-health-feedback" id="gemini-health-feedback" role="status" aria-live="polite"></div>
       </footer>
@@ -1885,13 +1885,13 @@ body.bot-drawer-open{overflow:hidden;}
       {id:'gemini-3.5-flash',short:'3.5'},
       {id:'gemini-3.5-flash-lite',short:'3.5 Lite'},
     ];
-    const schemaVersion=4;
+    const schemaVersion=5;
     const slotOrder=['gslot_7f3a','gslot_c921','gslot_18de','gslot_a604','gslot_52bb','gslot_e17c'];
     const slotSet=new Set(slotOrder);
     const stateLabels={available:'Доступний у пулі',busy:'Зайнятий у пулі',cooldown:'Cooldown у пулі',unconfigured:'Не налаштовано',unavailable:'Недоступний у пулі'};
     const liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО',DEGRADED:'DEGRADED',OFFLINE:'OFFLINE',STALE:'STALE',NOT_CONFIGURED:'NOT CONFIGURED'};
     const liveStateDescriptions={LIVE:'Нещодавня реальна генерація успішна',READY:'Ручний metadata GET успішний; генерацію не доведено',DEGRADED:'Основний маршрут не пройшов, але fallback підтверджено',OFFLINE:'Жоден маршрут не підтверджено',STALE:'Немає свіжого спостереження',NOT_CONFIGURED:'Секрет для alias не налаштовано'};
-    const observationLabels={success:'Успішне',recovered:'Відновлено після збою',terminal:'Помилка',no_observation:'Немає даних',not_needed:'Не перевірялась: 3.7 успішна'};
+    const observationLabels={success:'Успішне',recovered:'Відновлено після збою',terminal:'Помилка',no_observation:'Немає даних',not_needed:'Не перевірялась: основний маршрут уже успішний'};
     const fallbackReasons={'model timeout':'Модель не відповіла вчасно','provider overload':'Провайдер перевантажений','network transport failure':'Помилка мережевого з’єднання','quota cooldown':'Ключ на cooldown','model unavailable':'Модель тимчасово недоступна','invalid key':'Ключ відхилено','invalid response':'Некоректна відповідь'};
     const allowedObservationStates=new Set(['success','recovered','terminal','no_observation','not_needed']);
     let lastSnapshot=null;

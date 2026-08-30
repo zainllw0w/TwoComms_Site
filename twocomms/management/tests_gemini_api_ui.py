@@ -132,9 +132,13 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         source = self.template[start:end]
 
         self.assertIn("liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО'", source)
-        self.assertIn("not_needed:'Не перевірялась: 3.7 успішна'", source)
+        self.assertIn(
+            "not_needed:'Не перевірялась: основний маршрут уже успішний'",
+            source,
+        )
         self.assertIn(".gemini-health-segment.is-not_needed", self.template)
         self.assertIn(".gemini-health-legend .not-needed", self.template)
+        self.assertNotIn("Не перевірялась: 3.7 успішна", self.template)
         self.assertIn("metadata_observations", source)
         self.assertIn(
             "integer(summaryData.observations)+integer(summaryData.metadata_observations)",
@@ -206,7 +210,7 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         source = self.template[start:end]
 
         for contract in (
-            "const schemaVersion=4",
+            "const schemaVersion=5",
             "const slotOrder=['gslot_7f3a','gslot_c921','gslot_18de','gslot_a604','gslot_52bb','gslot_e17c']",
             "function normalizeSnapshot(data)",
             "Number(data.schema_version)!==schemaVersion",
@@ -218,6 +222,17 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(contract, source)
         self.assertNotIn("source[index-1]", source)
+
+    def test_health_route_and_status_dom_use_projected_text_only(self):
+        start = self.template.index("const GeminiHealth=(function(){")
+        end = self.template.index("/* ============", start + 32)
+        source = self.template[start:end]
+
+        self.assertIn("element.textContent=text", source)
+        self.assertNotIn("latestRoute.request_id", source)
+        self.assertIn("element.textContent=text||''", self.template)
+        self.assertIn("esc(it.event)", self.template)
+        self.assertIn("esc(it.detail)", self.template)
 
     def test_api_styles_stack_narrow_and_honor_reduced_motion(self):
         for contract in (
