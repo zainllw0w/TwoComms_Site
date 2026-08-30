@@ -150,6 +150,34 @@ class AnalysisV2MigrationTests(SimpleTestCase):
         with self.assertRaisesRegex(RuntimeError, "expected BooleanField"):
             _validate_field(editor, self.migration.RESULT_TABLE, field, column)
 
+    def test_partial_one_to_one_validates_its_physical_target_type(self):
+        from management.migrations._resumable_schema import _validate_field
+
+        editor = Mock()
+        editor.connection.vendor = "mysql"
+        editor.connection.introspection.get_field_type.return_value = "BigIntegerField"
+        field = SimpleNamespace(
+            column="legacy_snapshot_id",
+            null=False,
+            max_length=None,
+            is_relation=True,
+            many_to_one=False,
+            one_to_one=True,
+            target_field=SimpleNamespace(
+                get_internal_type=lambda: "BigAutoField"
+            ),
+        )
+        column = SimpleNamespace(
+            type_code=8,
+            null_ok=False,
+            internal_size=None,
+        )
+
+        _validate_field(editor, self.migration.RESULT_TABLE, field, column)
+        editor.connection.introspection.get_field_type.return_value = "CharField"
+        with self.assertRaisesRegex(RuntimeError, "expected BigAutoField"):
+            _validate_field(editor, self.migration.RESULT_TABLE, field, column)
+
     def test_unique_shape_rejects_named_incompatible_constraint(self):
         constraint = models.UniqueConstraint(
             fields=["result_key"],

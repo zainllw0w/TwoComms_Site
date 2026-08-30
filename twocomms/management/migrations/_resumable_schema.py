@@ -42,7 +42,10 @@ def _validate_field(schema_editor, table_name, field, column):
     physical_field = (
         field.target_field
         if getattr(field, "is_relation", False)
-        and getattr(field, "many_to_one", False)
+        and (
+            getattr(field, "many_to_one", False)
+            or getattr(field, "one_to_one", False)
+        )
         else field
     )
     expected = physical_field.get_internal_type()
