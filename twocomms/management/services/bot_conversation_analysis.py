@@ -261,13 +261,30 @@ def schedule_client_truth_analysis(
     )
     if not message:
         return None
-    return schedule_analysis(
+    job = schedule_analysis(
         client,
         message,
         trigger=trigger,
         now=now,
         delay_seconds=0,
     )
+    try:
+        from management.services.ig_analysis_materiality import (
+            record_authority_materiality,
+        )
+
+        record_authority_materiality(
+            client=client,
+            job=job,
+            trigger=trigger,
+            source_message_id=message.pk,
+            now=now,
+        )
+    except Exception:
+        # Authority scheduling remains the existing source of truth; the
+        # shadow ledger cannot make that operational path fail.
+        pass
+    return job
 
 
 def _reclaim_stale(now) -> int:
@@ -1467,6 +1484,15 @@ def _process_claim(
         else:
             current_job.status = IgConversationAnalysisJob.Status.DONE
             current_job.next_attempt_at = finalized_at
+        from management.services.ig_analysis_materiality import (
+            mark_job_materiality_analyzed,
+        )
+
+        materiality_fields = mark_job_materiality_analyzed(
+            current_job,
+            watermark=watermark,
+            claimed_revision=claimed_revision,
+        )
         current_job.save(update_fields=[
             "analysis_model",
             "analysis_prompt_version",
@@ -1490,6 +1516,7 @@ def _process_claim(
             "status",
             "next_attempt_at",
             "updated_at",
+            *materiality_fields,
         ])
     return "done"
 

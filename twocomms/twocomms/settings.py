@@ -136,6 +136,16 @@ IG_UGC_AUTO_AWARD_MODE = os.environ.get(
 if IG_UGC_AUTO_AWARD_MODE not in {'auto', 'shadow', 'disabled'}:
     IG_UGC_AUTO_AWARD_MODE = 'shadow'
 
+# Canonical CRM materiality ledger rollout. ``off`` performs zero ledger/job
+# writes; ``shadow`` records and reads freshness without changing Gemini
+# routing, provider cadence, or the existing one-job-per-client behavior.
+IG_ANALYSIS_MATERIALITY_MODE = os.environ.get(
+    'IG_ANALYSIS_MATERIALITY_MODE',
+    'off',
+).strip().casefold()
+if IG_ANALYSIS_MATERIALITY_MODE not in {'off', 'shadow'}:
+    IG_ANALYSIS_MATERIALITY_MODE = 'off'
+
 # Ephemeral customer image/audio ownership. This directory must be outside
 # MEDIA_ROOT (and should be outside the checkout in production); no public URL
 # is ever generated for these blobs.

@@ -44,6 +44,7 @@ __all__ = [
     "IgConversationSignal",
     "IgObjection",
     "IgObjectionAttempt",
+    "IgAnalysisMaterialityEvent",
     "IgConversationAnalysisSnapshot",
     "IgConversationAnalysisEvent",
     "IgConversationAnalysisJob",
@@ -4658,6 +4659,93 @@ class IgObjectionAttempt(models.Model):
         indexes = [models.Index(fields=["objection", "-id"], name="ig_obj_attempt_dt")]
 
 
+class _IgAnalysisMaterialityEventQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgAnalysisMaterialityEvent is append-only")
+
+    def delete(self):
+        raise ValueError("IgAnalysisMaterialityEvent is append-only")
+
+
+class IgAnalysisMaterialityEvent(models.Model):
+    """PII-free evidence that a durable CRM analysis may be stale."""
+
+    class Kind(models.TextChoices):
+        CUSTOMER_TURN = "customer_turn", _("Завершений хід клієнта")
+        PAYMENT_TRUTH = "payment_truth", _("Зміна істини оплати")
+        ORDER_TRUTH = "order_truth", _("Зміна істини замовлення")
+        MANAGER_BOUNDARY = "manager_boundary", _("Межа менеджера")
+        PRODUCT_LINE = "product_line", _("Зміна товарної лінії")
+        DEFERRED_INTENT = "deferred_intent", _("Відкладений намір")
+        MEDIA_ARTIFACT = "media_artifact", _("Новий media artifact")
+
+    class SourceRole(models.TextChoices):
+        USER = "user", _("Клієнт")
+        MANAGER = "manager", _("Менеджер")
+        AUTHORITY = "authority", _("Авторитетний backend")
+        SYSTEM = "system", _("Система")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_materiality_events",
+        db_constraint=False,
+    )
+    episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_materiality_events",
+        db_constraint=False,
+    )
+    line_id = models.CharField(max_length=96, blank=True, default="")
+    customer_turn = models.ForeignKey(
+        "management.IgCustomerTurn",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_materiality_events",
+        db_constraint=False,
+    )
+    source_message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_materiality_events",
+        db_constraint=False,
+    )
+    source_role = models.CharField(max_length=16, choices=SourceRole.choices)
+    event_kind = models.CharField(max_length=32, choices=Kind.choices)
+    event_key = models.CharField(max_length=160, unique=True)
+    event_digest = models.CharField(max_length=64)
+    authority_digest = models.CharField(max_length=64, blank=True, default="")
+    artifact_revision = models.PositiveBigIntegerField(default=0)
+    artifact_digest = models.CharField(max_length=64, blank=True, default="")
+    relevant_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            models.Index(fields=["client", "-id"], name="ig_mat_client_id"),
+            models.Index(fields=["episode", "-id"], name="ig_mat_episode_id"),
+            models.Index(fields=["event_kind", "-id"], name="ig_mat_kind_id"),
+            models.Index(fields=["relevant_at", "id"], name="ig_mat_relevant"),
+        ]
+
+    objects = models.Manager.from_queryset(_IgAnalysisMaterialityEventQuerySet)()
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValueError("IgAnalysisMaterialityEvent is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgAnalysisMaterialityEvent is append-only")
+
+
 class IgConversationAnalysisSnapshot(models.Model):
     """Versioned, evidence-bound interpretation of one conversation watermark."""
 
@@ -4926,6 +5014,24 @@ class IgConversationAnalysisJob(models.Model):
     analyzed_watermark_message_id = models.PositiveBigIntegerField(default=0)
     revision = models.PositiveBigIntegerField(default=0)
     analyzed_revision = models.PositiveBigIntegerField(default=0)
+    materiality_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="analysis_materiality_jobs",
+        db_constraint=False,
+    )
+    materiality_line_id = models.CharField(max_length=96, blank=True, default="")
+    first_unanalysed_at = models.DateTimeField(null=True, blank=True)
+    last_relevant_at = models.DateTimeField(null=True, blank=True)
+    materiality_due_at = models.DateTimeField(null=True, blank=True)
+    materiality_event_highwater = models.PositiveBigIntegerField(default=0)
+    analyzed_materiality_event_highwater = models.PositiveBigIntegerField(default=0)
+    materiality_digest = models.CharField(max_length=64, blank=True, default="")
+    analyzed_materiality_digest = models.CharField(max_length=64, blank=True, default="")
+    authority_digest = models.CharField(max_length=64, blank=True, default="")
+    artifact_digest = models.CharField(max_length=64, blank=True, default="")
     claimed_watermark_message_id = models.PositiveBigIntegerField(default=0)
     claimed_revision = models.PositiveBigIntegerField(default=0)
     status = models.CharField(
@@ -4969,6 +5075,10 @@ class IgConversationAnalysisJob(models.Model):
         ordering = ["due_at", "id"]
         indexes = [
             models.Index(fields=["status", "next_attempt_at", "due_at"], name="ig_analysis_job_due"),
+            models.Index(
+                fields=["materiality_due_at", "id"],
+                name="ig_analysis_mat_due",
+            ),
         ]
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation

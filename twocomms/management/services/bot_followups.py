@@ -518,17 +518,12 @@ def _has_open_service_conversation(client: IgClient) -> bool:
 
     if open_service_case(client) is not None:
         return True
-    latest = (
-        client.analysis_snapshots.exclude(
-            interaction_type=(
-                IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
-            )
-        )
-        .order_by("-id")
-        .values_list("interaction_type", flat=True)
-        .first()
+    from management.services.ig_analysis_materiality import (
+        current_analysis_snapshot,
     )
-    return latest in {
+
+    latest = current_analysis_snapshot(client)
+    return getattr(latest, "interaction_type", "") in {
         IgConversationAnalysisSnapshot.InteractionType.SUPPORT_COMPLAINT,
         IgConversationAnalysisSnapshot.InteractionType.EXCHANGE_REQUEST,
         IgConversationAnalysisSnapshot.InteractionType.RETURN_REQUEST,
@@ -571,18 +566,16 @@ def _suppressed_interaction(client: IgClient) -> str:
     from management.ig_bot_models import IgConversationAnalysisSnapshot
 
     types = IgConversationAnalysisSnapshot.InteractionType
-    latest = (
-        client.analysis_snapshots.exclude(
-            interaction_type=types.MANAGER_OBSERVATION
-        )
-        .order_by("-id")
-        .values_list("interaction_type", flat=True)
-        .first()
+    from management.services.ig_analysis_materiality import (
+        current_analysis_snapshot,
     )
+
+    latest = current_analysis_snapshot(client)
+    interaction_type = getattr(latest, "interaction_type", "")
     return {
         types.WHOLESALE_B2B: "wholesale_b2b",
         types.COLLABORATION: "collaboration",
-    }.get(latest, "")
+    }.get(interaction_type, "")
 
 
 def _frequency_limit_reason(client: IgClient, *, now: datetime | None = None) -> str:

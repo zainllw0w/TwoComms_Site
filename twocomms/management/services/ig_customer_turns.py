@@ -252,7 +252,7 @@ def claim_turn(turn_id: int, *, now=None) -> tuple[IgCustomerTurn | None, str]:
 
 def mark_turn_processed(turn_id: int, *, now=None) -> None:
     now = now or timezone.now()
-    IgCustomerTurn.objects.filter(pk=turn_id).exclude(
+    transitioned = IgCustomerTurn.objects.filter(pk=turn_id).exclude(
         claim_state=IgCustomerTurn.ClaimState.PROCESSED
     ).update(
         claim_state=IgCustomerTurn.ClaimState.PROCESSED,
@@ -260,6 +260,16 @@ def mark_turn_processed(turn_id: int, *, now=None) -> None:
         claim_token="",
         updated_at=now,
     )
+    if transitioned:
+        try:
+            from management.services.ig_analysis_materiality import (
+                record_completed_customer_turn,
+            )
+
+            record_completed_customer_turn(turn_id)
+        except Exception:
+            # Shadow telemetry must never change reply/turn behavior.
+            pass
 
 
 def turn_message_ids(turn: IgCustomerTurn) -> list:

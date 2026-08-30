@@ -1,0 +1,390 @@
+"""Shadow-only materiality ledger and canonical CRM snapshot selection."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import time
+from datetime import timedelta
+
+from django.conf import settings
+from django.db import IntegrityError, OperationalError, transaction
+from django.utils import timezone
+
+from management.models import (
+    IgAnalysisMaterialityEvent,
+    IgClient,
+    IgConversationAnalysisJob,
+    IgConversationAnalysisSnapshot,
+    IgCustomerTurn,
+    InstagramBotMessage,
+)
+
+
+QUIET_SECONDS = 90
+MAX_STALENESS_SECONDS = 10 * 60
+
+
+def materiality_mode() -> str:
+    value = str(
+        getattr(settings, "IG_ANALYSIS_MATERIALITY_MODE", "off") or "off"
+    ).strip().casefold()
+    return value if value in {"off", "shadow"} else "off"
+
+
+def _sha(payload) -> str:
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _normalized_digest(value) -> str:
+    text = str(value or "").strip().casefold()
+    if len(text) == 64 and all(char in "0123456789abcdef" for char in text):
+        return text
+    return _sha({"value": text})
+
+
+def record_materiality_event(
+    *,
+    client_id: int,
+    event_kind: str,
+    event_digest: str,
+    source_role: str,
+    relevant_at=None,
+    episode_id: int | None = None,
+    line_id: str = "",
+    customer_turn_id: int | None = None,
+    source_message_id: int | None = None,
+    authority_digest: str = "",
+    artifact_revision: int = 0,
+    artifact_digest: str = "",
+    authority_immediate: bool = False,
+):
+    """Append one PII-free event and advance only shadow job fields.
+
+    The hot path is one job SELECT, one event INSERT and one conditional job
+    UPDATE. Transaction control statements are not application queries.
+    """
+    if materiality_mode() != "shadow" or not client_id:
+        return None
+    relevant_at = relevant_at or timezone.now()
+    digest = _normalized_digest(event_digest)
+    kind = str(event_kind or "")[:32]
+    event_key = f"materiality:{client_id}:{kind}:{digest}"[:160]
+    for attempt in range(3):
+        try:
+            with transaction.atomic():
+                job = (
+                    IgConversationAnalysisJob.objects.select_for_update()
+                    .filter(client_id=client_id)
+                    .only(
+                        "id", "first_unanalysed_at", "last_relevant_at",
+                        "materiality_event_highwater", "materiality_episode_id",
+                        "materiality_line_id", "authority_digest",
+                        "artifact_digest",
+                    )
+                    .first()
+                )
+                if job is None:
+                    return None
+                event = IgAnalysisMaterialityEvent.objects.create(
+                    client_id=client_id,
+                    episode_id=episode_id,
+                    line_id=str(line_id or "")[:96],
+                    customer_turn_id=customer_turn_id,
+                    source_message_id=source_message_id,
+                    source_role=str(source_role or "system")[:16],
+                    event_kind=kind,
+                    event_key=event_key,
+                    event_digest=digest,
+                    authority_digest=str(authority_digest or "")[:64],
+                    artifact_revision=max(0, int(artifact_revision or 0)),
+                    artifact_digest=str(artifact_digest or "")[:64],
+                    relevant_at=relevant_at,
+                )
+                first_unanalysed_at = job.first_unanalysed_at or relevant_at
+                last_relevant_at = max(
+                    value
+                    for value in (job.last_relevant_at, relevant_at)
+                    if value is not None
+                )
+                materiality_due_at = (
+                    relevant_at
+                    if authority_immediate
+                    else min(
+                        last_relevant_at + timedelta(seconds=QUIET_SECONDS),
+                        first_unanalysed_at
+                        + timedelta(seconds=MAX_STALENESS_SECONDS),
+                    )
+                )
+                materiality_digest = _sha({
+                    "event_id": event.pk,
+                    "digest": digest,
+                })
+                effective_episode_id = episode_id or job.materiality_episode_id
+                effective_line_id = str(
+                    line_id or job.materiality_line_id or ""
+                )[:96]
+                effective_authority_digest = str(
+                    authority_digest or job.authority_digest or ""
+                )[:64]
+                effective_artifact_digest = str(
+                    artifact_digest or job.artifact_digest or ""
+                )[:64]
+                updated = IgConversationAnalysisJob.objects.filter(
+                    pk=job.pk,
+                    materiality_event_highwater__lt=event.pk,
+                ).update(
+                    materiality_episode_id=effective_episode_id,
+                    materiality_line_id=effective_line_id,
+                    first_unanalysed_at=first_unanalysed_at,
+                    last_relevant_at=last_relevant_at,
+                    materiality_due_at=materiality_due_at,
+                    materiality_event_highwater=event.pk,
+                    materiality_digest=materiality_digest,
+                    authority_digest=effective_authority_digest,
+                    artifact_digest=effective_artifact_digest,
+                    updated_at=timezone.now(),
+                )
+                return event if updated else None
+        except IntegrityError:
+            return None
+        except OperationalError:
+            if attempt >= 2:
+                raise
+            time.sleep(0.01 * (attempt + 1))
+    return None
+
+
+def _turn_artifact_identity(rows) -> tuple[int, str]:
+    revision = 0
+    digests = []
+    for row in rows:
+        artifact = (
+            row.turn_intelligence_artifact
+            if isinstance(row.turn_intelligence_artifact, dict)
+            else {}
+        )
+        try:
+            revision = max(revision, int(artifact.get("schema_version") or 0))
+        except (TypeError, ValueError):
+            pass
+        digest = str(artifact.get("media_digest") or "")
+        if digest:
+            digests.append(digest[:64])
+    return revision, (_sha(digests) if digests else "")
+
+
+def record_completed_customer_turn(turn_or_id):
+    if materiality_mode() != "shadow":
+        return None
+    turn_id = getattr(turn_or_id, "pk", turn_or_id)
+    turn = (
+        IgCustomerTurn.objects.select_related("client", "episode")
+        .filter(pk=turn_id, claim_state=IgCustomerTurn.ClaimState.PROCESSED)
+        .first()
+    )
+    if turn is None:
+        return None
+    rows = [
+        membership.message
+        for membership in turn.turn_messages.select_related("message")
+        .filter(role=InstagramBotMessage.Role.USER)
+        .order_by("ordinal", "id")
+    ]
+    meaningful = []
+    from management.services.bot_sales_classifier import is_reaction_only
+
+    for row in rows:
+        text = str(row.text or "").strip()
+        has_media = bool(row.attachments or row.attachment_media)
+        has_action = bool(row.quick_reply_payload)
+        if not has_media and not has_action and (not text or is_reaction_only(text)):
+            continue
+        meaningful.append(row)
+    if not meaningful:
+        return None
+    artifact_revision, artifact_digest = _turn_artifact_identity(meaningful)
+    event_digest = _sha([
+        {
+            "message_id": row.pk,
+            "text_digest": hashlib.sha256(
+                str(row.text or "").encode("utf-8")
+            ).hexdigest(),
+            "quick_reply_digest": hashlib.sha256(
+                str(row.quick_reply_payload or "").encode("utf-8")
+            ).hexdigest(),
+            "artifact_digest": str(
+                (row.turn_intelligence_artifact or {}).get("media_digest") or ""
+            )[:64],
+        }
+        for row in meaningful
+    ])
+    latest = meaningful[-1]
+    relevant_at = latest.provider_created_at or latest.created_at or timezone.now()
+    return record_materiality_event(
+        client_id=turn.client_id,
+        episode_id=turn.episode_id,
+        customer_turn_id=turn.pk,
+        source_message_id=latest.pk,
+        source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+        event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+        event_digest=event_digest,
+        relevant_at=relevant_at,
+        artifact_revision=artifact_revision,
+        artifact_digest=artifact_digest,
+    )
+
+
+def record_authority_materiality(
+    *,
+    client: IgClient,
+    job: IgConversationAnalysisJob | None,
+    trigger: str,
+    source_message_id: int | None = None,
+    now=None,
+):
+    if materiality_mode() != "shadow" or job is None:
+        return None
+    kind = (
+        IgAnalysisMaterialityEvent.Kind.ORDER_TRUTH
+        if "order" in str(trigger or "")
+        else IgAnalysisMaterialityEvent.Kind.PAYMENT_TRUTH
+    )
+    authority_digest = str(job.required_state_fingerprint or "")[:64]
+    if not authority_digest:
+        return None
+    return record_materiality_event(
+        client_id=client.pk,
+        episode_id=client.current_commercial_episode_id,
+        source_message_id=source_message_id,
+        source_role=IgAnalysisMaterialityEvent.SourceRole.AUTHORITY,
+        event_kind=kind,
+        event_digest=authority_digest,
+        authority_digest=authority_digest,
+        relevant_at=now or timezone.now(),
+        authority_immediate=True,
+    )
+
+
+def _legacy_snapshot(client_id: int, *, include_manager: bool):
+    queryset = IgConversationAnalysisSnapshot.objects.filter(client_id=client_id)
+    if not include_manager:
+        queryset = queryset.exclude(
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
+            )
+        )
+    return queryset.order_by("-id").first()
+
+
+def current_analysis_snapshot(
+    client_or_id,
+    *,
+    include_manager: bool = False,
+    candidates=None,
+):
+    """Return one current snapshot or ``None``; never project stale intent."""
+    client = client_or_id if hasattr(client_or_id, "pk") else None
+    client_id = getattr(client, "pk", client_or_id)
+    if not client_id:
+        return None
+    if materiality_mode() != "shadow":
+        if candidates is not None:
+            for snapshot in candidates:
+                if include_manager or snapshot.interaction_type != (
+                    IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
+                ):
+                    return snapshot
+            return None
+        return _legacy_snapshot(client_id, include_manager=include_manager)
+    if client is None:
+        client = (
+            IgClient.objects.select_related("current_commercial_episode")
+            .filter(pk=client_id)
+            .first()
+        )
+    if client is None:
+        return None
+    try:
+        job = client.analysis_job
+    except IgConversationAnalysisJob.DoesNotExist:
+        return None
+    if (
+        job.status != IgConversationAnalysisJob.Status.DONE
+        or not job.materiality_digest
+        or job.analyzed_materiality_digest != job.materiality_digest
+        or int(job.analyzed_materiality_event_highwater or 0)
+        < int(job.materiality_event_highwater or 0)
+        or int(job.analyzed_watermark_message_id or 0) <= 0
+    ):
+        return None
+    from management.services.ig_funnel_reset import current_message_floor
+
+    floor = current_message_floor(client)
+    authority_digest = str(job.authority_digest or "")
+
+    def is_current(snapshot) -> bool:
+        if not include_manager and snapshot.interaction_type == (
+            IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
+        ):
+            return False
+        if int(snapshot.last_analyzed_message_id or 0) < floor:
+            return False
+        if int(snapshot.last_analyzed_message_id or 0) != int(
+            job.analyzed_watermark_message_id or 0
+        ):
+            return False
+        if snapshot.commercial_episode_id != client.current_commercial_episode_id:
+            return False
+        if authority_digest and snapshot.required_state_fingerprint != authority_digest:
+            return False
+        return True
+
+    if candidates is not None:
+        return next((item for item in candidates if is_current(item)), None)
+    queryset = IgConversationAnalysisSnapshot.objects.filter(
+        client_id=client.pk,
+        last_analyzed_message_id=job.analyzed_watermark_message_id,
+        commercial_episode_id=client.current_commercial_episode_id,
+    )
+    if not include_manager:
+        queryset = queryset.exclude(
+            interaction_type=(
+                IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
+            )
+        )
+    if authority_digest:
+        queryset = queryset.filter(required_state_fingerprint=authority_digest)
+    snapshot = queryset.order_by("-id").first()
+    return snapshot if snapshot and is_current(snapshot) else None
+
+
+def mark_job_materiality_analyzed(
+    job: IgConversationAnalysisJob,
+    *,
+    watermark: int,
+    claimed_revision: int,
+) -> list[str]:
+    """Copy the current shadow cursor after the existing analysis commits."""
+    if (
+        materiality_mode() != "shadow"
+        or not job.materiality_digest
+        or int(job.watermark_message_id or 0) != int(watermark or 0)
+        or int(job.revision or 0) != int(claimed_revision or 0)
+    ):
+        return []
+    job.analyzed_materiality_digest = job.materiality_digest
+    job.analyzed_materiality_event_highwater = job.materiality_event_highwater
+    job.first_unanalysed_at = None
+    return [
+        "analyzed_materiality_digest",
+        "analyzed_materiality_event_highwater",
+        "first_unanalysed_at",
+    ]

@@ -4334,25 +4334,25 @@ def _client_card(c, *, follow_settings=None, follow_now=None) -> dict:
 
     product = getattr(c, "current_product", None)
     next_followup = getattr(c, "next_followup_at", None)
-    latest_analysis = getattr(c, "_latest_customer_analysis", None)
-    if isinstance(latest_analysis, (list, tuple)):
-        latest_analysis = latest_analysis[0] if latest_analysis else None
-    if latest_analysis is None:
-        try:
-            latest_analysis = c.analysis_snapshots.exclude(
-                interaction_type=IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
-            ).order_by("-id").first()
-        except Exception:
-            latest_analysis = None
-    if latest_analysis is None:
-        latest_analysis = getattr(c, "_latest_analysis", None)
-        if isinstance(latest_analysis, (list, tuple)):
-            latest_analysis = latest_analysis[0] if latest_analysis else None
-    if latest_analysis is None:
-        try:
-            latest_analysis = c.analysis_snapshots.order_by("-id").first()
-        except Exception:
-            latest_analysis = None
+    from management.services.ig_analysis_materiality import (
+        current_analysis_snapshot,
+        materiality_mode,
+    )
+
+    prefetched = []
+    seen_snapshot_ids = set()
+    for attr in ("_latest_customer_analysis", "_latest_analysis"):
+        value = getattr(c, attr, None)
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                if item.pk not in seen_snapshot_ids:
+                    prefetched.append(item)
+                    seen_snapshot_ids.add(item.pk)
+    latest_analysis = current_analysis_snapshot(
+        c,
+        include_manager=materiality_mode() == "off",
+        candidates=prefetched or None,
+    )
     payment_status = ""
     try:
         verified_deal = latest_verified_payment_deal(c)
@@ -4696,6 +4696,7 @@ def bot_clients_api(request):
             "current_product",
             "current_commercial_episode",
             "follow_state_projection",
+            "analysis_job",
         ).prefetch_related(
         Prefetch(
             "analysis_snapshots",
@@ -5445,14 +5446,13 @@ def bot_client_detail_api(request, client_id):
     }
     episodes = client_episode_payload(c)
     physical_order_count = episodes["physical_order_count"]
+    from management.services.ig_analysis_materiality import (
+        current_analysis_snapshot,
+    )
+
     potential = _client_potential_payload(
         c,
-        c.analysis_snapshots.select_related("commercial_episode")
-        .exclude(
-            interaction_type=IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
-        )
-        .order_by("-id")
-        .first(),
+        current_analysis_snapshot(c),
         latest_message_id=last_message_id,
     )
     return JsonResponse({

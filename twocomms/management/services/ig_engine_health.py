@@ -90,6 +90,7 @@ IG_RUNTIME_TABLES = (
     "management_igfunneldropoff",
     "management_igobjection",
     "management_igobjectionattempt",
+    "management_iganalysismaterialityevent",
     "management_igconversationanalysisevent",
     "management_igproviderincident",
     "management_igclientdegradationepisode",

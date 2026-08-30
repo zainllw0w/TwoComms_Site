@@ -298,18 +298,19 @@ def _latest_hesitation_analysis(*, client, episode, source_message, now):
         IgConversationAnalysisSnapshot.Band.HIGH_INTENT,
         IgConversationAnalysisSnapshot.Band.CHECKOUT,
     }
-    analysis = (
-        IgConversationAnalysisSnapshot.objects.filter(
-            client_id=client.pk,
-            score_band__in=allowed_bands,
-            confidence__gte=Decimal("0.70"),
-            analyzed_at__gte=now - timedelta(hours=24),
-            analyzed_at__lte=now,
-        )
-        .order_by("-id")
-        .first()
+    from management.services.ig_analysis_materiality import (
+        current_analysis_snapshot,
     )
+
+    analysis = current_analysis_snapshot(client)
     if analysis is None:
+        return None
+    if (
+        analysis.score_band not in allowed_bands
+        or analysis.confidence < Decimal("0.70")
+        or analysis.analyzed_at < now - timedelta(hours=24)
+        or analysis.analyzed_at > now
+    ):
         return None
     if analysis.commercial_episode_id != getattr(episode, "pk", None):
         return None
