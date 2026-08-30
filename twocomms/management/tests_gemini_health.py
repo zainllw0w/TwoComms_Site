@@ -415,14 +415,6 @@ class GeminiHealthSnapshotTests(TestCase):
             outcome="succeeded",
             at=at + datetime.timedelta(seconds=2),
         )
-        self._attempt(
-            request_id="unproven-success",
-            key_name="GEMINI_API2",
-            model="gemini-3.6-flash",
-            outcome="succeeded",
-            at=self.now - datetime.timedelta(minutes=2),
-        )
-
         snapshot = self._build()
         fallback = snapshot["fallback"]
         self.assertIsNotNone(fallback)
@@ -432,7 +424,10 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(fallback["http_code"], 503)
         serialized = json.dumps(snapshot)
         self.assertNotIn("provider secret detail", serialized)
-        self.assertNotIn("read_timeout", serialized)
+        self.assertEqual(
+            snapshot["latest_route"]["steps"][0]["failure_kind"],
+            "read_timeout",
+        )
         self.assertNotIn("GEMINI_API", serialized)
         self.assertNotIn("secret", serialized)
 
@@ -781,6 +776,62 @@ class GeminiHealthSnapshotTests(TestCase):
 
         self.assertEqual(winner_row["live_state"], "LIVE")
         self.assertEqual(winner_row["active_model"], "gemini-3.5-flash-lite")
+        self.assertIsNone(snapshot["fallback"])
+
+    def test_new_same_model_rotation_does_not_inherit_older_model_fallback(self):
+        old_at = self.now - datetime.timedelta(minutes=12)
+        self._attempt(
+            request_id="older-model-fallback",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=1,
+            at=old_at,
+        )
+        self._attempt(
+            request_id="older-model-fallback",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=7,
+            winner_claimed=True,
+            at=old_at + datetime.timedelta(seconds=1),
+        )
+        current_at = self.now - datetime.timedelta(minutes=2)
+        self._attempt(
+            request_id="newer-project-rotation",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed",
+            failure_kind="quota_429",
+            role="chat",
+            candidate_index=1,
+            at=current_at,
+        )
+        self._attempt(
+            request_id="newer-project-rotation",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=2,
+            winner_claimed=True,
+            at=current_at + datetime.timedelta(seconds=1),
+        )
+
+        snapshot = self._build()
+
+        self.assertEqual(
+            snapshot["latest_route"]["request_ref"],
+            gemini_health.public_request_reference("newer-project-rotation"),
+        )
+        self.assertEqual(
+            {step["model"] for step in snapshot["latest_route"]["steps"]},
+            {"gemini-3.5-flash-lite"},
+        )
         self.assertIsNone(snapshot["fallback"])
 
     def test_claimed_winner_beats_a_later_successful_loser(self):

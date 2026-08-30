@@ -488,86 +488,90 @@ def _group_global_request(rows: list[dict[str, Any]]) -> dict[str, list[dict[str
     return grouped
 
 
-def _latest_fallback(rows: list[dict[str, Any]]) -> dict[str, str | int | None] | None:
-    latest: tuple[tuple[dt.datetime, int], dict[str, str | int | None]] | None = None
-    for request_rows in _group_global_request(rows).values():
-        ordered = sorted(request_rows, key=_candidate_sort_key)
-        primary_model = next(
-            (
-                str(row.get("model") or "")
-                for row in ordered
-                if str(row.get("model") or "") in DISPLAY_MODELS
-            ),
-            "",
-        )
-        winner = _actual_winner(ordered)
-        if winner is None or not primary_model:
-            continue
-        winner_model = str(winner.get("model") or "")
-        # Rotating projects within one model is pool recovery, not a model
-        # fallback.  A late successful loser must likewise never replace the
-        # atomically claimed winner selected above.
-        if winner_model not in DISPLAY_MODELS or winner_model == primary_model:
-            continue
-
-        winner_order = _candidate_sort_key(winner)
-        primary_rows = [
-            row
-            for row in ordered
-            if str(row.get("model") or "") == primary_model
-            and _candidate_sort_key(row) <= winner_order
-        ]
-        failed_rows = [
-            row
-            for row in primary_rows
-            if not _attempt_succeeded(row) and not _attempt_not_needed(row)
-        ]
-        failure_row = max(failed_rows, key=_candidate_sort_key, default=None)
-        if failure_row is not None:
-            failure_kind = _public_failure_kind(failure_row.get("failure_kind"))
-            reason = _FAILURE_REASON_LABELS.get(
-                failure_kind,
-                "provider request failed",
-            )
-            http_code = int(failure_row.get("http_code") or 0) or None
-        else:
-            skip_reasons = {
-                _public_not_attempted_reason(row.get("not_attempted_reason"))
-                for row in primary_rows
-                if _attempt_not_needed(row)
-            }
-            if skip_reasons.intersection({"quota_cooldown", "quota_exhausted"}):
-                reason = "quota cooldown"
-            elif skip_reasons.intersection({"model_terminal", "model_unavailable"}):
-                reason = "model unavailable"
-            elif skip_reasons.intersection({"deadline", "sla_model_budget"}):
-                reason = "deadline"
-            elif skip_reasons.intersection({"lease_busy", "quarantine"}):
-                reason = "key busy/quarantined"
-            else:
-                reason = "primary route did not win"
-            http_code = None
-        fallback = {
-            "from_model": primary_model,
-            "to_model": winner_model,
-            "reason": reason,
-            "http_code": http_code,
-            "observed_at": _iso(winner["created_at"]),
-        }
-        observed_at = _attempt_sort_key(winner)
-        if latest is None or observed_at > latest[0]:
-            latest = (observed_at, fallback)
-    return latest[1] if latest else None
-
-
-def _latest_route(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _latest_global_request(
+    rows: list[dict[str, Any]],
+) -> tuple[str, list[dict[str, Any]]] | None:
     groups = _group_global_request(rows)
     if not groups:
         return None
-    request_id, request_rows = max(
+    return max(
         groups.items(),
         key=lambda item: _attempt_sort_key(max(item[1], key=_attempt_sort_key)),
     )
+
+
+def _fallback_for_request(
+    request_rows: list[dict[str, Any]],
+) -> dict[str, str | int | None] | None:
+    ordered = sorted(request_rows, key=_candidate_sort_key)
+    primary_model = next(
+        (
+            str(row.get("model") or "")
+            for row in ordered
+            if str(row.get("model") or "") in DISPLAY_MODELS
+        ),
+        "",
+    )
+    winner = _actual_winner(ordered)
+    if winner is None or not primary_model:
+        return None
+    winner_model = str(winner.get("model") or "")
+    # Rotating projects within one model is pool recovery, not a model
+    # fallback.  A late successful loser must likewise never replace the
+    # atomically claimed winner selected above.
+    if winner_model not in DISPLAY_MODELS or winner_model == primary_model:
+        return None
+
+    winner_order = _candidate_sort_key(winner)
+    primary_rows = [
+        row
+        for row in ordered
+        if str(row.get("model") or "") == primary_model
+        and _candidate_sort_key(row) <= winner_order
+    ]
+    failed_rows = [
+        row
+        for row in primary_rows
+        if not _attempt_succeeded(row) and not _attempt_not_needed(row)
+    ]
+    failure_row = max(failed_rows, key=_candidate_sort_key, default=None)
+    if failure_row is not None:
+        failure_kind = _public_failure_kind(failure_row.get("failure_kind"))
+        reason = _FAILURE_REASON_LABELS.get(
+            failure_kind,
+            "provider request failed",
+        )
+        http_code = int(failure_row.get("http_code") or 0) or None
+    else:
+        skip_reasons = {
+            _public_not_attempted_reason(row.get("not_attempted_reason"))
+            for row in primary_rows
+            if _attempt_not_needed(row)
+        }
+        if skip_reasons.intersection({"quota_cooldown", "quota_exhausted"}):
+            reason = "quota cooldown"
+        elif skip_reasons.intersection({"model_terminal", "model_unavailable"}):
+            reason = "model unavailable"
+        elif skip_reasons.intersection({"deadline", "sla_model_budget"}):
+            reason = "deadline"
+        elif skip_reasons.intersection({"lease_busy", "quarantine"}):
+            reason = "key busy/quarantined"
+        else:
+            reason = "primary route did not win"
+        http_code = None
+    return {
+        "from_model": primary_model,
+        "to_model": winner_model,
+        "reason": reason,
+        "http_code": http_code,
+        "observed_at": _iso(winner["created_at"]),
+    }
+
+
+def _route_for_request(
+    request_id: str,
+    request_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
     return public_projection({
         "request_ref": public_request_reference(request_id),
         "steps": [
@@ -576,6 +580,29 @@ def _latest_route(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
             if (step := _public_route_step(row)) is not None
         ],
     })
+
+
+def _latest_route_projection(
+    rows: list[dict[str, Any]],
+) -> tuple[dict[str, Any] | None, dict[str, str | int | None] | None]:
+    latest = _latest_global_request(rows)
+    if latest is None:
+        return None, None
+    request_id, request_rows = latest
+    return (
+        _route_for_request(request_id, request_rows),
+        _fallback_for_request(request_rows),
+    )
+
+
+def _latest_route(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
+    return _latest_route_projection(rows)[0]
+
+
+def _latest_fallback(
+    rows: list[dict[str, Any]],
+) -> dict[str, str | int | None] | None:
+    return _latest_route_projection(rows)[1]
 
 
 def _public_route_step(row: dict[str, Any]) -> dict[str, Any] | None:
@@ -912,6 +939,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             },
         })
 
+    latest_route, latest_fallback = _latest_route_projection(runtime_attempts)
     return public_projection({
         "schema_version": SCHEMA_VERSION,
         "generated_at": _iso(generated_at),
@@ -933,7 +961,7 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
             },
         },
         "latest_metadata_batch": _latest_metadata_batch(metadata_attempts),
-        "fallback": _latest_fallback(runtime_attempts),
-        "latest_route": _latest_route(runtime_attempts),
+        "fallback": latest_fallback,
+        "latest_route": latest_route,
         "keys": keys,
     })
