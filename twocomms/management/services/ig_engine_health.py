@@ -50,6 +50,8 @@ IG_RUNTIME_TABLES = (
     "management_igcheckoutaccesstoken",
     "management_igcheckoutproposalitem",
     "management_igcheckoutinventoryreservation",
+    "management_igcheckoutinvoicegeneration",
+    "management_igcheckoutinvoicegenerationevent",
     "management_igcheckoutrevision",
     "management_iglifecycleevent",
     "management_igpaymentevent",

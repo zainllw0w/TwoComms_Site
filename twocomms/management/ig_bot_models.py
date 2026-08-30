@@ -87,6 +87,8 @@ __all__ = [
     "IgCheckoutProposalItem",
     "IgCheckoutRevision",
     "IgCheckoutAccessToken",
+    "IgCheckoutInvoiceGeneration",
+    "IgCheckoutInvoiceGenerationEvent",
     "IgCheckoutInventoryReservation",
     "IgLifecycleEvent",
     "IgFollowCapabilityState",
@@ -2165,6 +2167,18 @@ class IgCheckoutProposalQuerySet(models.QuerySet):
         "paid_at",
         "payment_attempt",
         "payment_attempt_id",
+        "assisted_checkout_v2",
+        "current_invoice_generation",
+        "current_invoice_generation_id",
+        "winner_invoice_generation",
+        "winner_invoice_generation_id",
+        "payment_policy",
+        "payment_policy_evidence_message",
+        "payment_policy_evidence_message_id",
+        "payment_policy_evidence_kind",
+        "payment_policy_evidence_revision",
+        "payment_policy_evidence_digest",
+        "custom_print_full_only",
         "superseded_by",
         "superseded_by_id",
     }
@@ -2286,6 +2300,14 @@ class IgCheckoutProposal(models.Model):
         ONLINE_FULL = "online_full", _("Повна онлайн-оплата")
         PREPAYMENT = "prepayment", _("Передоплата")
 
+    class PaymentPolicy(models.TextChoices):
+        LEGACY = "legacy", _("Legacy checkout policy")
+        FULL_ONLY = "full_only", _("Only full payment")
+        FULL_OR_200_COD = (
+            "full_or_200_cod",
+            _("Full payment or 200 UAH + cash on delivery"),
+        )
+
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     client = models.ForeignKey(
         "management.IgClient",
@@ -2345,6 +2367,52 @@ class IgCheckoutProposal(models.Model):
         on_delete=models.SET_NULL,
         related_name="instagram_checkout_proposal",
     )
+    # Slice 2b is additive and fail-closed. Existing rows remain legacy even
+    # when the rollout flag changes; callbacks use this durable marker rather
+    # than the current setting so rollback cannot orphan an already-issued V2
+    # invoice.
+    assisted_checkout_v2 = models.BooleanField(default=False)
+    current_invoice_generation = models.ForeignKey(
+        "management.IgCheckoutInvoiceGeneration",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="current_for_proposals",
+        db_constraint=False,
+    )
+    winner_invoice_generation = models.OneToOneField(
+        "management.IgCheckoutInvoiceGeneration",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="winner_for_proposal",
+        db_constraint=False,
+    )
+    payment_policy = models.CharField(
+        max_length=24,
+        choices=PaymentPolicy.choices,
+        default=PaymentPolicy.LEGACY,
+    )
+    payment_policy_evidence_message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="checkout_payment_policy_evidence",
+        db_constraint=False,
+    )
+    payment_policy_evidence_kind = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+    )
+    payment_policy_evidence_revision = models.PositiveBigIntegerField(default=0)
+    payment_policy_evidence_digest = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+    )
+    custom_print_full_only = models.BooleanField(default=False)
     superseded_by = models.OneToOneField(
         "self",
         null=True,
@@ -2395,6 +2463,23 @@ class IgCheckoutProposal(models.Model):
             models.CheckConstraint(
                 condition=~models.Q(status="paid", superseded_by__isnull=False),
                 name="ig_prop_paid_not_superseded",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(assisted_checkout_v2=False, payment_policy="legacy")
+                    | models.Q(
+                        assisted_checkout_v2=True,
+                        payment_policy__in=["full_only", "full_or_200_cod"],
+                    )
+                ),
+                name="ig_prop_v2_policy_shape",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(custom_print_full_only=False)
+                    | models.Q(payment_policy="full_only")
+                ),
+                name="ig_prop_custom_full_only",
             ),
         ]
 
@@ -2510,6 +2595,50 @@ class IgCheckoutProposal(models.Model):
             errors["superseded_by"] = "A paid proposal cannot be superseded"
         if self.status == self.Status.SUPERSEDED and not self.superseded_by_id:
             errors["superseded_by"] = "Superseded proposal must point to its replacement"
+        if self.assisted_checkout_v2:
+            if self.payment_policy == self.PaymentPolicy.LEGACY:
+                errors["payment_policy"] = "V2 proposal requires a persisted payment policy"
+            if self.payment_policy == self.PaymentPolicy.FULL_OR_200_COD:
+                if (
+                    not self.payment_policy_evidence_message_id
+                    or self.payment_policy_evidence_kind
+                    not in {"direct_question", "quick_reply"}
+                    or not re.fullmatch(
+                        r"[0-9a-f]{64}",
+                        str(self.payment_policy_evidence_digest or ""),
+                    )
+                ):
+                    errors["payment_policy"] = (
+                        "200 UAH + COD requires current direct customer evidence"
+                    )
+                elif (
+                    self.payment_policy_evidence_message.role
+                    != self.payment_policy_evidence_message.Role.USER
+                    or self.payment_policy_evidence_message.client_id != self.client_id
+                ):
+                    errors["payment_policy_evidence_message"] = (
+                        "Payment policy evidence must be this customer's message"
+                    )
+            if self.custom_print_full_only and (
+                self.payment_policy != self.PaymentPolicy.FULL_ONLY
+            ):
+                errors["payment_policy"] = "Custom print requires full payment"
+            if (
+                self.current_invoice_generation_id
+                and self.current_invoice_generation.proposal_id != self.pk
+            ):
+                errors["current_invoice_generation"] = (
+                    "Current generation must belong to this proposal"
+                )
+            if (
+                self.winner_invoice_generation_id
+                and self.winner_invoice_generation.proposal_id != self.pk
+            ):
+                errors["winner_invoice_generation"] = (
+                    "Winner generation must belong to this proposal"
+                )
+        elif self.payment_policy != self.PaymentPolicy.LEGACY:
+            errors["payment_policy"] = "Legacy proposal cannot carry a V2 policy"
         if errors:
             raise ValidationError(errors)
 
@@ -2535,6 +2664,15 @@ class IgCheckoutProposal(models.Model):
                 "provider_cancellation_event_id",
                 "paid_at",
                 "payment_attempt_id",
+                "assisted_checkout_v2",
+                "current_invoice_generation_id",
+                "winner_invoice_generation_id",
+                "payment_policy",
+                "payment_policy_evidence_message_id",
+                "payment_policy_evidence_kind",
+                "payment_policy_evidence_revision",
+                "payment_policy_evidence_digest",
+                "custom_print_full_only",
                 "superseded_by_id",
             ).first()
             if previous:
@@ -2548,6 +2686,13 @@ class IgCheckoutProposal(models.Model):
                             "items_digest", "expires_at", "details_locked_at",
                             "invoice_cancelled_at", "provider_cancellation_event_id",
                             "paid_at", "payment_attempt_id", "superseded_by_id",
+                            "assisted_checkout_v2", "current_invoice_generation_id",
+                            "winner_invoice_generation_id", "payment_policy",
+                            "payment_policy_evidence_message_id",
+                            "payment_policy_evidence_kind",
+                            "payment_policy_evidence_revision",
+                            "payment_policy_evidence_digest",
+                            "custom_print_full_only",
                         )
                     }
                     if any(protected[field] != previous[field] for field in protected):
@@ -2723,6 +2868,207 @@ class IgCheckoutAccessToken(models.Model):
         return hashlib.sha256(str(raw_token or "").encode("utf-8")).hexdigest()
 
 
+class IgCheckoutInvoiceGeneration(models.Model):
+    """One 25-minute provider-invoice attempt inside a 12-hour proposal."""
+
+    class State(models.TextChoices):
+        PLANNED = "planned", _("Planned")
+        PROVIDER_INFLIGHT = "provider_inflight", _("Provider request in flight")
+        INVOICE_CREATED = "invoice_created", _("Invoice created")
+        PROVIDER_AMBIGUOUS = "provider_ambiguous", _("Provider result ambiguous")
+        FAILED = "failed", _("Generation failed")
+        EXPIRED = "expired", _("Generation expired")
+        CANCELLED = "cancelled", _("Generation cancelled")
+        WINNER_CLAIMED = "winner_claimed", _("Verified winner claimed")
+        PAID_WINNER = "paid_winner", _("Winner order materialized")
+        LATE_PAID_REVIEW = "late_paid_review", _("Paid losing generation review")
+        RESOURCE_REVIEW = "resource_review", _("Paid but resources need review")
+
+    class PaymentChoice(models.TextChoices):
+        FULL = "online_full", _("Full online payment")
+        PREPAY_200_COD = "prepay_200_cod", _("200 UAH + COD")
+
+    proposal = models.ForeignKey(
+        "management.IgCheckoutProposal",
+        on_delete=models.PROTECT,
+        related_name="invoice_generations",
+    )
+    generation = models.PositiveIntegerField()
+    series_key = models.CharField(max_length=64)
+    proposal_revision = models.PositiveIntegerField()
+    active_slot = models.PositiveSmallIntegerField(null=True, blank=True)
+    winner_slot = models.PositiveSmallIntegerField(null=True, blank=True)
+    state = models.CharField(
+        max_length=28,
+        choices=State.choices,
+        default=State.PLANNED,
+        db_index=True,
+    )
+    payment_choice = models.CharField(
+        max_length=24,
+        choices=PaymentChoice.choices,
+        default=PaymentChoice.FULL,
+    )
+    payment_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    policy_evidence_message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="checkout_invoice_generation_policy_evidence",
+        db_constraint=False,
+    )
+    policy_evidence_kind = models.CharField(max_length=32, blank=True, default="")
+    policy_evidence_digest = models.CharField(max_length=64, blank=True, default="")
+    payment_attempt = models.OneToOneField(
+        "orders.PaymentAttempt",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="instagram_checkout_generation",
+        db_constraint=False,
+    )
+    provider = models.CharField(max_length=24, default="monobank")
+    provider_invoice_id = models.CharField(
+        max_length=128,
+        null=True,
+        blank=True,
+    )
+    provider_call_token = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField(db_index=True)
+    provider_started_at = models.DateTimeField(null=True, blank=True)
+    provider_completed_at = models.DateTimeField(null=True, blank=True)
+    winner_claimed_at = models.DateTimeField(null=True, blank=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+    terminal_at = models.DateTimeField(null=True, blank=True)
+    review_reason = models.CharField(max_length=96, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["proposal_id", "generation"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["proposal", "generation"],
+                name="ig_invgen_proposal_generation_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["proposal", "active_slot"],
+                name="ig_invgen_active_slot_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["proposal", "winner_slot"],
+                name="ig_invgen_winner_slot_uniq",
+            ),
+            models.UniqueConstraint(
+                fields=["provider", "provider_invoice_id"],
+                name="ig_invgen_provider_invoice_uniq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(generation__gte=1),
+                name="ig_invgen_generation_positive",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(active_slot__isnull=True) | models.Q(active_slot=1),
+                name="ig_invgen_active_slot_shape",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(winner_slot__isnull=True) | models.Q(winner_slot=1),
+                name="ig_invgen_winner_slot_shape",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(payment_amount__gt=0),
+                name="ig_invgen_payment_positive",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["proposal", "state", "generation"],
+                name="ig_invgen_prop_state_gen",
+            ),
+            models.Index(
+                fields=["state", "expires_at", "id"],
+                name="ig_invgen_state_expiry",
+            ),
+            models.Index(
+                fields=["provider", "provider_invoice_id"],
+                name="ig_invgen_provider_invoice",
+            ),
+        ]
+
+
+class _AppendOnlyCheckoutGenerationEventQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgCheckoutInvoiceGenerationEvent is append-only")
+
+    def delete(self):
+        raise ValueError("IgCheckoutInvoiceGenerationEvent is append-only")
+
+
+class IgCheckoutInvoiceGenerationEvent(models.Model):
+    class Kind(models.TextChoices):
+        CREATED = "created", _("Generation created")
+        PROVIDER_STARTED = "provider_started", _("Provider request started")
+        PROVIDER_SUCCEEDED = "provider_succeeded", _("Provider request succeeded")
+        PROVIDER_FAILED = "provider_failed", _("Provider request failed")
+        PROVIDER_AMBIGUOUS = "provider_ambiguous", _("Provider request ambiguous")
+        TERMINALIZED = "terminalized", _("Generation terminalized")
+        WINNER_CLAIMED = "winner_claimed", _("Winner claimed")
+        LOSER_PAID_REVIEW = "loser_paid_review", _("Paid loser needs review")
+        RESOURCE_REVIEW = "resource_review", _("Paid generation lacks resources")
+
+    event_key = models.CharField(max_length=180, unique=True)
+    generation = models.ForeignKey(
+        "management.IgCheckoutInvoiceGeneration",
+        on_delete=models.DO_NOTHING,
+        related_name="events",
+        db_constraint=False,
+    )
+    proposal = models.ForeignKey(
+        "management.IgCheckoutProposal",
+        on_delete=models.DO_NOTHING,
+        related_name="invoice_generation_events",
+        db_constraint=False,
+    )
+    payment_attempt = models.ForeignKey(
+        "orders.PaymentAttempt",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="instagram_checkout_generation_events",
+        db_constraint=False,
+    )
+    kind = models.CharField(max_length=32, choices=Kind.choices, db_index=True)
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(
+        _AppendOnlyCheckoutGenerationEventQuerySet
+    )()
+
+    class Meta:
+        base_manager_name = "objects"
+        ordering = ["id"]
+        indexes = [
+            models.Index(
+                fields=["generation", "kind", "id"],
+                name="ig_invgevt_generation_kind",
+            ),
+            models.Index(
+                fields=["proposal", "kind", "id"],
+                name="ig_invgevt_proposal_kind",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgCheckoutInvoiceGenerationEvent is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgCheckoutInvoiceGenerationEvent is append-only")
+
+
 class IgCheckoutInventoryReservation(models.Model):
     class State(models.TextChoices):
         ACTIVE = "active", _("Зарезервовано")
@@ -2739,6 +3085,14 @@ class IgCheckoutInventoryReservation(models.Model):
         "management.IgCheckoutProposal",
         on_delete=models.PROTECT,
         related_name="inventory_reservations",
+    )
+    invoice_generation = models.ForeignKey(
+        "management.IgCheckoutInvoiceGeneration",
+        null=True,
+        blank=True,
+        on_delete=models.DO_NOTHING,
+        related_name="inventory_reservations",
+        db_constraint=False,
     )
     item = models.ForeignKey(
         "management.IgCheckoutProposalItem",
@@ -2825,6 +3179,10 @@ class IgCheckoutInventoryReservation(models.Model):
         indexes = [
             models.Index(fields=["state", "expires_at"], name="ig_res_state_exp"),
             models.Index(fields=["proposal", "state"], name="ig_res_prop_state"),
+            models.Index(
+                fields=["invoice_generation", "state", "id"],
+                name="ig_res_generation_state",
+            ),
         ]
         constraints = [
             models.CheckConstraint(
