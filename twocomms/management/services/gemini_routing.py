@@ -388,6 +388,39 @@ def persist_decision(message, decision: RoutingDecision) -> None:
                         GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
                         GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
                     ))
+                    | Q(outcome__in=(
+                        "provider_started",
+                        "succeeded",
+                        "failed",
+                        "timeout_ambiguous",
+                        "succeeded_late",
+                    ))
+                )
+                unlinked_provider_evidence = (
+                    GeminiRequestAttempt.objects.select_for_update()
+                    .filter(
+                        source_message_id=message.pk,
+                        lane=payload["lane"],
+                        request_graph_id__isnull=True,
+                    )
+                    .filter(
+                        Q(provider_started_at__isnull=False)
+                        | Q(fsm_state__in=(
+                            GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                            GeminiRequestAttempt.FsmState.SUCCEEDED,
+                            GeminiRequestAttempt.FsmState.FAILED,
+                            GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+                            GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+                        ))
+                        | Q(outcome__in=(
+                            "provider_started",
+                            "succeeded",
+                            "failed",
+                            "timeout_ambiguous",
+                            "succeeded_late",
+                        ))
+                    )
+                    .exists()
                 )
                 provider_owner = (
                     GeminiRequest.objects.select_for_update()
@@ -400,10 +433,17 @@ def persist_decision(message, decision: RoutingDecision) -> None:
                         Q(provider_phase_started_at__isnull=False)
                         | Q(has_provider_attempt=True)
                         | ~Q(task_class=TaskClass.NO_MODEL.value)
+                        | ~Q(candidate_plan=[])
                     )
                     .order_by("-provider_phase_started_at", "-id")
                     .first()
                 )
+                if provider_owner is None and unlinked_provider_evidence:
+                    # A legacy/orphan attempt proves provider I/O but cannot
+                    # safely reconstruct the missing parent route.  Leave the
+                    # message blank for reconciliation and never assert
+                    # NO_MODEL over that evidence.
+                    return
                 if provider_owner is not None:
                     if provider_owner.task_class == TaskClass.NO_MODEL.value:
                         # Historical/corrupt evidence cannot be projected as a

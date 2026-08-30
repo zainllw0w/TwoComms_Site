@@ -488,6 +488,99 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertFalse(GeminiRequest.objects.filter(task_class="no_model").exists())
 
     @override_settings(**SHADOW)
+    def test_nonempty_corrupt_no_model_plan_reserves_source_before_provider_start(self):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("corrupt-provider-reservation")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="corrupt-provider-reservation-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        corrupt_no_model = classify_live_turn(
+            TurnFacts(deterministic_action="duplicate_reply")
+        )
+        with turn_lineage(
+            lane=Lane.LIVE,
+            client_id=client.pk,
+            source_message_id=message.pk,
+            logical_turn_id=f"t{client.pk}:{message.pk}",
+        ):
+            provider_observer = runtime.begin_request(
+                request_id="corrupt-provider-reservation-request",
+                role="chat",
+                reasoning_task="customer_chat",
+                candidate_plan=_raw_plan("gemini-3.5-flash-lite"),
+                deadline_seconds=35,
+                routing_decision=corrupt_no_model,
+            )
+
+        # This is the historical race: the graph exists and a boundary object
+        # is ready, but provider_started is not durable yet.  The non-empty
+        # immutable plan itself must reserve source/lane ownership.
+        persist_decision(message, corrupt_no_model)
+        message.refresh_from_db()
+        self.assertEqual(message.gemini_task_class, "")
+        self.assertEqual(GeminiRequest.objects.count(), 1)
+
+        boundary = provider_observer.attempt(
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            candidate_index=1,
+        )
+        boundary.before_provider(serialized_bytes=128)
+
+        graph = GeminiRequest.objects.get()
+        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        self.assertEqual(GeminiRequest.objects.count(), 1)
+        self.assertEqual(attempt.fsm_state, GeminiRequestAttempt.FsmState.PROVIDER_STARTED)
+        self.assertIsNotNone(graph.provider_phase_started_at)
+
+    @override_settings(**SHADOW)
+    def test_orphan_legacy_provider_evidence_blocks_no_model_graph(self):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("orphan-provider-evidence")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="orphan-provider-evidence-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        GeminiRequestAttempt.objects.create(
+            request_id="legacy-provider-request",
+            role="chat",
+            key_name="GEMINI_API",
+            project_group="gemini-project-1",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            fsm_state=GeminiRequestAttempt.FsmState.LEGACY,
+            logical_turn_id=f"t{client.pk}:{message.pk}",
+            source_message_id=message.pk,
+            client_id=client.pk,
+            lane=Lane.LIVE,
+            attempt_index=1,
+            candidate_index=1,
+        )
+
+        persist_decision(
+            message,
+            classify_live_turn(TurnFacts(deterministic_action="duplicate_reply")),
+        )
+
+        message.refresh_from_db()
+        self.assertEqual(message.gemini_task_class, "")
+        self.assertEqual(GeminiRequest.objects.count(), 0)
+        self.assertEqual(GeminiRequestAttempt.objects.count(), 1)
+
+    @override_settings(**SHADOW)
     @patch.dict(
         os.environ,
         {

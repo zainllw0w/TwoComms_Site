@@ -395,6 +395,13 @@ def begin_request(
                             GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
                             GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
                         ))
+                        | Q(outcome__in=(
+                            "provider_started",
+                            "succeeded",
+                            "failed",
+                            "timeout_ambiguous",
+                            "succeeded_late",
+                        ))
                     )
                     provider_owned = existing.annotate(
                         has_provider_attempt=Exists(provider_attempt)
@@ -402,8 +409,35 @@ def begin_request(
                         Q(provider_phase_started_at__isnull=False)
                         | Q(has_provider_attempt=True)
                         | ~Q(task_class="no_model")
+                        | ~Q(candidate_plan=[])
                     )
-                    if provider_owned.exists():
+                    unlinked_provider_evidence = (
+                        GeminiRequestAttempt.objects.select_for_update()
+                        .filter(
+                            source_message_id=source_message_id,
+                            lane=resolved_lane,
+                            request_graph_id__isnull=True,
+                        )
+                        .filter(
+                            Q(provider_started_at__isnull=False)
+                            | Q(fsm_state__in=(
+                                GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                                GeminiRequestAttempt.FsmState.SUCCEEDED,
+                                GeminiRequestAttempt.FsmState.FAILED,
+                                GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+                                GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+                            ))
+                            | Q(outcome__in=(
+                                "provider_started",
+                                "succeeded",
+                                "failed",
+                                "timeout_ambiguous",
+                                "succeeded_late",
+                            ))
+                        )
+                        .exists()
+                    )
+                    if provider_owned.exists() or unlinked_provider_evidence:
                         return NULL_OBSERVER
                 elif (
                     (locked_message is not None and locked_message.gemini_task_class == "no_model")
