@@ -1,13 +1,16 @@
 """MariaDB-only row-lock gates for follow CTA and UGC rewards."""
 
 import hashlib
+from importlib import import_module
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
-from threading import Barrier, Lock, Thread
+from pathlib import Path
+from threading import Barrier, Event, Lock, Thread
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.apps import apps
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import close_old_connections, connection
@@ -37,6 +40,128 @@ from orders.models import Order
 from storefront.models import PromoCode, PromoCodeGuestUsage
 
 
+class PrivateMediaMariaDbConcurrencyTests(TransactionTestCase):
+    reset_sequences = False
+    def test_inflight_capture_cannot_leave_blob_after_privacy_success(self):
+        from management.bot_views import _delete_direct_bot_records
+        from management.services import instagram_bot
+        from management.services.ig_private_media import private_media_storage
+
+        client = IgClient.objects.create(
+            igsid="mariadb-private-capture",
+            username="mariadb_private_capture",
+        )
+        row = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            source="webhook",
+            mid="mariadb-private-capture-mid",
+            media_capture_eligible=True,
+            attachment_media=[{
+                "url": "https://lookaside.invalid/capture.jpg",
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+        download_started = Event()
+        finish_download = Event()
+        errors = []
+        storage = private_media_storage()
+        before_files = {
+            path.relative_to(storage.location)
+            for path in Path(storage.location).rglob("*")
+            if path.is_file()
+        }
+
+        def delayed_download(_url):
+            download_started.set()
+            if not finish_download.wait(timeout=10):
+                raise RuntimeError("capture test timeout")
+            return "image/jpeg", b"capture-race"
+
+        def capture():
+            close_old_connections()
+            try:
+                instagram_bot._capture_message_media(
+                    InstagramBotMessage.objects.get(pk=row.pk)
+                )
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        with patch.object(
+            instagram_bot,
+            "download_image",
+            side_effect=delayed_download,
+        ):
+            thread = Thread(target=capture, daemon=True)
+            thread.start()
+            self.assertTrue(download_started.wait(timeout=10))
+            with self.assertRaises(RuntimeError):
+                _delete_direct_bot_records(client.username)
+            finish_download.set()
+            thread.join(timeout=15)
+
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(errors, [])
+        _delete_direct_bot_records(client.username)
+        self.assertFalse(IgClient.objects.filter(pk=client.pk).exists())
+        self.assertFalse(InstagramBotMessage.objects.filter(pk=row.pk).exists())
+        after_files = {
+            path.relative_to(storage.location)
+            for path in Path(storage.location).rglob("*")
+            if path.is_file()
+        }
+        self.assertEqual(after_files, before_files)
+
+    def test_purge_skips_real_reader_lease_until_release(self):
+        from management.services.ig_private_media import (
+            acquire_blob_use,
+            private_media_storage,
+            purge_due,
+            release_blob_use,
+        )
+
+        client = IgClient.objects.create(igsid="mariadb-private-reader")
+        storage = private_media_storage()
+        name = storage.save("ig_message_media/read.ogg", ContentFile(b"read-race"))
+        row = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            private_media_state="active",
+            private_media_delete_after=timezone.now() - timedelta(seconds=1),
+            attachment_media=[{
+                "status": "owned",
+                "private_storage": True,
+                "storage_name": name,
+                "mime": "audio/ogg",
+            }],
+        )
+        acquired = Event()
+        release = Event()
+
+        def reader():
+            close_old_connections()
+            token = acquire_blob_use(row.pk, seconds=120)
+            acquired.set()
+            release.wait(timeout=10)
+            release_blob_use(row.pk, token)
+            close_old_connections()
+
+        thread = Thread(target=reader, daemon=True)
+        thread.start()
+        self.assertTrue(acquired.wait(timeout=10))
+        self.assertEqual(purge_due(now=timezone.now(), limit=1), 0)
+        self.assertTrue(storage.exists(name))
+        release.set()
+        thread.join(timeout=10)
+        self.assertEqual(purge_due(now=timezone.now(), limit=1), 1)
+        self.assertFalse(storage.exists(name))
+
+
 class InstagramFollowUgcMariaDbContractTests(SimpleTestCase):
     databases = {"default"}
 
@@ -51,6 +176,26 @@ class InstagramFollowUgcMariaDbContractTests(SimpleTestCase):
             version, comment = cursor.fetchone()
         self.assertTrue(str(version).startswith("11.4"))
         self.assertIn("mariadb", f"{version} {comment}".lower())
+
+    def test_0177_rehearses_partial_ddl_resume_on_real_mariadb(self):
+        migration = import_module(
+            "management.migrations.0177_gemini_adaptive_routing"
+        )
+        field = IgClient._meta.get_field("privacy_erasure_started_at")
+        table = IgClient._meta.db_table
+        with connection.schema_editor(atomic=False) as schema_editor:
+            schema_editor.remove_field(IgClient, field)
+            migration.ensure_0177_schema(apps, schema_editor)
+            migration.ensure_0177_schema(apps, schema_editor)
+        with connection.cursor() as cursor:
+            columns = {
+                item.name
+                for item in connection.introspection.get_table_description(
+                    cursor,
+                    table,
+                )
+            }
+        self.assertIn(field.column, columns)
 
 
 class _MariaDbConcurrencyCase(TransactionTestCase):

@@ -1035,7 +1035,11 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
                 counts["waiting"] += 1
                 continue
             try:
-                images = _collect_media_images(owned_items)
+                images = _collect_media_images(
+                    owned_items,
+                    message_id=message.pk,
+                    lease_already_held=True,
+                )
                 if not images:
                     counts["waiting"] += 1
                     continue

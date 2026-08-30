@@ -569,7 +569,10 @@ def _persist_review_media(media: list[dict]) -> list[dict]:
             if _live_owned_media(row):
                 from management.services.instagram_bot import _owned_media_bytes
 
-                downloaded = _owned_media_bytes(row)
+                downloaded = _owned_media_bytes(
+                    row,
+                    message_id=row.get("message_id") or row.get("source_message_id"),
+                )
             elif _safe_local_media_url(row):
                 base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
                 downloaded = download_image(urljoin(base, _safe_local_media_url(row).lstrip("/")))
@@ -618,7 +621,10 @@ def _resolve_payment_media_candidates(media: list[dict]) -> list[dict]:
         source_indexes = []
         for source_index in candidate_indexes[:8]:
             source = result[source_index]
-            image = _owned_media_bytes(source)
+            image = _owned_media_bytes(
+                source,
+                message_id=source.get("message_id") or source.get("source_message_id"),
+            )
             if image is None and _safe_local_media_url(source):
                 base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
                 image = download_image(urljoin(base, _safe_local_media_url(source).lstrip("/")))
@@ -937,7 +943,10 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
             if known_digest and known_digest in image_digests:
                 downloaded_source_indexes[image_digests[known_digest]].append(index)
                 continue
-            owned_image = _owned_media_bytes(row)
+            owned_image = _owned_media_bytes(
+                row,
+                message_id=row.get("message_id") or row.get("source_message_id"),
+            )
             candidates = [None] if owned_image else (
                 _catalog_media_url_candidates({"local_url": _safe_local_media_url(row)})
                 if _safe_local_media_url(row)

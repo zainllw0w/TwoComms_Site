@@ -226,25 +226,46 @@ def _delete_direct_bot_records(identifier: str) -> dict:
         result["detail"] = "Empty identifier."
         return result
 
+    # Commit the client + message fence before scanning blobs. Capture obtains
+    # its use lease under the same message lock, so either capture finishes
+    # first and becomes deletion debt, or this fence wins before any CDN I/O.
+    fence_at = timezone.now()
+    with transaction.atomic():
+        pre_clients = list(
+            IgClient.objects.select_for_update().filter(
+                Q(igsid__iexact=normalized)
+                | Q(username__iexact=normalized)
+                | Q(display_name__iexact=normalized)
+                | Q(phone_normalized__iexact=normalized)
+            )
+        )
+        for client in pre_clients:
+            if client.privacy_erasure_started_at is None:
+                client.privacy_erasure_started_at = fence_at
+                client.save(update_fields=["privacy_erasure_started_at", "updated_at"])
+        pre_sender_ids = {normalized, *(c.igsid for c in pre_clients if c.igsid)}
+        message_rows = list(
+            InstagramBotMessage.objects.select_for_update().filter(
+                Q(sender_id__in=pre_sender_ids) | Q(client__in=pre_clients)
+            )
+        )
+        private_message_ids = []
+        for message in message_rows:
+            if message.private_media_state == "deleted":
+                continue
+            private_message_ids.append(message.pk)
+            if message.private_media_state != "deleting":
+                message.private_media_state = "delete_pending"
+                message.private_media_delete_after = fence_at
+                message.private_media_delete_token = ""
+                message.private_media_delete_claimed_at = None
+                message.save(update_fields=[
+                    "private_media_state", "private_media_delete_after",
+                    "private_media_delete_token", "private_media_delete_claimed_at",
+                ])
+
     # Blob erasure is its own committed two-phase boundary. Never delete the
     # DB row first: a crash would otherwise orphan an untraceable private file.
-    pre_clients = list(
-        IgClient.objects.filter(
-            Q(igsid__iexact=normalized)
-            | Q(username__iexact=normalized)
-            | Q(display_name__iexact=normalized)
-            | Q(phone_normalized__iexact=normalized)
-        ).only("id", "igsid")
-    )
-    pre_sender_ids = {normalized, *(c.igsid for c in pre_clients if c.igsid)}
-    private_message_ids = list(
-        InstagramBotMessage.objects.filter(
-            Q(sender_id__in=pre_sender_ids) | Q(client__in=pre_clients)
-        ).filter(
-            Q(private_media_delete_after__isnull=False)
-            | ~Q(private_media_state="")
-        ).exclude(private_media_state="deleted").values_list("id", flat=True)
-    )
     if private_message_ids:
         from management.services.ig_private_media import delete_immediately
 

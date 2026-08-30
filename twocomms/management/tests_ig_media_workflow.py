@@ -537,6 +537,124 @@ class PrivateMessageMediaStorageTests(TestCase):
             self.assertEqual(row.private_media_state, "deleted")
             self.assertFalse(private_media_storage().exists(name))
 
+    def test_late_capture_finish_becomes_deletion_debt_after_privacy_fence(self):
+        from django.core.files.base import ContentFile
+        from management.models import IgClient
+        from management.services import instagram_bot
+        from management.services.ig_private_media import (
+            delete_immediately,
+            private_media_storage,
+        )
+
+        with tempfile.TemporaryDirectory() as private_root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve()),
+        ):
+            client = IgClient.objects.create(igsid="late-capture-fence")
+            url = "https://lookaside.invalid/late.jpg"
+            row = InstagramBotMessage.objects.create(
+                sender_id=client.igsid,
+                client=client,
+                role=InstagramBotMessage.Role.USER,
+                source="webhook",
+                mid="late-capture-fence-mid",
+                media_capture_eligible=True,
+                attachment_media=[{
+                    "url": url,
+                    "provenance": "live_webhook",
+                    "status": "pending",
+                }],
+            )
+            capture_token, _item, use_token = instagram_bot._claim_media_capture(
+                row.pk,
+                url,
+            )
+            client.privacy_erasure_started_at = timezone.now()
+            client.save(update_fields=["privacy_erasure_started_at", "updated_at"])
+            row.private_media_state = "delete_pending"
+            row.private_media_delete_after = timezone.now()
+            row.save(update_fields=[
+                "private_media_state", "private_media_delete_after",
+            ])
+            storage = private_media_storage()
+            name = storage.save(
+                f"ig_message_media/{row.pk}/late.jpg",
+                ContentFile(b"late-capture"),
+            )
+
+            media = instagram_bot._finish_media_capture(
+                row.pk,
+                url,
+                capture_token,
+                {
+                    "status": "owned",
+                    "storage_name": name,
+                    "private_storage": True,
+                    "mime": "image/jpeg",
+                    "bytes": 12,
+                    "content_hash": "late",
+                    "delete_after": timezone.now().isoformat(),
+                },
+                use_token=use_token,
+            )
+
+            self.assertEqual(media[0]["status"], "delete_pending")
+            self.assertEqual(delete_immediately([row.pk]), 1)
+            self.assertFalse(storage.exists(name))
+            row.refresh_from_db()
+            self.assertEqual(row.private_media_state, "deleted")
+
+    def test_capture_claim_refuses_client_erasure_fence(self):
+        from management.models import IgClient
+        from management.services.instagram_bot import _claim_media_capture
+
+        client = IgClient.objects.create(
+            igsid="capture-claim-fenced",
+            privacy_erasure_started_at=timezone.now(),
+        )
+        url = "https://lookaside.invalid/fenced.jpg"
+        row = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            source="webhook",
+            media_capture_eligible=True,
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+
+        self.assertIsNone(_claim_media_capture(row.pk, url))
+
+    def test_ingress_cannot_create_message_after_client_erasure_fence(self):
+        from management.models import IgClient, InstagramBotSettings
+        from management.services.instagram_bot import enqueue_inbound
+
+        client = IgClient.objects.create(
+            igsid="ingress-erasure-fenced",
+            privacy_erasure_started_at=timezone.now(),
+        )
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.is_enabled = True
+        settings_obj.allowed_senders = ""
+        settings_obj.save(update_fields=["is_enabled", "allowed_senders"])
+
+        created = enqueue_inbound(
+            settings_obj,
+            sender_id=client.igsid,
+            text="new media",
+            mid="ingress-erasure-fenced-mid",
+            source="webhook",
+            attachments=["https://lookaside.invalid/after-fence.jpg"],
+            received_at=timezone.now(),
+        )
+
+        self.assertFalse(created)
+        self.assertFalse(InstagramBotMessage.objects.filter(
+            mid="ingress-erasure-fenced-mid"
+        ).exists())
+
     def test_stale_delete_claim_recovers_after_blob_was_already_removed(self):
         from management.services.ig_private_media import (
             claim_deletion,
@@ -966,7 +1084,7 @@ class HistoricalAttachmentOwnershipTests(TestCase):
 
         first = instagram_bot._capture_message_media(row)
         second = instagram_bot._capture_message_media(row)
-        images = instagram_bot._collect_media_images(second)
+        images = instagram_bot._collect_media_images(second, message_id=row.pk)
 
         self.assertEqual(download.call_count, 1)
         self.assertEqual(storage.save.call_count, 1)
@@ -1170,7 +1288,7 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         self.assertIsNotNone(first)
         self.assertIsNone(second)
 
-        token, _item = first
+        token, _item, use_token = first
         instagram_bot._finish_media_capture(row.pk, url, token, {
             "status": "owned",
             "storage_name": "ig_message_media/race.jpg",
@@ -1178,7 +1296,7 @@ class HistoricalAttachmentOwnershipTests(TestCase):
             "mime": "image/jpeg",
             "bytes": 4,
             "content_hash": "abcd",
-        })
+        }, use_token=use_token)
 
         self.assertIsNone(instagram_bot._claim_media_capture(row.pk, url))
         row.refresh_from_db()

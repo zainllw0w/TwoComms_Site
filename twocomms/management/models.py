@@ -3893,6 +3893,14 @@ class InstagramBotMessage(models.Model):
         DONE = "done", "done"
         FAILED = "failed", "failed"
 
+    class PrivateMediaState(models.TextChoices):
+        NONE = "", "none"
+        ACTIVE = "active", "active"
+        DELETE_PENDING = "delete_pending", "delete_pending"
+        DELETING = "deleting", "deleting"
+        DELETE_FAILED = "delete_failed", "delete_failed"
+        DELETED = "deleted", "deleted"
+
     sender_id = models.CharField(max_length=64, db_index=True)
     client = models.ForeignKey(
         "management.IgClient",
@@ -3939,13 +3947,17 @@ class InstagramBotMessage(models.Model):
     private_media_delete_after = models.DateTimeField(
         null=True,
         blank=True,
-        db_index=True,
     )
-    private_media_state = models.CharField(max_length=20, blank=True, default="")
+    private_media_state = models.CharField(
+        max_length=20,
+        blank=True,
+        default=PrivateMediaState.NONE,
+        choices=PrivateMediaState.choices,
+    )
     private_media_delete_token = models.CharField(max_length=64, blank=True, default="")
     private_media_delete_claimed_at = models.DateTimeField(null=True, blank=True)
     private_media_use_token = models.CharField(max_length=64, blank=True, default="")
-    private_media_use_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    private_media_use_until = models.DateTimeField(null=True, blank=True)
     attempts = models.PositiveIntegerField(default=0)
     # Delivery boundary state. Once a provider request has started, an
     # ambiguous result must never be retried automatically (Meta has no
@@ -4011,6 +4023,23 @@ class InstagramBotMessage(models.Model):
         indexes = [
             models.Index(fields=["status", "role"]),
             models.Index(fields=["sender_id", "created_at"]),
+            models.Index(
+                fields=["private_media_delete_after"],
+                name="mgmt_igmsg_media_del",
+            ),
+            models.Index(
+                fields=["private_media_use_until"],
+                name="mgmt_igmsg_media_use",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(private_media_state__in=[
+                    "", "active", "delete_pending", "deleting",
+                    "delete_failed", "deleted",
+                ]),
+                name="mgmt_igmsg_media_state",
+            ),
         ]
 
     def __str__(self) -> str:

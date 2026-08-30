@@ -434,6 +434,9 @@ class IgClient(models.Model):
     lost_reason = models.CharField(max_length=64, blank=True, default="", db_index=True)
     hidden_at = models.DateTimeField(null=True, blank=True, db_index=True)
     hidden_reason = models.CharField(max_length=255, blank=True, default="")
+    # Privacy erasure fence: once set, ingress/capture cannot create new owned
+    # customer media while the two-phase deletion is draining existing blobs.
+    privacy_erasure_started_at = models.DateTimeField(null=True, blank=True)
     # Короткоживуча lease одного worker-а. Вона не є станом воронки: потрібна
     # лише щоб hide не підтверджувався, поки триває відповідь цьому клієнту.
     automation_lease_token = models.CharField(max_length=40, blank=True, default="")

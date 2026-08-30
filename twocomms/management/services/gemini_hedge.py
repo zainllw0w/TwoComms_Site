@@ -104,6 +104,9 @@ def run_hedged(
     expected_latency_ms=None,
     max_in_flight: int = MAX_IN_FLIGHT,
     aborts_wave=None,
+    after_outcome_recorded=None,
+    before_provider_gate=None,
+    after_provider_gate=None,
 ) -> HedgeWave:
     """Виконати хвилю hedged-викликів; повернути першого, хто відповів.
 
@@ -130,6 +133,7 @@ def run_hedged(
     aborted: dict = {"reason": ""}
     outcomes: list = []
     outcomes_lock = threading.Lock()
+    provider_started: set[int] = set()
 
     def remaining() -> float:
         return deadline_monotonic - time.monotonic()
@@ -167,6 +171,44 @@ def run_hedged(
             return
         read_budget = max(1.0, min(HEDGE_CALL_TIMEOUT[1], budget - HEDGE_CALL_TIMEOUT[0]))
         timeout = (min(HEDGE_CALL_TIMEOUT[0], budget * 0.25), read_budget)
+        # Serialize the final provider boundary with winner publication. A
+        # delayed worker that passed its first Event check cannot slip a second
+        # quota-consuming call into the tiny window after another key wins.
+        if before_provider_gate is not None:
+            before_provider_gate(index)
+        gate_started = False
+        with winner_lock:
+            # A successful worker records its outcome before publishing the
+            # winner. If it is preempted in that tiny gap, a staggered worker
+            # must promote the already-observed success instead of spending a
+            # second quota call.
+            if winner["outcome"] is None and not stop.is_set():
+                with outcomes_lock:
+                    observed_success = next(
+                        (item for item in outcomes if item.succeeded),
+                        None,
+                    )
+                if observed_success is not None:
+                    winner["outcome"] = observed_success
+                    stop.set()
+            if stop.is_set():
+                with outcomes_lock:
+                    outcomes.append(
+                        HedgeOutcome(
+                            key_name,
+                            model,
+                            index,
+                            time.monotonic(),
+                            skipped_reason=aborted["reason"] or "winner_found",
+                        )
+                    )
+            else:
+                provider_started.add(index)
+                gate_started = True
+        if after_provider_gate is not None:
+            after_provider_gate(index, gate_started)
+        if not gate_started:
+            return
         call_started = time.monotonic()
         outcome = HedgeOutcome(key_name, model, index, call_started)
         try:
@@ -176,6 +218,8 @@ def run_hedged(
         outcome.latency_ms = int((time.monotonic() - call_started) * 1000)
         with outcomes_lock:
             outcomes.append(outcome)
+        if after_outcome_recorded is not None:
+            after_outcome_recorded(outcome)
         if outcome.succeeded:
             with winner_lock:
                 if winner["outcome"] is None:
@@ -251,7 +295,12 @@ def run_hedged(
         collected.append(
             HedgeOutcome(
                 key_name, model, index, time.monotonic(),
-                skipped_reason="abandoned_after_winner"
+                skipped_reason=(
+                    "winner_found"
+                    if winner["outcome"] is not None
+                    and index not in provider_started
+                    else "abandoned_after_winner"
+                )
                 if winner["outcome"] is not None
                 else "abandoned_unfinished",
             )

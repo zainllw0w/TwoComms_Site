@@ -9207,7 +9207,12 @@ def _private_media_retention_seconds() -> int:
     return max(3600, min(configured, 7 * 24 * 3600))
 
 
-def _owned_media_bytes(item: dict) -> tuple[str, bytes] | None:
+def _owned_media_bytes(
+    item: dict,
+    *,
+    message_id: int | None = None,
+    lease_already_held: bool = False,
+) -> tuple[str, bytes] | None:
     storage_name = str(item.get("storage_name") or "").strip()
     mime = _normalized_inline_mime(item.get("mime"))
     if (
@@ -9215,8 +9220,25 @@ def _owned_media_bytes(item: dict) -> tuple[str, bytes] | None:
         or mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES
     ):
         return None
+    use_token = ""
+    owned_message_id = 0
     try:
         if item.get("private_storage"):
+            from management.services.ig_private_media import (
+                acquire_blob_use,
+                release_blob_use,
+            )
+
+            try:
+                owned_message_id = int(
+                    message_id or item.get("message_id") or 0
+                )
+            except (TypeError, ValueError):
+                owned_message_id = 0
+            if not lease_already_held:
+                use_token = acquire_blob_use(owned_message_id, seconds=180)
+                if not use_token:
+                    return None
             storage = _private_media_storage()
         else:
             # Rolling compatibility for pre-0177 owned image rows. New live
@@ -9237,6 +9259,11 @@ def _owned_media_bytes(item: dict) -> tuple[str, bytes] | None:
     except Exception as exc:
         log("warning", "owned_media_read", repr(exc))
         return None
+    finally:
+        if use_token:
+            from management.services.ig_private_media import release_blob_use
+
+            release_blob_use(owned_message_id, use_token)
 
 
 def _media_merge_rank(item: dict) -> int:
@@ -9361,10 +9388,22 @@ def _persist_media_metadata(row: InstagramBotMessage, incoming: list[dict]) -> l
     return merged
 
 
-def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict] | None:
+def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict, str] | None:
     with transaction.atomic():
         locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
         if not locked.media_capture_eligible:
+            return None
+        now = timezone.now()
+        if locked.private_media_state in {
+            "delete_pending", "deleting", "deleted",
+        }:
+            return None
+        if locked.client_id and IgClient.objects.filter(
+            pk=locked.client_id,
+            privacy_erasure_started_at__isnull=False,
+        ).exists():
+            return None
+        if locked.private_media_use_until and locked.private_media_use_until > now:
             return None
         media = [dict(item) for item in (locked.attachment_media or [])]
         for item in media:
@@ -9400,21 +9439,46 @@ def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict] | None:
                 ):
                     return None
             token = secrets.token_hex(16)
+            use_token = secrets.token_hex(16)
             item.update({
                 "status": MEDIA_STATUS_ACQUIRING,
                 "capture_token": token,
-                "capture_started_at": timezone.now().isoformat(),
+                "capture_started_at": now.isoformat(),
                 "capture_attempts": attempts + 1,
             })
             locked.attachment_media = media
-            locked.save(update_fields=["attachment_media"])
-            return token, dict(item)
+            locked.private_media_use_token = use_token
+            locked.private_media_use_until = now + timedelta(seconds=300)
+            locked.save(update_fields=[
+                "attachment_media", "private_media_use_token",
+                "private_media_use_until",
+            ])
+            return token, dict(item), use_token
     return None
 
 
-def _finish_media_capture(message_id: int, url: str, token: str, updates: dict) -> list[dict]:
+def _finish_media_capture(
+    message_id: int,
+    url: str,
+    token: str,
+    updates: dict,
+    *,
+    use_token: str = "",
+) -> list[dict]:
     with transaction.atomic():
         locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
+        privacy_fenced = bool(
+            locked.private_media_state in {
+                "delete_pending", "deleting", "deleted",
+            }
+            or (
+                locked.client_id
+                and IgClient.objects.filter(
+                    pk=locked.client_id,
+                    privacy_erasure_started_at__isnull=False,
+                ).exists()
+            )
+        )
         media = [dict(item) for item in (locked.attachment_media or [])]
         for item in media:
             if (
@@ -9422,6 +9486,11 @@ def _finish_media_capture(message_id: int, url: str, token: str, updates: dict) 
                 and item.get("capture_token") == token
             ):
                 item.update(updates)
+                if privacy_fenced and updates.get("status") == MEDIA_STATUS_OWNED:
+                    # Retain the private name only as deletion debt. It is
+                    # never exposed as owned media after the erasure fence.
+                    item["status"] = "delete_pending"
+                    item["error_kind"] = "privacy_erasure"
                 item.pop("capture_token", None)
                 item.pop("capture_started_at", None)
                 break
@@ -9439,12 +9508,22 @@ def _finish_media_capture(message_id: int, url: str, token: str, updates: dict) 
                     + timedelta(seconds=_private_media_retention_seconds())
                 )
             update_fields.append("private_media_delete_after")
-            locked.private_media_state = "active"
-            locked.private_media_delete_token = ""
-            locked.private_media_delete_claimed_at = None
+            if privacy_fenced:
+                locked.private_media_state = "delete_pending"
+                locked.private_media_delete_after = timezone.now()
+            else:
+                locked.private_media_state = "active"
+                locked.private_media_delete_token = ""
+                locked.private_media_delete_claimed_at = None
             update_fields.extend([
                 "private_media_state", "private_media_delete_token",
                 "private_media_delete_claimed_at",
+            ])
+        if use_token and locked.private_media_use_token == use_token:
+            locked.private_media_use_token = ""
+            locked.private_media_use_until = None
+            update_fields.extend([
+                "private_media_use_token", "private_media_use_until",
             ])
         locked.save(update_fields=update_fields)
         return media
@@ -9522,7 +9601,7 @@ def _capture_message_media(
         claimed = _claim_media_capture(row.pk, str(snapshot.get("url") or ""))
         if not claimed:
             continue
-        token, item = claimed
+        token, item, use_token = claimed
         attempts_used += 1
         url = str(item.get("url") or "")
         downloaded = download_image(url)
@@ -9539,7 +9618,7 @@ def _capture_message_media(
                 ).isoformat()
                 if int(item.get("capture_attempts") or 1) < MEDIA_CAPTURE_MAX_ATTEMPTS
                 else "",
-            })
+            }, use_token=use_token)
             continue
         mime, raw = downloaded
         created_storage_name = ""
@@ -9587,7 +9666,17 @@ def _capture_message_media(
                 "delete_after": delete_after.isoformat(),
                 "error_kind": "",
                 "capture_next_attempt_at": "",
-            })
+            }, use_token=use_token)
+            accepted = any(
+                isinstance(candidate, dict)
+                and candidate.get("status") == MEDIA_STATUS_OWNED
+                and candidate.get("storage_name") == storage_name
+                for candidate in current
+            )
+            if not accepted:
+                from management.services.ig_private_media import delete_immediately
+
+                delete_immediately([row.pk])
         except Exception as exc:
             if created_storage_name:
                 try:
@@ -9606,7 +9695,7 @@ def _capture_message_media(
                 ).isoformat()
                 if int(item.get("capture_attempts") or 1) < MEDIA_CAPTURE_MAX_ATTEMPTS
                 else "",
-            })
+            }, use_token=use_token)
             log("warning", "message_media_store", repr(exc))
         if on_progress is not None and not on_progress():
             break
@@ -9727,7 +9816,13 @@ def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
         return None
 
 
-def _collect_media_images(media: list[dict] | None, limit: int = 3) -> list[tuple[str, bytes]]:
+def _collect_media_images(
+    media: list[dict] | None,
+    limit: int = 3,
+    *,
+    message_id: int | None = None,
+    lease_already_held: bool = False,
+) -> list[tuple[str, bytes]]:
     """Load owned live bytes; historical URLs never cross a network boundary."""
     images: list[tuple[str, bytes]] = []
     total_bytes = 0
@@ -9745,7 +9840,11 @@ def _collect_media_images(media: list[dict] | None, limit: int = 3) -> list[tupl
             or item.get("status") != MEDIA_STATUS_OWNED
         ):
             continue
-        image = _owned_media_bytes(item)
+        image = _owned_media_bytes(
+            item,
+            message_id=message_id or item.get("message_id"),
+            lease_already_held=lease_already_held,
+        )
         if image:
             mime, raw = image
             if total_bytes + len(raw) <= INLINE_MEDIA_RAW_BUDGET:
@@ -10318,6 +10417,8 @@ def _observe_not_allowed_inbound(
     analysis, follow-up scheduling, or the reply queue.
     """
     client = IgClient.get_or_create_for_sender(sender_id)
+    if client.privacy_erasure_started_at:
+        return False
     if not _commercial_lock_held:
         from management.services.ig_commercial_episodes import commercial_episode_client_lock
 
@@ -10340,7 +10441,7 @@ def _observe_not_allowed_inbound(
     try:
         with transaction.atomic():
             client = IgClient.objects.select_for_update().get(pk=client.pk)
-            if client.hidden_at:
+            if client.hidden_at or client.privacy_erasure_started_at:
                 return False
             existing = (
                 InstagramBotMessage.objects.select_for_update().filter(mid=mid).first()
@@ -10436,6 +10537,8 @@ def enqueue_inbound(
     explicit_opt_out = bot_sales_classifier.is_explicit_opt_out(text)
     permission_transition_job_id = None
     client = IgClient.get_or_create_for_sender(sender_id)
+    if client.privacy_erasure_started_at:
+        return False
     if not _commercial_lock_held:
         from management.services.ig_commercial_episodes import commercial_episode_client_lock
 
@@ -10539,7 +10642,7 @@ def enqueue_inbound(
             # приховування, або приховування вже виграло і жодного side effect
             # (черги, CRM, classifier, follow-up) не буде.
             client = IgClient.objects.select_for_update().get(pk=client.pk)
-            if client.hidden_at:
+            if client.hidden_at or client.privacy_erasure_started_at:
                 log("info", "skip_hidden", f"[{source}] {sender_id}: прихований клієнт")
                 return False
             existing = (
@@ -11000,6 +11103,7 @@ def _claim_next() -> InstagramBotMessage | None:
                 pk=turn_row_id,
                 role=InstagramBotMessage.Role.USER,
                 status=InstagramBotMessage.Status.PENDING,
+                client__privacy_erasure_started_at__isnull=True,
             )
             .first()
         )
@@ -11022,6 +11126,7 @@ def _claim_next() -> InstagramBotMessage | None:
             role=InstagramBotMessage.Role.USER,
             status=InstagramBotMessage.Status.PENDING,
             client__hidden_at__isnull=True,
+            client__privacy_erasure_started_at__isnull=True,
         )
         .exclude(
             client__automation_lease_token__gt="",
@@ -11818,7 +11923,10 @@ def _process_one_inside_reply_boundary(
         log("info", "ugc_deterministic_reply", f"{row.sender_id}: no chat Gemini")
     elif not str(getattr(row, "quick_reply_payload", "") or "").strip():
         gate_media = _recover_current_message_media(row)
-        gate_images = _collect_media_images(gate_media or [])
+        gate_images = _collect_media_images(
+            gate_media or [],
+            message_id=row.pk,
+        )
         if _turn_requires_owned_media(row) and not gate_images:
             from management.services.gemini_routing import persist_decision
 
@@ -12020,7 +12128,7 @@ def _process_one_inside_reply_boundary(
             # cross exactly one provider boundary in this live turn.
             recovered_media = _recover_current_message_media(row)
             media = recovered_media or []
-            images = _collect_media_images(media)
+            images = _collect_media_images(media, message_id=row.pk)
             media_binding = _source_media_binding(row, images)
             if not _renew_client_automation_lease(row, lease_token):
                 clear_typing_indicator()

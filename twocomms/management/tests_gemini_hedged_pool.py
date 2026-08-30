@@ -1,4 +1,5 @@
 """Э-HEDGE: усі ключі найкращої моделі, а не два — і без витрати квоти на перевірки."""
+import threading
 import time
 from unittest.mock import patch
 
@@ -36,6 +37,70 @@ class HedgedWaveTests(TestCase):
         skipped = [item for item in wave.outcomes if item.skipped_reason]
         self.assertEqual(len(skipped), 5)
         self.assertTrue(all(item.skipped_reason == "winner_found" for item in skipped))
+
+    def test_fast_first_boundary_is_stable_across_fifty_scheduler_runs(self):
+        for run in range(50):
+            called = []
+
+            def call_one(key_name, key_value, model, timeout):
+                called.append(key_name)
+                return ("ok", {})
+
+            wave = gemini_hedge.run_hedged(
+                self._candidates(6),
+                call_one=call_one,
+                deadline_monotonic=time.monotonic() + 5,
+            )
+
+            self.assertEqual(called, ["K1"], f"scheduler run {run}")
+            self.assertEqual(wave.winner.key_name, "K1")
+            self.assertTrue(all(
+                item.candidate_index == 1
+                or item.skipped_reason == "winner_found"
+                for item in wave.outcomes
+            ))
+
+    def test_recorded_success_wins_if_first_worker_is_preempted_before_publication(self):
+        success_recorded = threading.Event()
+        allow_first_publish = threading.Event()
+        second_gate_blocked = threading.Event()
+        called = []
+        result = {}
+
+        def call_one(key_name, key_value, model, timeout):
+            called.append(key_name)
+            return ("ok", {})
+
+        def after_recorded(outcome):
+            if outcome.candidate_index == 1 and outcome.succeeded:
+                success_recorded.set()
+                allow_first_publish.wait(timeout=5)
+
+        def after_gate(index, started):
+            if index == 2 and not started:
+                second_gate_blocked.set()
+
+        def run():
+            result["wave"] = gemini_hedge.run_hedged(
+                self._candidates(3),
+                call_one=call_one,
+                deadline_monotonic=time.monotonic() + 10,
+                after_outcome_recorded=after_recorded,
+                after_provider_gate=after_gate,
+            )
+
+        with patch.object(gemini_hedge, "HEDGE_STAGGER_SECONDS", 0.01):
+            thread = threading.Thread(target=run, daemon=True)
+            thread.start()
+            self.assertTrue(success_recorded.wait(timeout=5))
+            self.assertTrue(second_gate_blocked.wait(timeout=5))
+            self.assertEqual(called, ["K1"])
+            allow_first_publish.set()
+            thread.join(timeout=5)
+
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(result["wave"].winner.key_name, "K1")
+        self.assertEqual(called, ["K1"])
 
     def test_slow_first_key_lets_a_later_key_win(self):
         """Production-сценарій: 3.7 повільна на першому ключі, швидка на іншому."""

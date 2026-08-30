@@ -1079,7 +1079,7 @@ def _generate_recovery_draft(
         )
         recovered_media = _recover_current_message_media(target)
         media = recovered_media or []
-        images = _collect_media_images(media)
+        images = _collect_media_images(media, message_id=target.pk)
         artifact_context = ""
     apology_delivered = _apology_already_delivered(job)
     apology_warranted = _recovery_apology_warranted(

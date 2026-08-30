@@ -1193,7 +1193,11 @@ def _process_claim(
             if not url or url in seen_urls:
                 continue
             seen_urls.add(url)
-            collected = _collect_media_images([source], limit=1)
+            collected = _collect_media_images(
+                [source],
+                limit=1,
+                message_id=source.get("message_id"),
+            )
             image = collected[0] if collected else None
             if image:
                 image_labels.append({
