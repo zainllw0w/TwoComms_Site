@@ -834,6 +834,109 @@ class GeminiHealthSnapshotTests(TestCase):
         )
         self.assertIsNone(snapshot["fallback"])
 
+    def test_old_late_failed_and_success_losers_cannot_replace_newer_winner(self):
+        old_at = self.now - datetime.timedelta(minutes=12)
+        self._attempt(
+            request_id="older-with-late-losers",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=1,
+            at=old_at,
+        )
+        self._attempt(
+            request_id="older-with-late-losers",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=7,
+            winner_claimed=True,
+            at=old_at + datetime.timedelta(seconds=1),
+        )
+        new_at = self.now - datetime.timedelta(minutes=5)
+        self._attempt(
+            request_id="newer-logical-request",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=1,
+            winner_claimed=True,
+            at=new_at,
+        )
+        self._attempt(
+            request_id="older-with-late-losers",
+            key_name="GEMINI_API2",
+            model="gemini-3.6-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=13,
+            at=self.now - datetime.timedelta(minutes=2),
+        )
+        self._attempt(
+            request_id="older-with-late-losers",
+            key_name="GEMINI_API2",
+            model="gemini-3.7-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=19,
+            at=self.now - datetime.timedelta(minutes=1),
+        )
+
+        snapshot = self._build()
+        winner_row = snapshot["keys"][1]
+
+        self.assertEqual(
+            snapshot["latest_route"]["request_ref"],
+            gemini_health.public_request_reference("newer-logical-request"),
+        )
+        self.assertEqual(
+            [step["model"] for step in snapshot["latest_route"]["steps"]],
+            ["gemini-3.5-flash-lite"],
+        )
+        self.assertIsNone(snapshot["fallback"])
+        self.assertEqual(winner_row["live_state"], "LIVE")
+        self.assertEqual(
+            winner_row["active_model"],
+            "gemini-3.5-flash-lite",
+        )
+
+    def test_linked_request_graph_created_at_is_the_primary_order_anchor(self):
+        old_graph_created = self.now - datetime.timedelta(minutes=12)
+        new_graph_created = self.now - datetime.timedelta(minutes=5)
+        rows = [
+            {
+                "id": 1,
+                "request_id": "old-linked",
+                "request_graph_id": 10,
+                "request_graph__created_at": old_graph_created,
+                "request_graph__provider_phase_started_at": None,
+                "provider_started_at": None,
+                "key_name": "GEMINI_API",
+                "created_at": self.now - datetime.timedelta(minutes=1),
+            },
+            {
+                "id": 2,
+                "request_id": "new-linked",
+                "request_graph_id": 11,
+                "request_graph__created_at": new_graph_created,
+                "request_graph__provider_phase_started_at": None,
+                "provider_started_at": None,
+                "key_name": "GEMINI_API",
+                "created_at": self.now - datetime.timedelta(minutes=4),
+            },
+        ]
+
+        latest = gemini_health._latest_request_rows(rows)
+        global_latest = gemini_health._latest_global_request(rows)
+
+        self.assertEqual(latest[0]["request_id"], "new-linked")
+        self.assertEqual(global_latest[0], "new-linked")
+
     def test_claimed_winner_beats_a_later_successful_loser(self):
         at = self.now - datetime.timedelta(minutes=4)
         self._attempt(

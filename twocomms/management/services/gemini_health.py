@@ -488,6 +488,59 @@ def _group_global_request(rows: list[dict[str, Any]]) -> dict[str, list[dict[str
     return grouped
 
 
+def _request_anchor(
+    request_rows: list[dict[str, Any]],
+) -> tuple[dt.datetime, int]:
+    """Return a stable logical-request ordering key that late losers cannot move."""
+    graph_rows = [
+        row
+        for row in request_rows
+        if row.get("request_graph_id")
+        and (
+            row.get("request_graph__created_at")
+            or row.get("request_graph__provider_phase_started_at")
+        )
+    ]
+    if graph_rows:
+        anchor_row = min(
+            graph_rows,
+            key=lambda row: (
+                _as_utc(
+                    row.get("request_graph__created_at")
+                    or row["request_graph__provider_phase_started_at"]
+                ),
+                int(row.get("request_graph_id") or 0),
+            ),
+        )
+        return (
+            _as_utc(
+                anchor_row.get("request_graph__created_at")
+                or anchor_row["request_graph__provider_phase_started_at"]
+            ),
+            int(anchor_row.get("request_graph_id") or 0),
+        )
+
+    provider_rows = [row for row in request_rows if row.get("provider_started_at")]
+    if provider_rows:
+        anchor_row = min(
+            provider_rows,
+            key=lambda row: (
+                _as_utc(row["provider_started_at"]),
+                int(row.get("id") or 0),
+            ),
+        )
+        return (
+            _as_utc(anchor_row["provider_started_at"]),
+            int(anchor_row.get("id") or 0),
+        )
+
+    # Legacy rows have no parent graph or dispatch timestamp. Their earliest
+    # persisted evidence (which includes a claimed winner when that is all we
+    # retained) is the only stable anchor; later success/failure losers cannot
+    # move it forward and resurrect an older request.
+    return min((_attempt_sort_key(row) for row in request_rows))
+
+
 def _latest_global_request(
     rows: list[dict[str, Any]],
 ) -> tuple[str, list[dict[str, Any]]] | None:
@@ -496,7 +549,7 @@ def _latest_global_request(
         return None
     return max(
         groups.items(),
-        key=lambda item: _attempt_sort_key(max(item[1], key=_attempt_sort_key)),
+        key=lambda item: _request_anchor(item[1]),
     )
 
 
@@ -636,14 +689,16 @@ def _latest_request_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Return the rows belonging to the most recently observed request."""
     if not rows:
         return []
-    latest = max(rows, key=_attempt_sort_key)
-    request_id = str(latest.get("request_id") or "").strip()
-    if not request_id:
-        return [latest]
-    return sorted(
-        [row for row in rows if str(row.get("request_id") or "").strip() == request_id],
-        key=_attempt_sort_key,
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        request_id = str(row.get("request_id") or "").strip()
+        group_key = request_id or f"__blank__:{int(row.get('id') or 0)}"
+        grouped[group_key].append(row)
+    _request_id, request_rows = max(
+        grouped.items(),
+        key=lambda item: _request_anchor(item[1]),
     )
+    return sorted(request_rows, key=_attempt_sort_key)
 
 
 def _metadata_batch_key(row: dict[str, Any]) -> str:
@@ -826,6 +881,10 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         "candidate_index",
         "winner_claimed",
         "reply_message_id",
+        "request_graph_id",
+        "request_graph__created_at",
+        "request_graph__provider_phase_started_at",
+        "provider_started_at",
         "created_at",
     )
     runtime_rows = list(
@@ -862,8 +921,11 @@ def build_snapshot(*, now: dt.datetime | None = None) -> dict[str, Any]:
         meaningful_runtime_rows = [
             row for row in runtime_rows if not _attempt_not_needed(row)
         ]
+        latest_runtime_request_rows = _latest_request_rows(
+            meaningful_runtime_rows
+        )
         latest_runtime = max(
-            meaningful_runtime_rows,
+            latest_runtime_request_rows,
             key=_attempt_sort_key,
             default=None,
         )
