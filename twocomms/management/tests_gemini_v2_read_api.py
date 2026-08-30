@@ -280,6 +280,48 @@ class GeminiV2ReadApiTests(TestCase):
         self.assertNotIn("must-not-be-public", serialized)
         self.assertNotIn(state.project_identity, serialized)
 
+    def test_detail_less_429_and_unclassified_blocked_state_fail_closed(self):
+        pacific_local = self.now.astimezone(gemini_v2_read_model.PT)
+        reset = dt.datetime.combine(
+            pacific_local.date() + dt.timedelta(days=1),
+            dt.time.min,
+            tzinfo=gemini_v2_read_model.PT,
+        ).astimezone(dt.timezone.utc)
+        state = GeminiQuotaState.objects.create(
+            project_identity=self.groups["GEMINI_API"],
+            model="gemini-3.7-flash",
+            quota_profile=self.profiles["gemini-3.7-flash"],
+            pacific_day=pacific_local.date(),
+            provider_blocks={
+                "unknown": {
+                    "quota_id": "",
+                    "dimensions": {},
+                    "retry_after_seconds": 0,
+                    "until": reset.isoformat(),
+                }
+            },
+            external_usage_suspected=True,
+            accounting_status=GeminiQuotaState.AccountingStatus.BLOCKED,
+            last_failure_at=self.now,
+            last_failure_kind="quota_429",
+            last_http_code=429,
+        )
+
+        response = self.client.get(self._quota_url())
+        self.assertEqual(response.status_code, 200)
+        row = response.json()["models"][0]["projects"][0]
+        self.assertEqual(row["status"], "accounting_unknown")
+        self.assertNotEqual(row["status"], "available_assumed")
+        self.assertEqual(row["provider_blocks"][0]["metric"], "unknown")
+        self.assertEqual(row["provider_blocks"][0]["until"], reset.isoformat())
+
+        GeminiQuotaState.objects.filter(pk=state.pk).update(provider_blocks={})
+        response = self.client.get(self._quota_url())
+        self.assertEqual(response.status_code, 200)
+        row = response.json()["models"][0]["projects"][0]
+        self.assertEqual(row["status"], "provider_degraded")
+        self.assertNotEqual(row["status"], "available_assumed")
+
     def test_routes_use_executable_policy_and_active_expiring_pin(self):
         pinned_until = self.now + dt.timedelta(minutes=10)
         InstagramBotSettings.objects.create(

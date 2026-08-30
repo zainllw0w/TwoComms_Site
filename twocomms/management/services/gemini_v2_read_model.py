@@ -308,6 +308,11 @@ def _pair_status(
     if not accounting_active or slot.mapping_state != "explicit" or profile is None:
         return "accounting_unknown"
     active_metrics = {item["metric"] for item in blocks if item["active"]}
+    # A provider-confirmed block without a recognized quota dimension is
+    # stronger evidence than local remaining counters.  Never turn it into an
+    # optimistic availability claim merely because the 429 omitted details.
+    if "unknown" in active_metrics:
+        return "accounting_unknown"
     if "rpd" in active_metrics:
         return "rpd_exhausted_until_reset"
     if "rpm" in active_metrics:
@@ -316,6 +321,11 @@ def _pair_status(
         return "tpm_limited"
     if state is None:
         return "available_assumed"
+    # BLOCKED is provider truth.  If its structured metric is absent, unknown,
+    # or no longer parseable, fail closed until the accounting writer records a
+    # non-blocked transition from real traffic.
+    if state.accounting_status == GeminiQuotaState.AccountingStatus.BLOCKED:
+        return "provider_degraded"
     if state.in_flight_count:
         return "in_flight"
     success_at = _as_utc(state.last_success_at) if state.last_success_at else None
