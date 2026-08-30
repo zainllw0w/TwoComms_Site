@@ -229,6 +229,5 @@ class Migration(migrations.Migration):
         ),
         migrations.RunPython(
             ensure_0177_schema,
-            reverse_code=migrations.RunPython.noop,
         ),
     ]

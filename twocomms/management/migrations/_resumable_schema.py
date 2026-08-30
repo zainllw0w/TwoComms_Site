@@ -102,6 +102,26 @@ def ensure_additive_schema(
         )
         existing = _constraints(schema_editor, model._meta.db_table)
         if index_name in existing:
+            actual = existing[index_name]
+            expected_index = next(
+                item for item in model._meta.indexes if item.name == index_name
+            )
+            expected_columns = tuple(
+                model._meta.get_field(field_name.lstrip("-")).column
+                for field_name in expected_index.fields
+            )
+            actual_columns = actual.get("columns")
+            if actual_columns and tuple(actual_columns) != expected_columns:
+                raise RuntimeError(
+                    f"{index_name} has columns {tuple(actual_columns)}, "
+                    f"expected {expected_columns}"
+                )
+            if "index" in actual and not actual.get("index"):
+                raise RuntimeError(f"{index_name} exists but is not an index")
+            if actual.get("check") or actual.get("foreign_key"):
+                raise RuntimeError(f"{index_name} has an incompatible object type")
+            if actual.get("unique"):
+                raise RuntimeError(f"{index_name} is unexpectedly unique")
             continue
         index = next(item for item in model._meta.indexes if item.name == index_name)
         schema_editor.add_index(model, index)
@@ -113,6 +133,38 @@ def ensure_additive_schema(
         )
         existing = _constraints(schema_editor, model._meta.db_table)
         if constraint_name in existing:
+            actual = existing[constraint_name]
+            constraint = next(
+                item for item in model._meta.constraints
+                if item.name == constraint_name
+            )
+            if "check" in actual and not actual.get("check"):
+                raise RuntimeError(
+                    f"{constraint_name} exists but is not a check constraint"
+                )
+            if (
+                actual.get("index")
+                or actual.get("unique")
+                or actual.get("primary_key")
+                or actual.get("foreign_key")
+            ):
+                raise RuntimeError(
+                    f"{constraint_name} has an incompatible object type"
+                )
+            expected_fields = set()
+            for child in getattr(constraint.condition, "children", ()):
+                if isinstance(child, tuple) and child:
+                    expected_fields.add(str(child[0]).split("__", 1)[0])
+            expected_columns = {
+                model._meta.get_field(field_name).column
+                for field_name in expected_fields
+            }
+            actual_columns = set(actual.get("columns") or ())
+            if actual_columns and actual_columns != expected_columns:
+                raise RuntimeError(
+                    f"{constraint_name} has columns {sorted(actual_columns)}, "
+                    f"expected {sorted(expected_columns)}"
+                )
             continue
         constraint = next(
             item for item in model._meta.constraints

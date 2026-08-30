@@ -2,7 +2,7 @@ from importlib import import_module
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-from django.db import migrations
+from django.db import migrations, models
 from django.test import SimpleTestCase
 
 
@@ -15,7 +15,7 @@ class Gemini0177MigrationRecoveryTests(SimpleTestCase):
         for app_label, model_name, field_name in migration.FIELD_SPECS:
             grouped.setdefault((app_label, model_name), []).append(field_name)
 
-        models = {}
+        model_map = {}
         columns = {}
         constraints = {}
         for key, names in grouped.items():
@@ -28,13 +28,24 @@ class Gemini0177MigrationRecoveryTests(SimpleTestCase):
             model_constraints = []
             if key[1] == "InstagramBotMessage":
                 indexes = [
-                    SimpleNamespace(name="mgmt_igmsg_media_del"),
-                    SimpleNamespace(name="mgmt_igmsg_media_use"),
+                    models.Index(
+                        fields=["private_media_delete_after"],
+                        name="mgmt_igmsg_media_del",
+                    ),
+                    models.Index(
+                        fields=["private_media_use_until"],
+                        name="mgmt_igmsg_media_use",
+                    ),
                 ]
                 model_constraints = [
-                    SimpleNamespace(name="mgmt_igmsg_media_state")
+                    models.CheckConstraint(
+                        condition=models.Q(private_media_state__in=[
+                            "", "active", "deleted",
+                        ]),
+                        name="mgmt_igmsg_media_state",
+                    )
                 ]
-            models[key] = SimpleNamespace(
+            model_map[key] = SimpleNamespace(
                 _meta=SimpleNamespace(
                     db_table=table,
                     get_field=lambda name, fields=fields: fields[name],
@@ -48,7 +59,7 @@ class Gemini0177MigrationRecoveryTests(SimpleTestCase):
             constraints[table] = {}
 
         app_registry = Mock()
-        app_registry.get_model.side_effect = lambda app, model: models[(app, model)]
+        app_registry.get_model.side_effect = lambda app, model: model_map[(app, model)]
         schema_editor = Mock()
         schema_editor.connection.vendor = "sqlite"
         schema_editor.connection.introspection.table_names.return_value = list(columns)
@@ -107,3 +118,87 @@ class Gemini0177MigrationRecoveryTests(SimpleTestCase):
             migration.Migration.operations[1],
             migrations.RunPython,
         )
+        self.assertFalse(migration.Migration.operations[1].reversible)
+        with self.assertRaises(NotImplementedError):
+            migration.Migration.operations[1].database_backwards(
+                "management",
+                Mock(),
+                Mock(),
+                Mock(),
+            )
+
+    def test_same_name_incompatible_index_or_constraint_is_rejected(self):
+        from management.migrations._resumable_schema import ensure_additive_schema
+
+        fields = {
+            "state": SimpleNamespace(
+                name="state",
+                column="state",
+                get_internal_type=lambda: "CharField",
+                null=False,
+                max_length=20,
+            ),
+        }
+        index = models.Index(fields=["state"], name="test_state_idx")
+        constraint = models.CheckConstraint(
+            condition=models.Q(state__in=["", "active"]),
+            name="test_state_check",
+        )
+        model = SimpleNamespace(
+            _meta=SimpleNamespace(
+                db_table="management_test_state",
+                get_field=lambda name: fields[name],
+                indexes=[index],
+                constraints=[constraint],
+            )
+        )
+        registry = Mock()
+        registry.get_model.return_value = model
+        editor = Mock()
+        editor.connection.vendor = "sqlite"
+        editor.connection.introspection.table_names.return_value = [
+            model._meta.db_table
+        ]
+        cursor = Mock()
+        editor.connection.cursor.return_value.__enter__ = Mock(return_value=cursor)
+        editor.connection.cursor.return_value.__exit__ = Mock(return_value=False)
+        editor.connection.introspection.get_table_description.return_value = [
+            SimpleNamespace(name="state")
+        ]
+
+        editor.connection.introspection.get_constraints.return_value = {
+            "test_state_idx": {
+                "index": True,
+                "unique": False,
+                "columns": ["wrong_column"],
+            },
+        }
+        with self.assertRaisesRegex(RuntimeError, "test_state_idx has columns"):
+            ensure_additive_schema(
+                registry,
+                editor,
+                field_specs=(("management", "TestState", "state"),),
+                index_specs=(("management", "TestState", "test_state_idx"),),
+            )
+
+        editor.connection.introspection.get_constraints.return_value = {
+            "test_state_idx": {
+                "index": True,
+                "unique": False,
+                "columns": ["state"],
+            },
+            "test_state_check": {
+                "check": False,
+                "columns": ["state"],
+            },
+        }
+        with self.assertRaisesRegex(RuntimeError, "not a check constraint"):
+            ensure_additive_schema(
+                registry,
+                editor,
+                field_specs=(("management", "TestState", "state"),),
+                index_specs=(("management", "TestState", "test_state_idx"),),
+                constraint_specs=((
+                    "management", "TestState", "test_state_check",
+                ),),
+            )

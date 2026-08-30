@@ -263,6 +263,8 @@ def _delete_direct_bot_records(identifier: str) -> dict:
                     "private_media_state", "private_media_delete_after",
                     "private_media_delete_token", "private_media_delete_claimed_at",
                 ])
+        fenced_client_ids = [client.pk for client in pre_clients]
+        fenced_sender_ids = set(pre_sender_ids)
 
     # Blob erasure is its own committed two-phase boundary. Never delete the
     # DB row first: a crash would otherwise orphan an untraceable private file.
@@ -275,15 +277,9 @@ def _delete_direct_bot_records(identifier: str) -> dict:
 
     with transaction.atomic():
         clients = list(
-            IgClient.objects.select_for_update().filter(
-                Q(igsid__iexact=normalized)
-                | Q(username__iexact=normalized)
-                | Q(display_name__iexact=normalized)
-                | Q(phone_normalized__iexact=normalized)
-            )
+            IgClient.objects.select_for_update().filter(pk__in=fenced_client_ids)
         )
-        sender_ids = {normalized}
-        sender_ids.update(c.igsid for c in clients if c.igsid)
+        sender_ids = set(fenced_sender_ids)
         mids = list(
             InstagramBotMessage.objects.filter(
                 Q(sender_id__in=sender_ids) | Q(client__in=clients)

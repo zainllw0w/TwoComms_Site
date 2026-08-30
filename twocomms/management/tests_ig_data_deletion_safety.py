@@ -217,6 +217,39 @@ class LogDeletionScopeTests(TestCase):
             self.assertFalse(storage.exists(name))
             self.assertFalse(InstagramBotMessage.objects.filter(pk=row.pk).exists())
 
+    def test_phase_two_uses_frozen_client_ids_after_identity_edit(self):
+        from management.bot_views import _delete_direct_bot_records
+        from management.services.ig_private_media import delete_immediately
+
+        target = IgClient.objects.create(
+            igsid="2000000014",
+            username="identity_before_fence",
+            display_name="Before Fence",
+        )
+        message = InstagramBotMessage.objects.create(
+            sender_id=target.igsid,
+            client=target,
+            role=InstagramBotMessage.Role.USER,
+            text="privacy race",
+        )
+
+        def mutate_identity_then_delete(message_ids, **kwargs):
+            IgClient.objects.filter(pk=target.pk).update(
+                username="identity_after_fence",
+                display_name="After Fence",
+                phone_normalized="380991234567",
+            )
+            return delete_immediately(message_ids, **kwargs)
+
+        with patch(
+            "management.services.ig_private_media.delete_immediately",
+            side_effect=mutate_identity_then_delete,
+        ):
+            _delete_direct_bot_records("identity_before_fence")
+
+        self.assertFalse(IgClient.objects.filter(pk=target.pk).exists())
+        self.assertFalse(InstagramBotMessage.objects.filter(pk=message.pk).exists())
+
 
 @override_settings(ALLOWED_HOSTS=["management.twocomms.shop", "testserver"])
 class AnonymousDeletionRequestTests(TestCase):
