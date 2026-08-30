@@ -109,6 +109,29 @@ class GeminiHealthApiTests(TestCase):
         self.assertEqual(response.json()["keys"][0]["display_label"], "API key 1")
         probe_key.assert_not_called()
 
+    def test_manual_attempt_is_ignored_without_seventh_project_or_api_error(self):
+        GeminiRequestAttempt.objects.create(
+            request_id="manual-custom-route",
+            role="chat",
+            key_name="(manual)",
+            model="gemini-3.5-flash-lite",
+            outcome="succeeded",
+        )
+
+        response = self.client.get(self._health_url())
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["keys"]), 6)
+        self.assertEqual(
+            {row["slot_id"] for row in payload["keys"]},
+            set(gemini_health.SLOT_IDS),
+        )
+        self.assertIsNone(payload["latest_route"])
+        serialized = json.dumps(payload, sort_keys=True)
+        self.assertNotIn("(manual)", serialized)
+        self.assertNotIn("gslot_unknown", serialized)
+
     def test_status_endpoint_projects_internal_key_alias_to_opaque_slot(self):
         settings_obj = InstagramBotSettings.load()
         settings_obj.last_gemini_key = "GEMINI_API2"

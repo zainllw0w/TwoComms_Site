@@ -581,6 +581,34 @@ class GeminiHealthSnapshotTests(TestCase):
                 serialized,
             )
 
+    def test_public_projection_preserves_values_when_redacted_keys_collide(self):
+        safe_key = gemini_health.public_key_reference("GEMINI_API")
+
+        projected = gemini_health.public_projection({
+            "GEMINI_API": "from internal alias",
+            safe_key: "already public",
+        })
+
+        self.assertEqual(len(projected), 2)
+        self.assertEqual(set(projected.values()), {
+            "from internal alias",
+            "already public",
+        })
+        self.assertIn(safe_key, projected)
+        self.assertIn(f"{safe_key} [2]", projected)
+
+    def test_manual_attempt_has_no_public_route_step_or_seventh_slot(self):
+        row = {
+            "key_name": "(manual)",
+            "model": "gemini-3.5-flash-lite",
+            "outcome": "succeeded",
+            "failure_kind": "",
+            "not_attempted_reason": "",
+            "candidate_index": 1,
+        }
+
+        self.assertIsNone(gemini_health._public_route_step(row))
+
     def test_metadata_failure_then_secondary_success_is_degraded(self):
         at = self.now - datetime.timedelta(minutes=4)
         self._attempt(

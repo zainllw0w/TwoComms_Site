@@ -129,10 +129,16 @@ def redact_key_aliases(value: Any) -> str:
 def public_projection(value: Any) -> Any:
     """Recursively remove internal aliases at every JSON/HTML boundary."""
     if isinstance(value, dict):
-        return {
-            redact_key_aliases(key): public_projection(item)
-            for key, item in value.items()
-        }
+        projected: dict[str, Any] = {}
+        for key, item in value.items():
+            base_key = redact_key_aliases(key)
+            safe_key = base_key
+            suffix = 2
+            while safe_key in projected:
+                safe_key = f"{base_key} [{suffix}]"
+                suffix += 1
+            projected[safe_key] = public_projection(item)
+        return projected
     if isinstance(value, (list, tuple, set)):
         return [public_projection(item) for item in value]
     if isinstance(value, str):
@@ -565,20 +571,27 @@ def _latest_route(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
     return public_projection({
         "request_ref": public_request_reference(request_id),
         "steps": [
-            _public_route_step(row)
+            step
             for row in request_rows
+            if (step := _public_route_step(row)) is not None
         ],
     })
 
 
-def _public_route_step(row: dict[str, Any]) -> dict[str, Any]:
+def _public_route_step(row: dict[str, Any]) -> dict[str, Any] | None:
+    slot_id = SLOT_BY_ALIAS.get(str(row.get("key_name") or ""))
+    if not slot_id:
+        # Manual/CUSTOM credentials are deliberately absent from the six-slot
+        # project matrix.  Omitting them is safer than inventing a seventh
+        # project or serializing their internal label.
+        return None
     outcome = _public_route_outcome(row)
     failure_kind = _public_failure_kind(row.get("failure_kind"))
     not_attempted_reason = _public_not_attempted_reason(
         row.get("not_attempted_reason")
     )
     return {
-        "slot_id": SLOT_BY_ALIAS[str(row.get("key_name") or "")],
+        "slot_id": slot_id,
         "model": str(row.get("model") or ""),
         "outcome": outcome,
         "failure_kind": failure_kind,
