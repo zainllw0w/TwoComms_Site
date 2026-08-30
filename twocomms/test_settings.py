@@ -101,6 +101,7 @@ EMAIL_DELIVERY_CONFIGURED = False
 NOVA_POSHTA_FALLBACK_ENABLED = False
 TESTING = True
 IG_ANALYSIS_V2_MODE = 'off'
+IG_ANALYSIS_V2_EXTENDED_PROMPT = False
 # Post-commit production wake-ups must not start detached workers against the
 # in-memory test database. Their durable reconciliation is tested explicitly.
 IG_FULFILLMENT_BACKGROUND_WAKE_ENABLED = False

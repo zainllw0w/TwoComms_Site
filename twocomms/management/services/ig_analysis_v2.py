@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
@@ -143,12 +143,21 @@ def state_correlation(required_state_fingerprint: str) -> str:
 
 
 def _sha(payload) -> str:
+    def encode(value):
+        if isinstance(value, datetime):
+            if timezone.is_naive(value):
+                value = timezone.make_aware(value)
+            return value.astimezone(datetime_timezone.utc).isoformat()
+        if isinstance(value, Decimal):
+            return str(value)
+        return str(value)
+
     encoded = json.dumps(
         payload,
         ensure_ascii=True,
         separators=(",", ":"),
         sort_keys=True,
-        default=str,
+        default=encode,
     )
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 

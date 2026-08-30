@@ -146,6 +146,8 @@ analysis_v2 quotes, customer text, usernames, контакти або довіл
 def _analysis_system_prompt() -> str:
     if str(getattr(settings, "IG_ANALYSIS_V2_MODE", "off") or "off").casefold() != "shadow":
         return SYSTEM_PROMPT
+    if not bool(getattr(settings, "IG_ANALYSIS_V2_EXTENDED_PROMPT", False)):
+        return SYSTEM_PROMPT
     try:
         from management.services.ig_analysis_v2 import shadow_enabled
 

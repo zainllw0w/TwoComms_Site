@@ -223,6 +223,7 @@ class AnalysisV2RuntimeTests(TestCase):
         self.assertEqual(result.candidates_tokens, 20)
         self.assertEqual(result.total_tokens, 170)
         self.assertEqual(result.analysis_latency_ms, 345)
+        self.assertEqual(result.result_digest, v2.result_digest_for_instance(result))
         self.assertNotEqual(result.state_correlation, self.raw_fingerprint)
         self.assertEqual(result.prior_purchase_count, 2)
         self.assertEqual(result.ltv_signal, result.LtvSignal.REPEAT_CUSTOMER)
@@ -441,13 +442,22 @@ class AnalysisV2RuntimeTests(TestCase):
             IgConversationAnalysisSnapshot.objects.filter(pk=self.snapshot.pk).exists()
         )
 
-    def test_off_prompt_is_exact_legacy_and_shadow_adds_one_same_call_schema(self):
+    def test_shadow_default_keeps_legacy_prompt_and_explicit_canary_extends_it(self):
         from management.services import bot_conversation_analysis as analysis
 
         self.assertEqual(analysis._analysis_system_prompt(), analysis.SYSTEM_PROMPT)
         with override_settings(
             IG_ANALYSIS_V2_MODE="shadow",
             IG_ANALYSIS_MATERIALITY_MODE="shadow",
+        ):
+            self.assertEqual(
+                analysis._analysis_system_prompt(),
+                analysis.SYSTEM_PROMPT,
+            )
+        with override_settings(
+            IG_ANALYSIS_V2_MODE="shadow",
+            IG_ANALYSIS_MATERIALITY_MODE="shadow",
+            IG_ANALYSIS_V2_EXTENDED_PROMPT=True,
         ):
             prompt = analysis._analysis_system_prompt()
         self.assertTrue(prompt.startswith(analysis.SYSTEM_PROMPT))
@@ -541,10 +551,19 @@ class AnalysisV2RuntimeTests(TestCase):
 
         self.assertEqual(outcome, "done")
         provider.assert_called_once()
+        self.assertEqual(provider.call_args.args[0], analysis.SYSTEM_PROMPT)
         self.assertEqual(IgConversationAnalysisResult.objects.count(), 1)
         result = IgConversationAnalysisResult.objects.get()
         self.assertEqual(result.analysis_model, "gemini-3.6-flash")
         self.assertEqual(result.project_slot, "gslot_c921")
+        self.assertEqual(
+            result.legacy_snapshot.interaction_type,
+            IgConversationAnalysisSnapshot.InteractionType.PRODUCT_INTEREST,
+        )
+        self.assertEqual(
+            result.legacy_snapshot.score_band,
+            IgConversationAnalysisSnapshot.Band.QUALIFIED,
+        )
 
     @override_settings(
         IG_ANALYSIS_V2_MODE="shadow",

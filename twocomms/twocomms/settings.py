@@ -157,6 +157,10 @@ IG_ANALYSIS_V2_MODE = os.environ.get(
 ).strip().casefold()
 if IG_ANALYSIS_V2_MODE not in {'off', 'shadow'}:
     IG_ANALYSIS_V2_MODE = 'off'
+IG_ANALYSIS_V2_EXTENDED_PROMPT = _env_bool(
+    'IG_ANALYSIS_V2_EXTENDED_PROMPT',
+    default=False,
+)
 
 # Assisted Checkout invoice-series rollout. Slice 2a only exposes dormant
 # schema/identity helpers; no runtime path reads the fields while this is off.
