@@ -447,6 +447,62 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.assertEqual(report["status"], "error")
         self.assertEqual(report["errors"], ["supervisor_state_unreadable"])
 
+    def test_state_and_pid_reads_use_single_open_inode_across_path_swap(self):
+        state_path = self.tmp / "ig_bot_supervisor_state.json"
+        replacement_state = self.tmp / "replacement-state.json"
+        replacement_state.write_text(
+            json.dumps({"supervisor_pid": 999, "private": "must-not-win"}),
+            encoding="utf-8",
+        )
+        real_open = auditor.os.open
+        swapped = {"state": False}
+
+        def state_swap(path, flags, *args, **kwargs):
+            descriptor = real_open(path, flags, *args, **kwargs)
+            if Path(path) == state_path and not swapped["state"]:
+                swapped["state"] = True
+                os.replace(replacement_state, state_path)
+            return descriptor
+
+        with patch.object(auditor.os, "open", side_effect=state_swap):
+            payload = auditor._load_supervisor_state(self.app_root)
+        self.assertEqual(payload["supervisor_pid"], 200)
+        self.assertNotIn("private", payload)
+
+        self._write_runtime_state()
+        pid_path = self.tmp / "ig_bot.pid"
+        replacement_pid = self.tmp / "replacement.pid"
+        replacement_pid.write_text("999", encoding="ascii")
+        swapped["pid"] = False
+
+        def pid_swap(path, flags, *args, **kwargs):
+            descriptor = real_open(path, flags, *args, **kwargs)
+            if Path(path) == pid_path and not swapped["pid"]:
+                swapped["pid"] = True
+                os.replace(replacement_pid, pid_path)
+            return descriptor
+
+        with patch.object(auditor.os, "open", side_effect=pid_swap):
+            daemon_pid = auditor._read_daemon_pid(self.app_root)
+        self.assertEqual(daemon_pid, 201)
+
+    def test_state_and_pid_files_have_strict_byte_limits(self):
+        state_path = self.tmp / "ig_bot_supervisor_state.json"
+        state_path.write_bytes(b"x" * (auditor.MAX_SUPERVISOR_STATE_BYTES + 1))
+        with self.assertRaisesRegex(
+            auditor.AuditInputError,
+            "supervisor_state_too_large",
+        ):
+            auditor._load_supervisor_state(self.app_root)
+
+        pid_path = self.tmp / "ig_bot.pid"
+        pid_path.write_bytes(b"1" * (auditor.MAX_DAEMON_PID_BYTES + 1))
+        with self.assertRaisesRegex(
+            auditor.AuditInputError,
+            "daemon_pid_file_too_large",
+        ):
+            auditor._read_daemon_pid(self.app_root)
+
     def test_checkout_and_runtime_sha_mismatch_fail(self):
         self._write_git("b" * 40)
         self._write_runtime_state(sha="c" * 40)
@@ -515,6 +571,32 @@ class CloudLinuxCapacityAuditTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertEqual(report["errors"], ["selector_stderr_too_large"])
         self.assertNotIn("private", result.stdout + result.stderr)
+
+    def test_selector_timeout_kills_inherited_pipe_grandchild_group(self):
+        marker = self.root / "selector-processes.txt"
+        payload = json.dumps(self.selector_payload)
+        self._write_executable(
+            self.selector_bin,
+            "#!/usr/bin/env python3\n"
+            "import os, subprocess, sys\n"
+            "child = subprocess.Popen(\n"
+            "    [sys.executable, '-c', 'import time; time.sleep(60)'],\n"
+            "    stdout=sys.stdout, stderr=sys.stderr,\n"
+            ")\n"
+            f"open({str(marker)!r}, 'w').write(f'{{os.getpid()}} {{child.pid}}')\n"
+            f"print({payload!r}, flush=True)\n",
+        )
+        started = __import__("time").monotonic()
+
+        result, report = self._invoke("--timeout", "0.5")
+
+        self.assertLess(__import__("time").monotonic() - started, 5)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(report["errors"], ["selector_command_timeout"])
+        parent_pid, child_pid = map(int, marker.read_text(encoding="ascii").split())
+        for pid in (parent_pid, child_pid):
+            with self.assertRaises(ProcessLookupError):
+                os.kill(pid, 0)
 
     def test_ambiguous_selector_app_is_critical_error(self):
         payload = self._selector_payload()

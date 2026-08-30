@@ -9,12 +9,14 @@ variables outside the small LSAPI allowlist.
 from __future__ import annotations
 
 import argparse
+import errno
 import json
 import os
 import pwd
 import re
 import selectors
 import shutil
+import signal
 import stat as stat_module
 import subprocess
 import sys
@@ -27,6 +29,8 @@ SCHEMA_VERSION = 1
 MAX_SELECTOR_BYTES = 8 * 1024 * 1024
 MAX_SELECTOR_STDERR_BYTES = 256 * 1024
 MAX_PROC_FILE_BYTES = 2 * 1024 * 1024
+MAX_SUPERVISOR_STATE_BYTES = 256 * 1024
+MAX_DAEMON_PID_BYTES = 128
 DEFAULT_SNAPSHOT_ATTEMPTS = 4
 DEFAULT_SNAPSHOT_DELAY = 0.2
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -117,6 +121,34 @@ def _validate_app_root(path: Path, *, uid: int, fixture_mode: bool) -> Path:
     return root
 
 
+def _kill_and_wait_process_group(process: subprocess.Popen, *, timeout: float = 3.0) -> bool:
+    """Kill the selector's isolated session and wait until the group vanishes."""
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+    except OSError:
+        return False
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+            process.wait(timeout=1)
+        except (OSError, subprocess.TimeoutExpired):
+            return False
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            os.killpg(process.pid, 0)
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            return False
+        time.sleep(0.02)
+    return False
+
+
 def _run_bounded_command(command: list[str], *, cwd: Path, timeout: float) -> bytearray:
     try:
         process = subprocess.Popen(
@@ -125,6 +157,7 @@ def _run_bounded_command(command: list[str], *, cwd: Path, timeout: float) -> by
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            start_new_session=True,
         )
     except OSError as exc:
         raise AuditInputError("selector_command_unavailable") from exc
@@ -172,12 +205,15 @@ def _run_bounded_command(command: list[str], *, cwd: Path, timeout: float) -> by
             if failure:
                 break
         if failure:
-            process.kill()
-        try:
-            returncode = process.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            returncode = process.wait(timeout=2)
+            group_stopped = _kill_and_wait_process_group(process)
+            returncode = process.returncode
+        else:
+            try:
+                returncode = process.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                failure = "selector_command_timeout"
+                group_stopped = _kill_and_wait_process_group(process)
+                returncode = process.returncode
     finally:
         selector.close()
         process.stdout.close()
@@ -185,6 +221,8 @@ def _run_bounded_command(command: list[str], *, cwd: Path, timeout: float) -> by
     if failure:
         for index in range(len(stdout)):
             stdout[index] = 0
+        if not group_stopped:
+            raise AuditInputError("selector_process_group_not_stopped")
         raise AuditInputError(failure)
     if returncode != 0:
         for index in range(len(stdout)):
@@ -375,6 +413,33 @@ def _regular_nonsymlink_stat(path: Path, *, label: str) -> os.stat_result:
     if not stat_module.S_ISREG(observed.st_mode):
         raise AuditInputError(f"{label}_not_regular")
     return observed
+
+
+def _read_regular_nofollow(path: Path, *, label: str, max_bytes: int) -> bytes:
+    """Open, validate and read one immutable inode through a single FD."""
+    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise AuditInputError(f"{label}_symlink_rejected") from exc
+        raise AuditInputError(f"{label}_unreadable") from exc
+    payload = bytearray()
+    try:
+        observed = os.fstat(descriptor)
+        if not stat_module.S_ISREG(observed.st_mode):
+            raise AuditInputError(f"{label}_not_regular")
+        while True:
+            remaining = max_bytes + 1 - len(payload)
+            chunk = os.read(descriptor, min(65536, remaining))
+            if not chunk:
+                break
+            payload.extend(chunk)
+            if len(payload) > max_bytes:
+                raise AuditInputError(f"{label}_too_large")
+    finally:
+        os.close(descriptor)
+    return bytes(payload)
 
 
 def _lock_identity(observed: os.stat_result) -> tuple[int, int, int]:
@@ -582,10 +647,14 @@ def _sum_memory(processes: list[dict]) -> dict[str, int]:
 
 def _load_supervisor_state(app_root: Path) -> dict:
     path = app_root / "tmp" / "ig_bot_supervisor_state.json"
-    _regular_nonsymlink_stat(path, label="supervisor_state")
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raw = _read_regular_nofollow(
+            path,
+            label="supervisor_state",
+            max_bytes=MAX_SUPERVISOR_STATE_BYTES,
+        )
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError) as exc:
         raise AuditInputError("supervisor_state_unreadable") from exc
     if not isinstance(payload, dict):
         raise AuditInputError("supervisor_state_invalid")
@@ -594,14 +663,17 @@ def _load_supervisor_state(app_root: Path) -> dict:
 
 def _read_daemon_pid(app_root: Path) -> int:
     path = app_root / "tmp" / "ig_bot.pid"
-    _regular_nonsymlink_stat(path, label="daemon_pid_file")
     try:
         return _safe_int(
-            path.read_text(encoding="ascii").strip(),
+            _read_regular_nofollow(
+                path,
+                label="daemon_pid_file",
+                max_bytes=MAX_DAEMON_PID_BYTES,
+            ).decode("ascii").strip(),
             label="daemon_pid",
             minimum=1,
         )
-    except OSError as exc:
+    except UnicodeError as exc:
         raise AuditInputError("daemon_pid_unreadable") from exc
 
 
