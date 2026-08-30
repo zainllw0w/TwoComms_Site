@@ -16,9 +16,9 @@ TIMEOUT_BIN="${TWC_TIMEOUT_BIN:-/usr/bin/timeout}"
 SUPERVISOR_SCRIPT="${TWC_IG_SUPERVISOR_SCRIPT:-$PROJECT_ROOT/scripts/instagram_bot_supervisor.py}"
 PRODUCTION_ENV_PREFIX="DJANGO_ENV=production DJANGO_SETTINGS_MODULE=twocomms.production_settings"
 
-usage() { echo "Usage: $0 --check|--install" >&2; exit 64; }
+usage() { echo "Usage: $0 --check|--install|--check-rollback|--rollback" >&2; exit 64; }
 [ "$#" -eq 1 ] || usage
-case "$1" in --check|--install) mode="$1" ;; *) usage ;; esac
+case "$1" in --check|--install|--check-rollback|--rollback) mode="$1" ;; *) usage ;; esac
 
 error() {
   echo "[instagram-watchdog-cron] ERROR: $*" >&2
@@ -49,6 +49,10 @@ validate_path "supervisor script" "$SUPERVISOR_SCRIPT"
 cron_line="* * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM --kill-after=5s 20s $PYTHON_BIN $SUPERVISOR_SCRIPT --ensure --root $DJANGO_ROOT --python $PYTHON_BIN >> $DJANGO_ROOT/tmp/ig_bot_supervisor_cron.log 2>&1"
 legacy_line="* * * * * cd $DJANGO_ROOT && $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
 legacy_managed_line="* * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_bot_watchdog.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 75s $PYTHON_BIN manage.py run_instagram_bot --ensure >> $DJANGO_ROOT/tmp/ig_bot_cron.log 2>&1"
+case "$mode" in
+  --rollback|--check-rollback) desired_line="$legacy_managed_line" ;;
+  *) desired_line="$cron_line" ;;
+esac
 
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-ig-watchdog-cron.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT INT TERM
@@ -68,7 +72,7 @@ fi
 cat >"$expected" <<EOF
 $BEGIN_MARKER
 $JOB_MARKER
-$cron_line
+$desired_line
 $END_MARKER
 EOF
 
@@ -169,7 +173,7 @@ fi
   exit 65
 }
 
-if [ "$mode" = "--check" ]; then
+if [ "$mode" = "--check" ] || [ "$mode" = "--check-rollback" ]; then
   [ "$begin_count" -eq 1 ] || {
     echo "[instagram-watchdog-cron] DRIFT: managed block is missing" >&2
     exit 1
@@ -183,7 +187,7 @@ if [ "$mode" = "--check" ]; then
     echo "[instagram-watchdog-cron] DRIFT: managed block differs from repository configuration" >&2
     exit 1
   }
-  echo "[instagram-watchdog-cron] OK: managed block matches"
+  echo "[instagram-watchdog-cron] OK: managed block matches $mode"
   exit 0
 fi
 
@@ -228,4 +232,8 @@ if cmp -s "$candidate" "$current"; then
   exit 0
 fi
 "$CRONTAB_BIN" "$candidate"
-echo "[instagram-watchdog-cron] OK: stdlib supervisor owner installed; unrelated entries preserved"
+if [ "$mode" = "--rollback" ]; then
+  echo "[instagram-watchdog-cron] OK: legacy Django watchdog restored before code rollback"
+else
+  echo "[instagram-watchdog-cron] OK: stdlib supervisor owner installed; unrelated entries preserved"
+fi

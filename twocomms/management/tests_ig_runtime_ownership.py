@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import StringIO
+import time
 from unittest.mock import patch
 
 from django.core.management import call_command
@@ -12,6 +13,7 @@ from management.services.ig_runtime_ownership import (
     DAEMON_OWNER,
     PERIODIC_LANES,
     PERIODIC_OWNER,
+    PeriodicLane,
     RUNTIME_LANE_OWNERS,
     lane_owner,
     validate_runtime_lane_owners,
@@ -36,6 +38,10 @@ class RuntimeOwnerManifestTests(TestCase):
                 "ig_deal_payments",
                 "binotel_call_ai_analyses",
             },
+        )
+        self.assertLessEqual(
+            sum(lane.deadline_seconds for lane in PERIODIC_LANES),
+            540,
         )
 
 
@@ -126,3 +132,62 @@ class PeriodicCoordinatorTests(TestCase):
             "run_call_ai_analyses",
             [call.args[0] for call in child_command.call_args_list],
         )
+
+    @patch(
+        "management.management.commands.run_instagram_periodic_jobs._call_auto_analysis_enabled",
+        return_value=False,
+    )
+    @patch("management.management.commands.run_instagram_periodic_jobs.call_command")
+    def test_hung_lane_times_out_and_next_due_lane_still_runs(
+        self, child_command, _enabled
+    ):
+        lanes = (
+            PeriodicLane(
+                "ig_checkout_reconcile",
+                "reconcile_ig_checkout",
+                120,
+                1,
+                (("limit", 100),),
+            ),
+            PeriodicLane(
+                "ig_order_fulfillment",
+                "reconcile_ig_order_fulfillment",
+                120,
+                2,
+                (("limit", 100),),
+            ),
+        )
+
+        def child(command, **_options):
+            if command == "reconcile_ig_checkout":
+                time.sleep(5)
+
+        child_command.side_effect = child
+        output = StringIO()
+        started = time.monotonic()
+        with (
+            patch(
+                "management.management.commands.run_instagram_periodic_jobs.PERIODIC_LANES",
+                lanes,
+            ),
+            self.assertRaisesMessage(
+                CommandError,
+                "ig_checkout_reconcile:PeriodicLaneTimeout",
+            ),
+        ):
+            call_command(
+                "run_instagram_periodic_jobs",
+                budget_seconds=10,
+                stdout=output,
+            )
+
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertEqual(
+            [call.args[0] for call in child_command.call_args_list],
+            ["reconcile_ig_checkout", "reconcile_ig_order_fulfillment"],
+        )
+        self.assertIn("timed_out=ig_checkout_reconcile", output.getvalue())
+        heartbeat = InstagramBotTaskHeartbeat.objects.get(
+            task_key="ig_checkout_reconcile"
+        )
+        self.assertEqual(heartbeat.last_error_kind, "PeriodicLaneTimeout")

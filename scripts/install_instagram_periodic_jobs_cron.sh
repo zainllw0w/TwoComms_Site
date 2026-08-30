@@ -15,9 +15,9 @@ FLOCK_BIN="${TWC_FLOCK_BIN:-/usr/bin/flock}"
 TIMEOUT_BIN="${TWC_TIMEOUT_BIN:-/usr/bin/timeout}"
 PRODUCTION_ENV_PREFIX="DJANGO_ENV=production DJANGO_SETTINGS_MODULE=twocomms.production_settings"
 
-usage() { echo "Usage: $0 --check|--install" >&2; exit 64; }
+usage() { echo "Usage: $0 --check|--install|--check-rollback|--rollback" >&2; exit 64; }
 [ "$#" -eq 1 ] || usage
-case "$1" in --check|--install) mode="$1" ;; *) usage ;; esac
+case "$1" in --check|--install|--check-rollback|--rollback) mode="$1" ;; *) usage ;; esac
 
 contract_error() { echo "[instagram-periodic-cron] ERROR: $*" >&2; exit 65; }
 config_error() { echo "[instagram-periodic-cron] ERROR: $*" >&2; exit 66; }
@@ -41,6 +41,11 @@ validate_path "timeout executable" "$TIMEOUT_BIN"
 command -v "$CRONTAB_BIN" >/dev/null 2>&1 || config_error "crontab command is unavailable"
 
 cron_line="* * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -w 50 -E 75 $DJANGO_ROOT/tmp/twocomms_heavy_background.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 600s $PYTHON_BIN manage.py run_instagram_periodic_jobs --budget-seconds 540 >> $DJANGO_ROOT/logs/instagram_periodic_coordinator.log 2>&1"
+rollback_order_line="*/2 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/order_telegram_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_order_telegram_notifications --max-age-hours 168 --min-age-seconds 60 --limit 50 >> $DJANGO_ROOT/logs/order_telegram_reconcile.log 2>&1"
+rollback_checkout_line="*/2 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_checkout_reconcile.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_checkout --limit 100 >> $DJANGO_ROOT/logs/ig_checkout_reconcile.log 2>&1"
+rollback_fulfillment_line="*/2 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/ig_order_fulfillment.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 90s $PYTHON_BIN manage.py reconcile_ig_order_fulfillment --limit 100 >> $DJANGO_ROOT/logs/ig_order_fulfillment.log 2>&1"
+rollback_payments_line="*/4 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/poll_ig_deal_payments.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 180s $PYTHON_BIN manage.py poll_ig_deal_payments --limit 50 >> $DJANGO_ROOT/logs/poll_ig_deal_payments.log 2>&1"
+rollback_call_line="*/5 * * * * cd $DJANGO_ROOT && $PRODUCTION_ENV_PREFIX $FLOCK_BIN -n -E 75 $DJANGO_ROOT/tmp/run_call_ai_analyses.lock $TIMEOUT_BIN --signal=TERM --kill-after=15s 240s $PYTHON_BIN manage.py run_call_ai_analyses --limit 1 >> $DJANGO_ROOT/logs/run_call_ai_analyses.log 2>&1"
 
 tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/twocomms-instagram-periodic-cron.XXXXXX")"
 trap 'rm -rf -- "$tmp_dir"' EXIT INT TERM
@@ -57,12 +62,29 @@ if ! "$CRONTAB_BIN" -l >"$current" 2>"$read_error"; then
   fi
 fi
 
+if [ "$mode" = "--rollback" ] || [ "$mode" = "--check-rollback" ]; then
+cat >"$expected" <<EOF
+$BEGIN_MARKER
+# codex:order-telegram-reconcile
+$rollback_order_line
+# codex:ig-checkout-reconcile
+$rollback_checkout_line
+# codex:ig-order-fulfillment
+$rollback_fulfillment_line
+# codex:ig-deal-payments
+$rollback_payments_line
+# codex:call-auto-analysis
+$rollback_call_line
+$END_MARKER
+EOF
+else
 cat >"$expected" <<EOF
 $BEGIN_MARKER
 $JOB_MARKER
 $cron_line
 $END_MARKER
 EOF
+fi
 
 begin_count="$(grep -Fxc "$BEGIN_MARKER" "$current" || true)"
 end_count="$(grep -Fxc "$END_MARKER" "$current" || true)"
@@ -189,7 +211,7 @@ if [ "$begin_count" -eq 1 ] && [ "$outside_owner_count" -ne 0 ]; then
 fi
 [ "$unsupported_outside_count" -eq 0 ] || contract_error "unsupported loose periodic owner"
 
-if [ "$mode" = "--check" ]; then
+if [ "$mode" = "--check" ] || [ "$mode" = "--check-rollback" ]; then
   [ "$begin_count" -eq 1 ] || {
     echo "[instagram-periodic-cron] DRIFT: managed block is missing" >&2
     exit 1
@@ -203,7 +225,7 @@ if [ "$mode" = "--check" ]; then
     echo "[instagram-periodic-cron] DRIFT: managed block differs" >&2
     exit 1
   }
-  echo "[instagram-periodic-cron] OK: managed block matches"
+  echo "[instagram-periodic-cron] OK: managed block matches $mode"
   exit 0
 fi
 
@@ -240,4 +262,8 @@ if cmp -s "$candidate" "$current"; then
   exit 0
 fi
 "$CRONTAB_BIN" "$candidate"
-echo "[instagram-periodic-cron] OK: one sequential coordinator installed; legacy fan-out and metadata schedule removed"
+if [ "$mode" = "--rollback" ]; then
+  echo "[instagram-periodic-cron] OK: five legacy owners restored before code rollback"
+else
+  echo "[instagram-periodic-cron] OK: one sequential coordinator installed; legacy fan-out and metadata schedule removed"
+fi

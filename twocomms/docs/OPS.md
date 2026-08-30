@@ -79,7 +79,7 @@ lanes и выполняет их последовательно. Каждая bu
 | Owner | Cadence | Deadline | Ограничение и recovery |
 |---|---:|---:|---|
 | `instagram_bot_supervisor.py --ensure` | 1 мин | 20 с | stdlib-only ensure; supervisor lock + child SHA/PID/start ticks/exit attribution |
-| `run_instagram_periodic_jobs` | 1 мин | 600 с | один последовательный owner для пяти lanes; per-lane cadence 2/2/2/4/5 мин |
+| `run_instagram_periodic_jobs` | 1 мин | 600 с | один process; fair oldest-first lanes с hard deadlines 60/75/75/120/180 с и общим budget 540 с |
 | `run_durable_tasks` | 1 мин | 240 с | allowlisted batch, global heavy-process admission lock |
 | `update_tracking_statuses` | 5 мин | 240 с | batch до 100 ТТН, provider timeout/retry/rate limit и due filtering |
 
@@ -105,7 +105,8 @@ lanes и выполняет их последовательно. Каждая bu
 
 Первый переход со старого detached daemon выполняйте через существующий
 maintenance lease: включить maintenance, установить/проверить все четыре
-managed blocks, снять **свой** lease и вызвать лёгкий supervisor `--ensure`.
+managed blocks, вызвать лёгкий supervisor `--ensure --reload`, дождаться
+актуального `--status` и только затем снять **свой** lease.
 Не удаляйте PID/lock-файлы вручную. Диагностика без Django:
 
 ```bash
@@ -118,6 +119,44 @@ managed blocks, снять **свой** lease и вызвать лёгкий sup
 последние не более 200 событий и 128 KiB — в
 `tmp/ig_bot_supervisor_events.jsonl`. Сверяйте release SHA, PID и Linux process
 start ticks вместе: совпадение одного PID без start ticks не доказывает identity.
+
+`--status` завершается non-zero, если минутный ensure не наблюдался более 180 с,
+loaded supervisor SHA/sentinel устарели или identity не подтверждена.
+
+После каждого deploy, пока maintenance lease ещё активен, обязательно загрузите
+новый supervisor-код и окружение:
+
+```bash
+../scripts/instagram_bot_supervisor.py --ensure --reload \
+  --root "$PWD" \
+  --python /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python
+```
+
+Только затем снимайте собственный maintenance lease. Fresh process pulse без
+fresh main progress имеет `worker_stalled`, `running=false`, красный UI и один
+deduplicated Telegram alert в час; такой процесс не считается отвечающим.
+
+### Pre-revert rollback runtime
+
+Нельзя сначала откатить код: текущий cron тогда будет ссылаться на уже
+отсутствующие supervisor/coordinator файлы. Обратный порядок обязателен:
+
+1. На текущем коде включить maintenance и сохранить exact lease ID.
+2. Остановить supervisor проверенной парой PID + start ticks:
+   `../scripts/instagram_bot_supervisor.py --stop --root "$PWD" --python /home/qlknpodo/virtualenv/TWC/TwoComms_Site/twocomms/3.14/bin/python`.
+3. Выполнить `install_instagram_periodic_jobs_cron.sh --rollback`, затем
+   `--check-rollback`: должны существовать ровно пять legacy owners и ни одного
+   `run_instagram_periodic_jobs`/metadata owner.
+4. Выполнить `install_instagram_bot_watchdog_cron.sh --rollback`, затем
+   `--check-rollback`: cron уже ссылается на legacy
+   `manage.py run_instagram_bot --ensure`.
+5. Только теперь revert/fast-forward к предыдущему коду через `main`.
+6. Снять только сохранённый maintenance lease и один раз выполнить legacy
+   `manage.py run_instagram_bot --ensure`.
+
+Rollback modes сохраняют unrelated crontab entries и существуют именно для
+pre-revert шага; восстанавливать cron из невалидированного внешнего snapshot
+запрещено.
 
 Installer обязан сохранить unrelated crontab entries и fail closed при
 duplicate/malformed/unknown owner. Ручной запуск provider-команды допустим

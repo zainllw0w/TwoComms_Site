@@ -178,6 +178,18 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("rollback path", result.stderr)
 
+    def test_rollback_contract_is_pre_revert_and_executable(self):
+        rollback = self.manifest["rollback"]
+        self.assertIn("--rollback", rollback["action"])
+        self.assertIn("--check-rollback", rollback["action"])
+        self.assertIn("only then revert code", rollback["action"])
+        self.assertTrue(
+            (ROOT / "scripts/install_instagram_periodic_jobs_cron.sh").is_file()
+        )
+        self.assertTrue(
+            (ROOT / "scripts/install_instagram_bot_watchdog_cron.sh").is_file()
+        )
+
     def test_owner_script_is_required(self):
         broken = json.loads(MANIFEST.read_text(encoding="utf-8"))
         broken["jobs"][0]["owner_path"] = "scripts/does-not-exist.sh"
@@ -217,6 +229,40 @@ class Stage6PeriodicOwnerTests(unittest.TestCase):
             path.unlink()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("global admission lock", result.stderr)
+
+    def test_coordinator_manifest_bounds_every_provided_lane(self):
+        coordinator = next(
+            job
+            for job in self.jobs
+            if job["id"] == "instagram_periodic_coordinator"
+        )
+        self.assertEqual(
+            set(coordinator["provides_lanes"]),
+            set(coordinator["lane_deadlines_seconds"]),
+        )
+        self.assertLessEqual(
+            sum(coordinator["lane_deadlines_seconds"].values()),
+            540,
+        )
+
+        broken = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        broken_coordinator = next(
+            job
+            for job in broken["jobs"]
+            if job["id"] == "instagram_periodic_coordinator"
+        )
+        broken_coordinator["lane_deadlines_seconds"].pop("ig_deal_payments")
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", suffix=".json", delete=False
+        ) as handle:
+            json.dump(broken, handle)
+            path = Path(handle.name)
+        try:
+            result = self.invoke_validator(self.crontab(), manifest=path)
+        finally:
+            path.unlink()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("bound every provided lane", result.stderr)
 
 
 if __name__ == "__main__":

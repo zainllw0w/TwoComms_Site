@@ -1,0 +1,128 @@
+import time
+from unittest.mock import patch
+
+from django.core.cache import cache
+from django.test import SimpleTestCase, TestCase
+
+from management.models import InstagramBotSettings
+from management.services.ig_daemon_health import (
+    MAIN_PROGRESS_KEY,
+    PROCESS_PULSE_KEY,
+    alert_daemon_runtime_health,
+    daemon_runtime_health_snapshot,
+)
+
+
+class DaemonRuntimeHealthSnapshotTests(SimpleTestCase):
+    def tearDown(self):
+        cache.delete(PROCESS_PULSE_KEY)
+        cache.delete(MAIN_PROGRESS_KEY)
+        super().tearDown()
+
+    def test_live_process_without_main_progress_is_stalled(self):
+        cache.set(PROCESS_PULSE_KEY, {"at": 100.0, "pid": 42}, 600)
+
+        with patch(
+            "management.services.ig_daemon_health.time.time",
+            return_value=110.0,
+        ):
+            snapshot = daemon_runtime_health_snapshot()
+
+        self.assertTrue(snapshot["process_online"])
+        self.assertTrue(snapshot["stalled"])
+        self.assertFalse(snapshot["main_healthy"])
+        self.assertEqual(snapshot["stalled_reason"], "main_progress_missing")
+
+    def test_live_process_with_stale_main_progress_is_stalled(self):
+        cache.set(PROCESS_PULSE_KEY, {"at": 300.0}, 600)
+        cache.set(MAIN_PROGRESS_KEY, {"at": 100.0, "state": "running"}, 600)
+
+        with (
+            patch(
+                "management.services.ig_daemon_health.time.time",
+                return_value=310.0,
+            ),
+            patch(
+                "management.services.ig_daemon_health._alive_window_seconds",
+                return_value=150,
+            ),
+        ):
+            snapshot = daemon_runtime_health_snapshot()
+
+        self.assertTrue(snapshot["process_online"])
+        self.assertTrue(snapshot["stalled"])
+        self.assertEqual(snapshot["stalled_reason"], "main_progress_stale")
+
+    def test_fresh_idle_main_progress_is_healthy(self):
+        cache.set(PROCESS_PULSE_KEY, {"at": 100.0}, 600)
+        cache.set(MAIN_PROGRESS_KEY, {"at": 101.0, "state": "idle", "cycle": 9}, 600)
+
+        with patch(
+            "management.services.ig_daemon_health.time.time",
+            return_value=110.0,
+        ):
+            snapshot = daemon_runtime_health_snapshot()
+
+        self.assertTrue(snapshot["process_online"])
+        self.assertTrue(snapshot["main_healthy"])
+        self.assertFalse(snapshot["stalled"])
+        self.assertEqual(snapshot["main_cycle"], 9)
+
+
+class DaemonRuntimeHealthAlertTests(TestCase):
+    def tearDown(self):
+        cache.delete(PROCESS_PULSE_KEY)
+        cache.delete(MAIN_PROGRESS_KEY)
+        super().tearDown()
+
+    @patch("management.services.ig_maintenance.maintenance_status", return_value={"active": False})
+    @patch("management.services.ig_alerts.alert_dedupe_key", return_value="daemon-stalled-hour")
+    @patch("management.services.instagram_bot.notify_manager", return_value=True)
+    def test_stalled_enabled_daemon_delivers_one_deduplicated_operator_alert(
+        self, notify, dedupe, _maintenance
+    ):
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.is_enabled = True
+        settings_obj.save(update_fields=["is_enabled", "updated_at"])
+        now = time.time()
+        cache.set(PROCESS_PULSE_KEY, {"at": now}, 600)
+        cache.delete(MAIN_PROGRESS_KEY)
+
+        snapshot = alert_daemon_runtime_health()
+
+        self.assertTrue(snapshot["alerted"])
+        dedupe.assert_called_once_with(
+            "ig_daemon_stalled",
+            window_minutes=60,
+            text="main_progress_missing",
+        )
+        notify.assert_called_once()
+        self.assertEqual(notify.call_args.kwargs["event_type"], "ig_daemon_stalled")
+        self.assertTrue(notify.call_args.kwargs["deliver_immediately"])
+        self.assertNotIn("client", notify.call_args.kwargs)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_healthy_daemon_does_not_alert(self, notify):
+        now = time.time()
+        cache.set(PROCESS_PULSE_KEY, {"at": now}, 600)
+        cache.set(MAIN_PROGRESS_KEY, {"at": now, "state": "idle"}, 600)
+
+        snapshot = alert_daemon_runtime_health()
+
+        self.assertFalse(snapshot["alerted"])
+        notify.assert_not_called()
+
+
+class DaemonStatusUiContractTests(SimpleTestCase):
+    def test_stalled_state_precedes_green_running_copy(self):
+        template = (
+            __import__("pathlib").Path(__file__).resolve().parent
+            / "templates"
+            / "management"
+            / "bot.html"
+        ).read_text(encoding="utf-8")
+        stalled = template.index("st.state==='worker_stalled'")
+        green = template.index("else if(st.is_enabled){ txt='Працює'")
+        self.assertLess(stalled, green)
+        self.assertIn("Обробник завис", template[stalled:green])
+        self.assertIn("відповіді не підтверджені", template[stalled:green])

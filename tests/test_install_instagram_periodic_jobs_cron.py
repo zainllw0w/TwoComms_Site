@@ -263,6 +263,32 @@ exit 99
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.crontab_file.read_bytes(), before)
 
+    def test_pre_revert_rollback_restores_five_legacy_owners_without_metadata(self):
+        self.crontab_file.write_text("17 4 * * * /opt/unrelated\n", encoding="utf-8")
+        self.assertEqual(self._run("--install").returncode, 0)
+
+        rollback = self._run("--rollback")
+        content = self.crontab_file.read_text(encoding="utf-8")
+
+        self.assertEqual(rollback.returncode, 0, rollback.stderr)
+        self.assertEqual(self._run("--check-rollback").returncode, 0)
+        self.assertNotEqual(self._run("--check").returncode, 0)
+        self.assertNotIn("manage.py run_instagram_periodic_jobs", content)
+        self.assertNotIn("manage.py check_ig_gemini_metadata_health", content)
+        for command in (
+            "reconcile_order_telegram_notifications",
+            "reconcile_ig_checkout",
+            "reconcile_ig_order_fulfillment",
+            "poll_ig_deal_payments",
+            "run_call_ai_analyses",
+        ):
+            self.assertEqual(content.count(f"manage.py {command}"), 1)
+        self.assertIn("17 4 * * * /opt/unrelated", content)
+
+        self.assertEqual(self._run("--install").returncode, 0)
+        restored = self.crontab_file.read_text(encoding="utf-8")
+        self.assertEqual(restored.count("manage.py run_instagram_periodic_jobs"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

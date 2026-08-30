@@ -13816,43 +13816,11 @@ def status_snapshot() -> dict:
     hb = s.heartbeat_at
     db_heartbeat_age = (now - hb).total_seconds() if hb else None
     db_heartbeat_fresh = bool(db_heartbeat_age is not None and db_heartbeat_age < 90)
-    dhb = cache.get("ig_bot_daemon_hb")
-    try:
-        if isinstance(dhb, dict):
-            dhb = dhb.get("at")
-        daemon_heartbeat_age = time.time() - float(dhb) if dhb else None
-    except (TypeError, ValueError):
-        daemon_heartbeat_age = None
-    try:
-        from management.services.ig_turn_budget import heartbeat_alive_window_seconds
+    from management.services.ig_daemon_health import daemon_runtime_health_snapshot
 
-        daemon_alive_window = heartbeat_alive_window_seconds()
-    except Exception:
-        daemon_alive_window = 150
-    daemon_online = bool(
-        daemon_heartbeat_age is not None
-        and daemon_heartbeat_age < daemon_alive_window
-    )
-    main_progress = cache.get("ig_bot_daemon_main_progress")
-    try:
-        main_progress_at = (
-            float(main_progress.get("at"))
-            if isinstance(main_progress, dict)
-            else float(main_progress)
-        )
-        main_progress_age = time.time() - main_progress_at
-    except (TypeError, ValueError, AttributeError):
-        main_progress_age = None
-    main_progress_state = (
-        str(main_progress.get("state") or "")[:40]
-        if isinstance(main_progress, dict)
-        else ""
-    )
-    main_progress_stale = bool(
-        daemon_online
-        and main_progress_age is not None
-        and main_progress_age >= daemon_alive_window
-    )
+    daemon_health = daemon_runtime_health_snapshot()
+    daemon_online = daemon_health["process_online"]
+    daemon_main_healthy = daemon_health["main_healthy"]
     ingress = ingress_status(s, now=now)
     try:
         permission_transitions = permission_transition_snapshot()
@@ -13871,6 +13839,8 @@ def status_snapshot() -> dict:
         state = "pause_pending"
     elif not s.is_enabled:
         state = "disabled"
+    elif daemon_online and not daemon_main_healthy:
+        state = "worker_stalled"
     elif daemon_online and not ingress["healthy"]:
         state = "ingress_degraded"
     elif daemon_online:
@@ -13934,6 +13904,7 @@ def status_snapshot() -> dict:
         "running": bool(
             s.is_enabled
             and daemon_online
+            and daemon_main_healthy
             and ingress["healthy"]
             and not maintenance["active"]
             and not pause_pending
@@ -13942,15 +13913,27 @@ def status_snapshot() -> dict:
         "pause_pending": pause_pending,
         "permission_transitions": permission_transitions,
         "ingress": ingress,
-        "recovery_expected": bool(s.is_enabled and not daemon_online and not maintenance["active"]),
+        "recovery_expected": bool(
+            s.is_enabled
+            and (not daemon_online or not daemon_main_healthy)
+            and not maintenance["active"]
+        ),
+        "operator_attention_required": bool(
+            s.is_enabled
+            and daemon_health["stalled"]
+            and not maintenance["active"]
+        ),
         "maintenance": maintenance,
         "db_heartbeat_fresh": db_heartbeat_fresh,
         "db_heartbeat_age_seconds": round(db_heartbeat_age, 1) if db_heartbeat_age is not None else None,
-        "daemon_heartbeat_age_seconds": round(daemon_heartbeat_age, 1) if daemon_heartbeat_age is not None else None,
-        "daemon_alive_window_seconds": daemon_alive_window,
-        "main_progress_age_seconds": round(main_progress_age, 1) if main_progress_age is not None else None,
-        "main_progress_state": main_progress_state,
-        "main_progress_stale": main_progress_stale,
+        "daemon_heartbeat_age_seconds": daemon_health["process_age_seconds"],
+        "daemon_alive_window_seconds": daemon_health["alive_window_seconds"],
+        "main_progress_available": daemon_health["main_available"],
+        "main_progress_healthy": daemon_main_healthy,
+        "main_progress_age_seconds": daemon_health["main_age_seconds"],
+        "main_progress_state": daemon_health["main_state"],
+        "main_progress_stale": daemon_health["stalled"],
+        "main_progress_stalled_reason": daemon_health["stalled_reason"],
         "heartbeat_at": hb.isoformat() if hb else "",
         "last_inbound_at": s.last_inbound_at.isoformat() if s.last_inbound_at else "",
         "last_reply_at": s.last_reply_at.isoformat() if s.last_reply_at else "",

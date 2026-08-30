@@ -5,8 +5,8 @@
   "rollback": {
     "owner": "TwoComms release operator",
     "path": "scripts/install_instagram_periodic_jobs_cron.sh",
-    "action": "restore the last known-good managed cron snapshot and run each installer with --check",
-    "evidence_required": "live crontab snapshot plus release SHA"
+    "action": "while maintenance is active, stop the supervisor, run periodic and watchdog installers with --rollback then --check-rollback, only then revert code",
+    "evidence_required": "pre-revert crontab with five legacy periodic owners and legacy watchdog, stopped supervisor identity, plus release SHA"
   },
   "jobs": [
     {
@@ -57,6 +57,13 @@
         "ig_deal_payments",
         "binotel_call_ai_analyses"
       ],
+      "lane_deadlines_seconds": {
+        "order_telegram_reconcile": 60,
+        "ig_checkout_reconcile": 75,
+        "ig_order_fulfillment": 75,
+        "ig_deal_payments": 120,
+        "binotel_call_ai_analyses": 180
+      },
       "environment": [
         "DJANGO_ENV=production",
         "DJANGO_SETTINGS_MODULE=twocomms.production_settings"

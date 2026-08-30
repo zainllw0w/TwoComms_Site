@@ -32,6 +32,7 @@ class PeriodicLane:
     task_key: str
     command: str
     interval_seconds: int
+    deadline_seconds: int
     options: tuple[tuple[str, object], ...]
     optional_gate: str = ""
 
@@ -68,30 +69,35 @@ PERIODIC_LANES = (
         "order_telegram_reconcile",
         "reconcile_order_telegram_notifications",
         120,
+        60,
         (("max_age_hours", 168), ("min_age_seconds", 60), ("limit", 50)),
     ),
     PeriodicLane(
         "ig_checkout_reconcile",
         "reconcile_ig_checkout",
         120,
+        75,
         (("limit", 100),),
     ),
     PeriodicLane(
         "ig_order_fulfillment",
         "reconcile_ig_order_fulfillment",
         120,
+        75,
         (("limit", 100),),
     ),
     PeriodicLane(
         "ig_deal_payments",
         "poll_ig_deal_payments",
         240,
+        120,
         (("limit", 50),),
     ),
     PeriodicLane(
         "binotel_call_ai_analyses",
         "run_call_ai_analyses",
         300,
+        180,
         (("limit", 1),),
         optional_gate="call_auto_analysis",
     ),
@@ -110,6 +116,12 @@ def validate_runtime_lane_owners() -> None:
     periodic_lane_keys = {entry.task_key for entry in PERIODIC_LANES}
     if periodic_owner_keys != periodic_lane_keys:
         raise RuntimeError("Periodic lane definitions and owner manifest disagree")
+    if any(
+        lane.deadline_seconds <= 0
+        or lane.deadline_seconds >= 600
+        for lane in PERIODIC_LANES
+    ):
+        raise RuntimeError("Periodic lane deadlines must be positive and bounded")
 
 
 def lane_owner(lane: str) -> str:

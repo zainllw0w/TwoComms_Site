@@ -1,12 +1,15 @@
 import importlib.util
+import io
 import json
 import os
 import signal
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from contextlib import redirect_stdout
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -75,10 +78,20 @@ class InstagramBotSupervisorTests(unittest.TestCase):
             python.chmod(0o700)
             paths = supervisor._runtime_paths(root)
             with supervisor._exclusive_lock(paths["supervisor_lock"], blocking=True):
-                with patch.object(supervisor.subprocess, "Popen") as popen:
+                with (
+                    patch.object(supervisor, "_release_sha", return_value="unknown"),
+                    patch.object(supervisor.subprocess, "Popen") as popen,
+                ):
                     result = supervisor.ensure_supervisor(root=root, python=python)
             self.assertEqual(result, 0)
             popen.assert_not_called()
+            state = json.loads(paths["state"].read_text(encoding="utf-8"))
+            self.assertIn("last_ensure_seen_at", state)
+            events = [
+                json.loads(line)
+                for line in paths["events"].read_text(encoding="utf-8").splitlines()
+            ]
+            self.assertEqual(events[-1]["event"], "ensure_seen")
 
     def test_python_symlink_path_is_preserved_for_cloudlinux_binding(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -114,7 +127,217 @@ class InstagramBotSupervisorTests(unittest.TestCase):
             self.assertGreater(state["child_pid"], 0)
             self.assertIn("child_start_ticks", state)
             self.assertEqual(state["child_release_sha"], "unknown")
+            self.assertEqual(state["supervisor_release_sha"], "unknown")
             self.assertIn("child_uptime_seconds", state)
+
+    def test_concurrent_event_writers_do_not_lose_records(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            events = Path(temp_dir) / "events.jsonl"
+            child_code = """
+import importlib.util
+import sys
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('child_supervisor', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+for index in range(25):
+    module._append_event(
+        Path(sys.argv[2]),
+        {'event': 'concurrent', 'writer': sys.argv[3], 'index': index},
+    )
+"""
+            children = [
+                subprocess.Popen(
+                    [sys.executable, "-c", child_code, str(SCRIPT), str(events), str(writer)]
+                )
+                for writer in range(4)
+            ]
+            for child in children:
+                self.assertEqual(child.wait(timeout=20), 0)
+
+            records = [
+                json.loads(line)
+                for line in events.read_text(encoding="utf-8").splitlines()
+            ]
+            observed = {
+                (record["writer"], record["index"])
+                for record in records
+                if record.get("event") == "concurrent"
+            }
+            self.assertEqual(len(observed), 100)
+
+    def test_release_change_gracefully_reloads_supervisor_before_spawning_b(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "manage.py").write_text("", encoding="utf-8")
+            python = root / "python"
+            python.write_text("", encoding="utf-8")
+            python.chmod(0o700)
+            paths = supervisor._runtime_paths(root)
+            supervisor._atomic_json(
+                paths["state"],
+                {
+                    "supervisor_pid": 123,
+                    "supervisor_start_ticks": 456,
+                    "supervisor_release_sha": "a" * 40,
+                    "supervisor_sentinel": 10.0,
+                },
+            )
+
+            with (
+                patch.object(supervisor, "_lock_held", return_value=True),
+                patch.object(supervisor, "_release_sha", return_value="b" * 40),
+                patch.object(supervisor, "_restart_sentinel_mtime", return_value=20.0),
+                patch.object(supervisor, "_pid_identity_matches", return_value=True),
+                patch.object(supervisor, "_wait_for_lock_release", return_value=True),
+                patch.object(supervisor.os, "kill") as kill,
+                patch.object(supervisor.subprocess, "Popen") as popen,
+                patch.dict(os.environ, {"SUPERVISOR_ENV_VERSION": "B"}),
+            ):
+                popen.return_value.pid = 789
+                result = supervisor.ensure_supervisor(root=root, python=python)
+
+            self.assertEqual(result, 0)
+            kill.assert_called_once_with(123, signal.SIGHUP)
+            popen.assert_called_once()
+            self.assertEqual(
+                popen.call_args.kwargs["env"]["SUPERVISOR_ENV_VERSION"],
+                "B",
+            )
+            self.assertIn("--supervise", popen.call_args.args[0])
+            with (
+                patch.object(supervisor, "_release_sha", return_value="b" * 40),
+                patch.object(supervisor, "_restart_sentinel_mtime", return_value=20.0),
+            ):
+                replacement = supervisor.Supervisor(root=root, python=python)
+                replacement._record("supervisor_started")
+            state = json.loads(paths["state"].read_text(encoding="utf-8"))
+            self.assertEqual(state["supervisor_release_sha"], "b" * 40)
+            self.assertEqual(state["supervisor_sentinel"], 20.0)
+
+    def test_status_fails_when_ensure_seen_is_missing_or_stale(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "manage.py").write_text("", encoding="utf-8")
+            python = root / "python"
+            python.write_text("", encoding="utf-8")
+            python.chmod(0o700)
+            paths = supervisor._runtime_paths(root)
+            base_state = {
+                "event": "child_started",
+                "supervisor_pid": 123,
+                "supervisor_start_ticks": 456,
+                "supervisor_release_sha": "b" * 40,
+                "supervisor_sentinel": 0.0,
+            }
+
+            for label, last_seen, expected_age in (
+                ("missing", None, None),
+                ("stale", 100.0, 300.0),
+            ):
+                with self.subTest(label=label):
+                    state = dict(base_state)
+                    if last_seen is not None:
+                        state["last_ensure_seen_at"] = last_seen
+                    supervisor._atomic_json(paths["state"], state)
+                    output = io.StringIO()
+                    with (
+                        patch.object(supervisor, "_lock_held", return_value=True),
+                        patch.object(supervisor, "_pid_start_ticks", return_value=456),
+                        patch.object(supervisor, "_release_sha", return_value="b" * 40),
+                        patch.object(supervisor, "_restart_sentinel_mtime", return_value=0.0),
+                        patch.object(supervisor.time, "time", return_value=400.0),
+                        redirect_stdout(output),
+                    ):
+                        result = supervisor.main(
+                            [
+                                "--status",
+                                "--root",
+                                str(root),
+                                "--python",
+                                str(python),
+                            ]
+                        )
+                    payload = json.loads(output.getvalue())
+                    self.assertEqual(result, 1)
+                    self.assertFalse(payload["ensure_fresh"])
+                    self.assertEqual(payload["ensure_age_seconds"], expected_age)
+
+    def test_deleted_state_is_not_treated_as_a_current_supervisor(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "manage.py").write_text("", encoding="utf-8")
+            python = root / "python"
+            python.write_text("", encoding="utf-8")
+            python.chmod(0o700)
+            with (
+                patch.object(supervisor, "_lock_held", return_value=True),
+                patch.object(supervisor, "_release_sha", return_value="b" * 40),
+                patch.object(supervisor, "_restart_sentinel_mtime", return_value=1.0),
+                patch.object(supervisor.subprocess, "Popen") as popen,
+            ):
+                result = supervisor.ensure_supervisor(root=root, python=python)
+
+            self.assertEqual(result, 1)
+            popen.assert_not_called()
+            events = (
+                supervisor._runtime_paths(root)["events"]
+                .read_text(encoding="utf-8")
+                .splitlines()
+            )
+            self.assertIn("supervisor_reload_requested_refused", events[-1])
+
+    def test_cron_ensure_does_not_respawn_supervisor_during_rollback_maintenance(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "manage.py").write_text("", encoding="utf-8")
+            python = root / "python"
+            python.write_text("", encoding="utf-8")
+            python.chmod(0o700)
+            paths = supervisor._runtime_paths(root)
+            paths["maintenance"].parent.mkdir(parents=True, exist_ok=True)
+            paths["maintenance"].write_text(
+                json.dumps(
+                    {
+                        "started_at": 100.0,
+                        "expires_at": 160.0,
+                        "lease_id": "rollback",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with (
+                patch.object(supervisor.time, "time", return_value=120.0),
+                patch.object(supervisor, "_release_sha", return_value="unknown"),
+                patch.object(supervisor.subprocess, "Popen") as popen,
+            ):
+                result = supervisor.ensure_supervisor(root=root, python=python)
+
+            self.assertEqual(result, 0)
+            popen.assert_not_called()
+            self.assertIn(
+                "supervisor_spawn_deferred_for_maintenance",
+                paths["events"].read_text(encoding="utf-8"),
+            )
+
+    def test_explicit_stop_requires_verified_identity_and_releases_lock(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "manage.py").write_text("", encoding="utf-8")
+            paths = supervisor._runtime_paths(root)
+            supervisor._atomic_json(
+                paths["state"],
+                {"supervisor_pid": 123, "supervisor_start_ticks": 456},
+            )
+            with (
+                patch.object(supervisor, "_lock_held", return_value=True),
+                patch.object(supervisor, "_pid_identity_matches", return_value=True),
+                patch.object(supervisor, "_wait_for_lock_release", return_value=True),
+                patch.object(supervisor.os, "kill") as kill,
+            ):
+                result = supervisor.stop_supervisor(root=root)
+            self.assertEqual(result, 0)
+            kill.assert_called_once_with(123, signal.SIGTERM)
 
 
 if __name__ == "__main__":

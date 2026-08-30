@@ -209,6 +209,27 @@ exit 99
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(self.crontab_file.read_bytes(), before)
 
+    def test_pre_revert_rollback_restores_legacy_owner_and_is_checkable(self):
+        self.crontab_file.write_text("17 4 * * * /opt/unrelated\n", encoding="utf-8")
+        self.assertEqual(self._run("--install").returncode, 0)
+
+        rollback = self._run("--rollback")
+        rollback_content = self.crontab_file.read_text(encoding="utf-8")
+
+        self.assertEqual(rollback.returncode, 0, rollback.stderr)
+        self.assertEqual(self._run("--check-rollback").returncode, 0)
+        self.assertNotEqual(self._run("--check").returncode, 0)
+        self.assertEqual(
+            rollback_content.count("manage.py run_instagram_bot --ensure"),
+            1,
+        )
+        self.assertNotIn("instagram_bot_supervisor.py --ensure", rollback_content)
+        self.assertIn("17 4 * * * /opt/unrelated", rollback_content)
+
+        self.assertEqual(self._run("--install").returncode, 0)
+        restored = self.crontab_file.read_text(encoding="utf-8")
+        self.assertIn("instagram_bot_supervisor.py --ensure", restored)
+
 
 if __name__ == "__main__":
     unittest.main()

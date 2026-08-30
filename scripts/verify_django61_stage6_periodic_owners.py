@@ -110,6 +110,23 @@ def load_manifest(path: Path) -> dict[str, Any]:
             or any(not isinstance(item, str) or not item.strip() for item in job["environment"])
         ):
             _fail(f"jobs[{index}].environment must be a non-empty list of assignments")
+        if "provides_lanes" in job:
+            lanes = job["provides_lanes"]
+            deadlines = job.get("lane_deadlines_seconds")
+            if (
+                not isinstance(lanes, list)
+                or not lanes
+                or len(lanes) != len(set(lanes))
+                or any(not isinstance(lane, str) or not lane for lane in lanes)
+            ):
+                _fail(f"jobs[{index}].provides_lanes must be unique non-empty strings")
+            if not isinstance(deadlines, dict) or set(deadlines) != set(lanes):
+                _fail(f"jobs[{index}] must bound every provided lane")
+            if any(
+                not isinstance(value, int) or value <= 0 or value >= 600
+                for value in deadlines.values()
+            ) or sum(deadlines.values()) > 540:
+                _fail(f"jobs[{index}] lane deadlines exceed coordinator budget")
     return data
 
 

@@ -1532,8 +1532,8 @@ class DaemonStatusTests(TestCase):
         self.assertFalse(snapshot["running"])
         self.assertEqual(snapshot["state"], "worker_error")
 
-    @patch("management.services.instagram_bot.cache.get", return_value={"at": 100.0})
-    @patch("management.services.instagram_bot.time.time", return_value=110.0)
+    @patch("management.services.ig_daemon_health.cache.get", return_value={"at": 100.0, "state": "idle"})
+    @patch("management.services.ig_daemon_health.time.time", return_value=110.0)
     def test_status_snapshot_accepts_structured_daemon_heartbeat(self, _time, _get):
         settings = InstagramBotSettings.load()
         settings.is_enabled = True
@@ -1545,6 +1545,7 @@ class DaemonStatusTests(TestCase):
 
         self.assertTrue(snapshot["daemon_online"])
         self.assertEqual(snapshot["state"], "running")
+        self.assertTrue(snapshot["main_progress_healthy"])
 
     def test_fresh_process_pulse_does_not_hide_stale_main_progress(self):
         settings = InstagramBotSettings.load()
@@ -1565,9 +1566,31 @@ class DaemonStatusTests(TestCase):
         self.assertTrue(snapshot["daemon_online"])
         self.assertTrue(snapshot["main_progress_stale"])
         self.assertEqual(snapshot["main_progress_state"], "running")
+        self.assertFalse(snapshot["running"])
+        self.assertEqual(snapshot["state"], "worker_stalled")
+        self.assertTrue(snapshot["operator_attention_required"])
 
-    @patch("management.services.instagram_bot.cache.get", return_value={"at": 100.0})
-    @patch("management.services.instagram_bot.time.time", return_value=110.0)
+    def test_fresh_process_pulse_without_main_progress_is_not_running(self):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.heartbeat_at = timezone.now()
+        settings.save(update_fields=["is_enabled", "heartbeat_at"])
+        cache.set(HB_KEY, {"at": time.time(), "kind": "process_pulse"}, 600)
+        cache.delete(MAIN_PROGRESS_KEY)
+
+        with patch.dict(os.environ, {"IG_APP_SECRET": "test-secret"}, clear=True):
+            snapshot = bot.status_snapshot()
+
+        self.assertTrue(snapshot["daemon_online"])
+        self.assertFalse(snapshot["running"])
+        self.assertEqual(snapshot["state"], "worker_stalled")
+        self.assertEqual(
+            snapshot["main_progress_stalled_reason"],
+            "main_progress_missing",
+        )
+
+    @patch("management.services.ig_daemon_health.cache.get", return_value={"at": 100.0, "state": "idle"})
+    @patch("management.services.ig_daemon_health.time.time", return_value=110.0)
     def test_live_daemon_without_a_working_ingress_is_reported_as_degraded(self, _time, _get):
         settings = InstagramBotSettings.load()
         settings.is_enabled = True
@@ -1605,8 +1628,8 @@ class DaemonStatusTests(TestCase):
         settings.refresh_from_db()
         self.assertIsNotNone(settings.last_poll_at)
 
-    @patch("management.services.instagram_bot.cache.get", return_value={"at": 100.0})
-    @patch("management.services.instagram_bot.time.time", return_value=110.0)
+    @patch("management.services.ig_daemon_health.cache.get", return_value={"at": 100.0, "state": "idle"})
+    @patch("management.services.ig_daemon_health.time.time", return_value=110.0)
     @patch("management.services.instagram_bot.resolve_direct_token", return_value="page-token")
     def test_poll_provider_error_is_exposed_as_degraded_ingress(
         self, _token, _time, _get
@@ -1652,6 +1675,7 @@ class DaemonStatusTests(TestCase):
             "updated_at",
         ])
         cache.set(HB_KEY, {"at": time.time()}, 60)
+        cache.set(MAIN_PROGRESS_KEY, {"at": time.time(), "state": "idle"}, 60)
         signals = (
             ("ig_bot_ingress_refresh_degraded:page", "conversation_refresh_failed"),
             ("ig_bot_ingress_poll_degraded:page", "message_poll_failed"),
