@@ -1,4 +1,5 @@
 import hashlib
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -339,7 +340,7 @@ class InstagramCheckoutReconciliationTests(TestCase):
         self.assertEqual(result["expired_proposals"], 1)
         self.assertEqual(result["released_reservations"], 1)
 
-    def test_expired_unclaimed_details_lock_releases_attempt_and_active_pointer(self):
+    def test_legacy_null_expiry_releases_after_24h_and_keeps_late_success_pointer(self):
         attempt = PaymentAttempt.objects.create(
             fingerprint=hashlib.sha256(b"unclaimed-details-lock").hexdigest(),
             full_name="Instagram Buyer",
@@ -368,6 +369,9 @@ class InstagramCheckoutReconciliationTests(TestCase):
         self.proposal.save(update_fields=[
             "payment_attempt", "status", "details_locked_at", "expires_at", "updated_at",
         ])
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            created=timezone.now() - timedelta(hours=24, seconds=1),
+        )
 
         from management.services.ig_checkout_reconciliation import reconcile_ig_checkout
 
@@ -377,10 +381,14 @@ class InstagramCheckoutReconciliationTests(TestCase):
         reservation.refresh_from_db()
         self.proposal.refresh_from_db()
         self.deal.refresh_from_db()
-        self.assertEqual(result["expired_proposals"], 1)
+        self.assertEqual(result["expired_attempts"], 1)
+        self.assertEqual(result["expired_proposals"], 0)
         self.assertEqual(attempt.status, PaymentAttempt.Status.EXPIRED)
         self.assertEqual(self.proposal.status, IgCheckoutProposal.Status.EXPIRED)
-        self.assertIsNone(self.deal.active_checkout_proposal_id)
+        # Keep the exact proposal graph reachable: a late provider success is
+        # stronger than local expiry and must bind/review this same attempt,
+        # never race a silently issued replacement into a duplicate order.
+        self.assertEqual(self.deal.active_checkout_proposal_id, self.proposal.pk)
         self.assertEqual(reservation.state, IgCheckoutInventoryReservation.State.RELEASED)
 
     def test_reconciliation_prioritizes_repairable_rows_over_permanent_ambiguity(self):

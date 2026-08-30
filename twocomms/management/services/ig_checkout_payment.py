@@ -793,9 +793,18 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         "return": "provider_pull",
         "ig_reconcile": "provider_pull",
         "poll": "provider_pull",
+        # Local terminal boundaries are durable operational evidence, not a
+        # claim that Monobank returned this state. Keep them distinct so a
+        # later provider cancellation/success can append stronger evidence.
+        "system_expiry": "system_expiry",
+        "checkout_session_reset": "checkout_session_reset",
     }.get(str(source or "").strip().lower())
     if truth is None or canonical_source is None:
         return None
+    is_local_terminal = canonical_source in {
+        "system_expiry",
+        "checkout_session_reset",
+    }
 
     attempt, deal, proposal = _lock_attempt_proposal_graph(
         attempt_id,
@@ -814,6 +823,8 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         "status": normalized_status,
         "ccy": raw_payload.get("ccy") or raw_payload.get("currency"),
         "amount": raw_payload.get("paidAmount", raw_payload.get("finalAmount", raw_payload.get("amount"))),
+        "reason": str(raw_payload.get("reason") or "")[:128],
+        "boundary": str(raw_payload.get("boundary") or "")[:64],
     }
     payload_digest = hashlib.sha256(
         json.dumps(evidence, sort_keys=True, separators=(",", ":"), default=str).encode()
@@ -827,8 +838,11 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         provider_status=normalized_status,
         payload_digest=payload_digest,
     )
+    event_key = f"attempt:{attempt.pk}:terminal:{normalized_status}"
+    if is_local_terminal:
+        event_key = f"{event_key}:{canonical_source}"
     event, _created = IgPaymentEvent.objects.get_or_create(
-        event_key=f"attempt:{attempt.pk}:terminal:{normalized_status}"[:64],
+        event_key=event_key[:64],
         defaults={
             "deal": deal,
             "client": proposal.client,
@@ -870,12 +884,19 @@ def project_terminal_payment(attempt_id, *, status, payload=None, source="provid
         "payment_truth", "payment_status", "paid_amount", "paid_at",
         "payment_truth_updated_at", "updated_at",
     ])
-    proposal.status = IgCheckoutProposal.Status.CANCELLED
-    proposal.invoice_cancelled_at = proposal.invoice_cancelled_at or timezone.now()
-    proposal.provider_cancellation_event = event
-    proposal.save(update_fields=[
-        "status", "invoice_cancelled_at", "provider_cancellation_event", "updated_at",
-    ])
+    proposal.status = (
+        IgCheckoutProposal.Status.EXPIRED
+        if canonical_source == "system_expiry"
+        else IgCheckoutProposal.Status.CANCELLED
+    )
+    proposal_update_fields = ["status", "updated_at"]
+    if not is_local_terminal:
+        proposal.invoice_cancelled_at = proposal.invoice_cancelled_at or timezone.now()
+        proposal.provider_cancellation_event = event
+        proposal_update_fields.extend(
+            ["invoice_cancelled_at", "provider_cancellation_event"]
+        )
+    proposal.save(update_fields=proposal_update_fields)
     return event
 
 

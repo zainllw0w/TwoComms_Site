@@ -475,13 +475,16 @@ def _reset_monobank_session(request, drop_pending=False):
         attempt_id = request.session.get('monobank_pending_attempt_id') or request.session.get('monobank_attempt_id')
         if attempt_id:
             try:
+                from management.services.ig_checkout_terminalization import (
+                    terminalize_payment_attempt,
+                )
                 from orders.models import PaymentAttempt
-                PaymentAttempt.objects.filter(
-                    pk=attempt_id,
-                    status__in=(PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING),
-                ).update(
-                    status=PaymentAttempt.Status.CANCELLED,
-                    error_reason='checkout_cancelled',
+
+                terminalize_payment_attempt(
+                    attempt_id,
+                    terminal_status=PaymentAttempt.Status.CANCELLED,
+                    reason='checkout_cancelled',
+                    source='checkout_session_reset',
                 )
             except Exception:
                 monobank_logger.debug(

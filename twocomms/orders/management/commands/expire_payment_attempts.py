@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 from django.utils import timezone
-from datetime import timedelta
 
+from management.services.ig_checkout_terminalization import (
+    terminalize_payment_attempt,
+)
 from orders.models import PaymentAttempt
 
 
@@ -16,32 +20,35 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         hours = max(1, options['hours'])
         limit = max(1, min(options['limit'], 5000))
-        cutoff = timezone.now() - timedelta(hours=hours)
+        now = timezone.now()
+        legacy_age = timedelta(hours=hours)
+        cutoff = now - legacy_age
         ids = list(
             PaymentAttempt.objects.filter(
                 status__in=(PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING),
-                created__lt=cutoff,
-            ).filter(
-                Q(invoice_expires_at__lt=timezone.now())
-                | Q(invoice_expires_at__isnull=True)
+            )
+            .filter(
+                Q(event_state__invoice_creation_ambiguous__isnull=True)
+                | Q(event_state__invoice_creation_ambiguous=False)
+            )
+            .filter(
+                Q(invoice_expires_at__lte=now)
+                | Q(invoice_expires_at__isnull=True, created__lte=cutoff)
             ).order_by('pk').values_list('pk', flat=True)[:limit]
         )
         if not ids:
             self.stdout.write('No stale payment attempts found.')
             return
-        updated = PaymentAttempt.objects.filter(
-            pk__in=ids,
-            status__in=(PaymentAttempt.Status.INITIATED, PaymentAttempt.Status.PROCESSING),
-        ).update(
-            status=PaymentAttempt.Status.EXPIRED,
-            error_reason='invoice_expired',
-            last_status_at=timezone.now(),
-        )
-        if updated:
-            from management.services.ig_inventory import release_attempt_inventory
-            from management.services.ig_checkout_payment import release_attempt_promo
-
-            for attempt in PaymentAttempt.objects.filter(pk__in=ids):
-                release_attempt_inventory(attempt, reason='invoice_expired')
-                release_attempt_promo(attempt, reason='invoice_expired')
+        updated = 0
+        for attempt_id in ids:
+            outcome = terminalize_payment_attempt(
+                attempt_id,
+                terminal_status=PaymentAttempt.Status.EXPIRED,
+                reason='invoice_expired',
+                source='system_expiry',
+                now=now,
+                require_due=True,
+                legacy_null_expiry_age=legacy_age,
+            )
+            updated += int(outcome.outcome == 'terminalized')
         self.stdout.write(self.style.SUCCESS(f'Expired {updated} payment attempts.'))

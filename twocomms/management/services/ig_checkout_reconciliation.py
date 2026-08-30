@@ -6,6 +6,7 @@ from django.db.models import Case, Exists, IntegerField, OuterRef, Q, When
 from django.utils import timezone
 
 from management.models import IgCheckoutInventoryReservation, IgCheckoutProposal, IgLifecycleEvent
+from management.services.ig_checkout_terminalization import expire_due_assisted_attempts
 from management.services.ig_inventory import release_expired_proposal_inventory, release_proposal_inventory
 from orders.fulfillment_truth import (
     NOVA_POSHTA_DELIVERY_SUCCESS_CODES,
@@ -24,6 +25,10 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
     now = timezone.now()
     result = {
         "released_reservations": 0,
+        "released_promos": 0,
+        "due_attempts": 0,
+        "expired_attempts": 0,
+        "skipped_attempts": 0,
         "expired_proposals": 0,
         "bound_attempts": 0,
         "payment_events": 0,
@@ -34,6 +39,21 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
         "missing_attribution": 0,
         "errors": 0,
     }
+
+    # One existing owner handles both proposal repair and the PaymentAttempt
+    # deadline. This deliberately adds no cron/process lane. Explicit invoice
+    # deadlines expire immediately; only legacy NULL deadlines wait 24 hours.
+    attempt_expiry = expire_due_assisted_attempts(
+        now=now,
+        limit=limit,
+        dry_run=dry_run,
+    )
+    result["released_reservations"] += attempt_expiry["released_inventory"]
+    result["released_promos"] += attempt_expiry["released_promos"]
+    result["due_attempts"] += attempt_expiry["due_attempts"]
+    result["expired_attempts"] += attempt_expiry["expired_attempts"]
+    result["skipped_attempts"] += attempt_expiry["skipped_attempts"]
+    result["errors"] += attempt_expiry["errors"]
 
     expired = IgCheckoutProposal.objects.filter(
         expires_at__lte=now,
@@ -50,10 +70,11 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
         try:
             with transaction.atomic():
                 from management.models import IgDeal
-                from orders.models import PaymentAttempt
 
                 attempt = None
                 if proposal.payment_attempt_id:
+                    from orders.models import PaymentAttempt
+
                     attempt = PaymentAttempt.objects.select_for_update().filter(
                         pk=proposal.payment_attempt_id,
                     ).first()
@@ -65,33 +86,12 @@ def reconcile_ig_checkout(*, limit=100, pull_ambiguous=True, dry_run=False):
                     locked.Status.DETAILS_LOCKED,
                 }:
                     continue
-                if locked.status == locked.Status.DETAILS_LOCKED:
-                    if attempt is None or locked.payment_attempt_id != attempt.pk:
-                        # The attempt appeared after the candidate query. A later
-                        # run will lock it before the deal/proposal graph.
-                        continue
-                    event_state = dict(getattr(attempt, "event_state", None) or {})
-                    if (
-                        attempt is None
-                        or attempt.status != PaymentAttempt.Status.INITIATED
-                        or attempt.monobank_invoice_id
-                        or attempt.invoice_url
-                        or event_state.get("invoice_creation_lease")
-                        or event_state.get("invoice_creation_ambiguous")
-                    ):
-                        continue
-                    attempt.status = PaymentAttempt.Status.EXPIRED
-                    attempt.error_reason = "proposal_expired_before_provider_claim"
-                    attempt.last_status_at = timezone.now()
-                    attempt.save(update_fields=[
-                        "status", "error_reason", "last_status_at", "updated",
-                    ])
-                    from management.services.ig_checkout_payment import release_attempt_promo
-
-                    release_attempt_promo(
-                        attempt,
-                        reason="proposal_expired_before_provider_claim",
-                    )
+                if locked.status == locked.Status.DETAILS_LOCKED and attempt is not None:
+                    # Any attempt-bound transition belongs to the shared locked
+                    # terminalizer above. In particular, a legacy NULL invoice
+                    # deadline must not be shortened from 24 hours merely because
+                    # the old proposal itself had a 25-minute expiry.
+                    continue
                 locked.status = locked.Status.EXPIRED
                 if locked_deal.active_checkout_proposal_id == locked.pk:
                     locked_deal.active_checkout_proposal = None
