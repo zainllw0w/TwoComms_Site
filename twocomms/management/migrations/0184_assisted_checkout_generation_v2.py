@@ -314,6 +314,22 @@ CHECK_TRUTH_TABLES = {
     ),
 }
 
+EXPECTED_CHECK_CLAUSES = {
+    "ig_invgen_generation_positive": {"generation>=1"},
+    "ig_invgen_active_slot_shape": {"active_slotisnulloractive_slot=1"},
+    "ig_invgen_winner_slot_shape": {"winner_slotisnullorwinner_slot=1"},
+    "ig_invgen_payment_positive": {"payment_amount>0"},
+    "ig_prop_v2_policy_shape": {
+        "(assisted_checkout_v2=0andpayment_policy='legacy')or"
+        "(assisted_checkout_v2=1andpayment_policyin('full_only','full_or_200_cod'))",
+        "assisted_checkout_v2=0andpayment_policy='legacy'or"
+        "assisted_checkout_v2=1andpayment_policyin('full_only','full_or_200_cod')",
+    },
+    "ig_prop_custom_full_only": {
+        "custom_print_full_only=0orpayment_policy='full_only'"
+    },
+}
+
 UNIQUE_SPECS = (
     (
         "management", "IgCheckoutInvoiceGeneration",
@@ -437,10 +453,56 @@ def _physical_check_clause(schema_editor, table_name, check_name):
     raise RuntimeError("checkout S2b CHECK validation supports MariaDB/SQLite")
 
 
+def _strip_outer_parentheses(value):
+    value = str(value or "").strip()
+    while value.startswith("(") and value.endswith(")"):
+        depth = 0
+        closes_at_end = True
+        quote = ""
+        for index, character in enumerate(value):
+            if quote:
+                if character == quote:
+                    quote = ""
+                continue
+            if character == "'":
+                quote = character
+            elif character == "(":
+                depth += 1
+            elif character == ")":
+                depth -= 1
+                if depth == 0 and index != len(value) - 1:
+                    closes_at_end = False
+                    break
+        if not closes_at_end or depth != 0:
+            break
+        value = value[1:-1].strip()
+    return value
+
+
+def _normalize_check_clause(value):
+    value = _strip_outer_parentheses(value)
+    value = value.replace("`", "").replace('"', "").casefold()
+    value = value.replace("0x00", "0").replace("0x01", "1")
+    value = re.sub(r"\bfalse\b", "0", value)
+    value = re.sub(r"\btrue\b", "1", value)
+    value = re.sub(r"\s+", "", value)
+    value = re.sub(
+        r"(?P<operator><>|!=|>=|<=|=|>|<)'(?P<number>-?[0-9]+(?:[.][0-9]+)?)'",
+        lambda match: match.group("operator") + match.group("number"),
+        value,
+    )
+    return _strip_outer_parentheses(value)
+
+
 def _validate_check_predicate(schema_editor, table_name, check_name):
     clause = _physical_check_clause(schema_editor, table_name, check_name)
     if not clause:
         raise RuntimeError(f"{check_name} physical predicate is missing")
+    normalized = _normalize_check_clause(clause)
+    if normalized not in EXPECTED_CHECK_CLAUSES[check_name]:
+        raise RuntimeError(
+            f"{check_name} has incompatible normalized predicate: {normalized}"
+        )
     quote = schema_editor.quote_name
     for values, expected in CHECK_TRUTH_TABLES[check_name]:
         columns = list(values)

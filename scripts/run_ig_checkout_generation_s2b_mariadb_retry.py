@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from datetime import timedelta
 from pathlib import Path
 
@@ -125,7 +126,7 @@ def _columns(connection, table):
         }
 
 
-def _race_apply_payment(attempt_id, barrier, outcomes, errors):
+def _race_apply_payment(attempt_id, barrier, outcomes, errors, delay=0):
     from django.db import close_old_connections
     from management.services.ig_checkout_generation import (
         apply_verified_generation_payment,
@@ -134,6 +135,8 @@ def _race_apply_payment(attempt_id, barrier, outcomes, errors):
     close_old_connections()
     try:
         barrier.wait()
+        if delay:
+            time.sleep(delay)
         order, created = apply_verified_generation_payment(
             attempt_id,
             payload={"paidAmount": 90000},
@@ -348,9 +351,13 @@ def _orchestrate(args):
     # canonical winner service, generation-scoped resources, stable Order key,
     # loser review and replay. No direct winner fields are written here.
     from management.models import (
+        IgBotNotification,
         IgCheckoutInventoryReservation,
         IgCommercialEpisode,
         IgDeal,
+        IgPaymentEvent,
+        IgPaymentProjection,
+        provider_evidence_signature,
     )
     from orders.models import Order, PaymentAttempt
     from productcolors.models import Color, ProductColorVariant
@@ -484,9 +491,15 @@ def _orchestrate(args):
     apply_threads = [
         threading.Thread(
             target=_race_apply_payment,
-            args=(attempt.pk, apply_barrier, apply_outcomes, apply_errors),
+            args=(
+                attempt.pk,
+                apply_barrier,
+                apply_outcomes,
+                apply_errors,
+                (0.15 if index == 0 else 0),
+            ),
         )
-        for attempt in runtime_attempts
+        for index, attempt in enumerate(runtime_attempts)
     ]
     for thread in apply_threads:
         thread.start()
@@ -540,6 +553,81 @@ def _orchestrate(args):
         and replay_order.pk == runtime_orders[0].pk
         and not replay_created
         and Order.objects.filter(checkout_idempotency_key__isnull=False).count() == 1
+    )
+    loser_generation = IgCheckoutInvoiceGeneration.objects.get(
+        proposal=race_proposal,
+        state="late_paid_review",
+    )
+    loser_attempt = PaymentAttempt.objects.get(
+        pk=loser_generation.payment_attempt_id
+    )
+    loser_reservations = list(
+        IgCheckoutInventoryReservation.objects.filter(
+            invoice_generation=loser_generation
+        )
+    )
+    winner_generation = IgCheckoutInvoiceGeneration.objects.get(pk=winner_id)
+    winner_reservations = list(
+        IgCheckoutInventoryReservation.objects.filter(
+            invoice_generation=winner_generation
+        )
+    )
+    loser_event = IgPaymentEvent.objects.get(
+        event_key=f"attempt:{loser_attempt.pk}:verified"
+    )
+    signed_loser_event_ok = bool(
+        loser_event.evidence.get("signature")
+        == provider_evidence_signature(
+            deal_id=race_deal.pk,
+            client_id=race_client.pk,
+            provider=loser_event.provider,
+            source=loser_event.source,
+            invoice_id=loser_event.invoice_id,
+            provider_status=loser_event.provider_status,
+            payload_digest=loser_event.payload_digest,
+        )
+    )
+    projection = IgPaymentProjection.objects.get(deal=race_deal)
+    loser_lifecycle_ok = bool(
+        IgCheckoutInvoiceGeneration.objects.filter(
+            proposal=race_proposal,
+            state="late_paid_review",
+        ).count()
+        == 1
+        and loser_attempt.order_id is None
+        and loser_attempt.status in {"paid", "prepaid"}
+        and loser_generation.active_slot is None
+        and all(row.state == "released" for row in loser_reservations)
+        and all(row.state in {"fulfilled", "paid_committed"} for row in winner_reservations)
+        and not IgCheckoutInvoiceGeneration.objects.filter(
+            proposal=race_proposal,
+            active_slot=1,
+        ).exists()
+        and not IgCheckoutInventoryReservation.objects.filter(
+            proposal=race_proposal,
+            state="active",
+        ).exists()
+        and signed_loser_event_ok
+        and projection.truth == "confirmed"
+        and IgBotNotification.objects.filter(
+            dedupe_key__startswith=(
+                f"ig-checkout-generation-review:{loser_generation.pk}:"
+            )
+        ).exists()
+    )
+    loser_replay_order, loser_replay_created = apply_verified_generation_payment(
+        loser_attempt.pk,
+        payload={"paidAmount": 90000},
+        source="provider_pull",
+    )
+    loser_replay_ok = bool(
+        loser_replay_order is None
+        and not loser_replay_created
+        and Order.objects.filter(checkout_idempotency_key__isnull=False).count() == 1
+        and IgPaymentEvent.objects.filter(
+            event_key=f"attempt:{loser_attempt.pk}:verified"
+        ).count()
+        == 1
     )
     variant.refresh_from_db()
     runtime_resource_ok = variant.stock == 4
@@ -596,6 +684,8 @@ def _orchestrate(args):
         "runtime_winner_race_ok": runtime_race_ok,
         "runtime_replay_ok": runtime_replay_ok,
         "runtime_resource_ok": runtime_resource_ok,
+        "runtime_loser_lifecycle_ok": loser_lifecycle_ok,
+        "runtime_loser_replay_ok": loser_replay_ok,
         "event_update_rejected": event_update_rejected,
         "event_delete_rejected": event_delete_rejected,
         "migration_recorded": TARGET in MigrationRecorder(resumed).applied_migrations(),
@@ -611,6 +701,7 @@ def _orchestrate(args):
             "winner_slot_rejected", "winner_race_ok", "event_update_rejected",
             "event_delete_rejected",
             "runtime_winner_race_ok", "runtime_replay_ok", "runtime_resource_ok",
+            "runtime_loser_lifecycle_ok", "runtime_loser_replay_ok",
             "migration_recorded", "reverse_refused", "reverse_schema_preserved",
         )
     ):

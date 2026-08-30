@@ -182,13 +182,44 @@ class CheckoutGenerationTriggerTests(TransactionTestCase):
             )
             migration._validate_check_predicate(editor, table, check_name)
 
-        with patch.object(
-            migration,
-            "_physical_check_clause",
-            return_value="generation >= 0",
-        ), self.assertRaisesRegex(RuntimeError, "incompatible predicate"):
-            migration._validate_check_predicate(
-                editor,
-                migration.GENERATION_TABLE,
+        weak_predicates = (
+            (
                 "ig_invgen_generation_positive",
-            )
+                migration.GENERATION_TABLE,
+                "generation >= 0",
+            ),
+            (
+                "ig_invgen_payment_positive",
+                migration.GENERATION_TABLE,
+                "payment_amount <> 0",
+            ),
+            (
+                "ig_invgen_active_slot_shape",
+                migration.GENERATION_TABLE,
+                "active_slot IS NULL OR active_slot >= 1",
+            ),
+            (
+                "ig_invgen_winner_slot_shape",
+                migration.GENERATION_TABLE,
+                "winner_slot IS NULL OR winner_slot BETWEEN 1 AND 2",
+            ),
+            (
+                "ig_prop_v2_policy_shape",
+                migration.PROPOSAL_TABLE,
+                "assisted_checkout_v2 = 0 OR payment_policy <> ''",
+            ),
+        )
+        for check_name, table, clause in weak_predicates:
+            with self.subTest(check_name=check_name), patch.object(
+                migration,
+                "_physical_check_clause",
+                return_value=clause,
+            ), self.assertRaisesRegex(
+                RuntimeError,
+                "incompatible normalized predicate",
+            ):
+                migration._validate_check_predicate(
+                    editor,
+                    table,
+                    check_name,
+                )

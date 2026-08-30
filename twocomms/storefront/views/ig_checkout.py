@@ -584,6 +584,8 @@ def _checkout_state(proposal):
         return "unavailable"
     if proposal.status == proposal.Status.SUPERSEDED:
         return "superseded"
+    if proposal.status == proposal.Status.MANAGER_REVIEW:
+        return "cancellation_ambiguous"
     if proposal.status == proposal.Status.EXPIRED or proposal.is_expired:
         return "expired"
     generation = (
@@ -599,7 +601,11 @@ def _checkout_state(proposal):
     if generation is not None:
         if generation.state == generation.State.PAID_WINNER:
             return "paid"
-        if generation.state == generation.State.RESOURCE_REVIEW:
+        if generation.state in {
+            generation.State.RESOURCE_REVIEW,
+            generation.State.AMBIGUITY_REVIEW,
+            generation.State.LATE_PROVIDER_REVIEW,
+        }:
             return "cancellation_ambiguous"
         if generation.state in {
             generation.State.FAILED,

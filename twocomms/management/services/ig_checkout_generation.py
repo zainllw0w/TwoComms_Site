@@ -532,6 +532,11 @@ def _persist_provider_success(
             "provider_completed_at", "ambiguity_review_due_at", "review_reason",
             "updated_at",
         ])
+        _gate_proposal_for_late_provider_review(
+            proposal,
+            generation,
+            now=now,
+        )
         attempt.monobank_invoice_id = generation.provider_invoice_id
         attempt.invoice_url = str(invoice_url)[:600]
         attempt.invoice_payload = {
@@ -867,6 +872,7 @@ def _queue_ambiguity_review(proposal, generation, attempt, *, reason):
 
 
 def _mark_losing_paid_generation(
+    deal,
     proposal,
     generation,
     attempt,
@@ -881,6 +887,16 @@ def _mark_losing_paid_generation(
             payload=payload,
             source=source,
             now=now,
+        )
+        from management.services.ig_checkout_payment import (
+            project_verified_payment_without_order,
+        )
+
+        project_verified_payment_without_order(
+            attempt=attempt,
+            deal=deal,
+            proposal=proposal,
+            verified_at=now,
         )
         generation.state = generation.State.LATE_PAID_REVIEW
         generation.active_slot = None
@@ -914,6 +930,45 @@ def _mark_losing_paid_generation(
         attempt,
         reason="paid_losing_generation_refund_review",
     )
+
+
+def _mark_obsolete_paid_review(
+    deal,
+    proposal,
+    generation,
+    attempt,
+    *,
+    payload,
+    source,
+    now,
+    reason,
+):
+    resource_conflict = generation.state in {
+        generation.State.FAILED,
+        generation.State.EXPIRED,
+        generation.State.CANCELLED,
+    } or generation.inventory_reservations.filter(
+        state__in=["released", "overbooked_review"]
+    ).exists()
+    _mark_losing_paid_generation(
+        deal,
+        proposal,
+        generation,
+        attempt,
+        payload=payload,
+        source=source,
+        now=now,
+    )
+    if resource_conflict:
+        generation.state = generation.State.RESOURCE_REVIEW
+    generation.review_reason = str(reason or "obsolete_paid_generation")[:96]
+    generation.save(update_fields=["state", "review_reason", "updated_at"])
+    if proposal.winner_invoice_generation_id is None:
+        _gate_proposal_for_late_provider_review(
+            proposal,
+            generation,
+            now=now,
+        )
 
 
 def _mark_resource_review(
@@ -1023,6 +1078,51 @@ def _retire_competing_generations(proposal, winner, *, now):
         )
 
 
+def _gate_proposal_for_late_provider_review(proposal, obsolete, *, now):
+    """Cancel every other payable generation without repointing the obsolete one."""
+    siblings = getattr(obsolete, "_locked_sibling_generations", ())
+    for row in siblings:
+        if row.pk == obsolete.pk or row.active_slot != 1 or not row.payment_attempt_id:
+            continue
+        attempt = PaymentAttempt.objects.select_for_update().get(pk=row.payment_attempt_id)
+        row.state = row.State.CANCELLED
+        row.active_slot = None
+        row.terminal_at = now
+        row.review_reason = "late_provider_result_proposal_gate"
+        row.save(update_fields=[
+            "state", "active_slot", "terminal_at", "review_reason", "updated_at",
+        ])
+        if attempt.order_id is None and not attempt.checkout_winner_claimed:
+            attempt.status = PaymentAttempt.Status.CANCELLED
+            attempt.error_reason = "late_provider_result_proposal_gate"
+            attempt.last_status_at = now
+            attempt.save(update_fields=[
+                "status", "error_reason", "last_status_at", "updated",
+            ])
+        release_generation_inventory(
+            row,
+            reason="late_provider_result_proposal_gate",
+        )
+        release_attempt_promo(
+            attempt,
+            reason="late_provider_result_proposal_gate",
+        )
+        _event(
+            row,
+            "terminalized",
+            f"late-provider-gate:{obsolete.pk}",
+            payload={"obsolete_generation_id": obsolete.pk},
+        )
+    proposal.current_invoice_generation = None
+    proposal.payment_attempt = None
+    proposal.details_locked_at = None
+    proposal.status = proposal.Status.MANAGER_REVIEW
+    proposal.save(update_fields=[
+        "current_invoice_generation", "payment_attempt", "details_locked_at",
+        "status", "updated_at",
+    ])
+
+
 def apply_verified_generation_payment(
     attempt_id,
     *,
@@ -1043,9 +1143,6 @@ def apply_verified_generation_payment(
         if graph is None:
             return None, False
         deal, proposal, generation, attempt = graph
-        force_late_series_review = (
-            generation.state == generation.State.LATE_PROVIDER_REVIEW
-        )
         if attempt.order_id:
             return attempt.order, False
         if generation.state == generation.State.RESOURCE_REVIEW:
@@ -1061,6 +1158,7 @@ def apply_verified_generation_payment(
             and proposal.winner_invoice_generation_id != generation.pk
         ):
             _mark_losing_paid_generation(
+                deal,
                 proposal,
                 generation,
                 attempt,
@@ -1071,6 +1169,38 @@ def apply_verified_generation_payment(
             return None, False
 
         now = timezone.now()
+        obsolete_reason = ""
+        if deal.order_id:
+            obsolete_reason = "deal_order_already_exists"
+        elif getattr(proposal.commercial_episode, "intended_order_id", None):
+            obsolete_reason = "episode_order_already_exists"
+        elif deal.active_checkout_proposal_id != proposal.pk:
+            obsolete_reason = "proposal_not_active_for_deal"
+        elif proposal.current_invoice_generation_id != generation.pk:
+            obsolete_reason = "generation_not_current"
+        elif proposal.status not in {
+            proposal.Status.DETAILS_LOCKED,
+            proposal.Status.INVOICE_CREATED,
+        }:
+            obsolete_reason = f"proposal_{proposal.status or 'unknown'}"
+        elif generation.state in {
+            generation.State.LATE_PROVIDER_REVIEW,
+            generation.State.AMBIGUITY_REVIEW,
+        }:
+            obsolete_reason = f"generation_{generation.state}"
+        if obsolete_reason:
+            _mark_obsolete_paid_review(
+                deal,
+                proposal,
+                generation,
+                attempt,
+                payload=payload,
+                source=source,
+                now=now,
+                reason=obsolete_reason,
+            )
+            return None, False
+
         if not proposal.winner_invoice_generation_id:
             generation.winner_slot = 1
             generation.active_slot = None
@@ -1101,20 +1231,6 @@ def apply_verified_generation_payment(
                 generation,
                 now=now,
             )
-
-        if force_late_series_review:
-            _mark_resource_review(
-                deal,
-                proposal,
-                generation,
-                attempt,
-                payload=payload,
-                source=source,
-                now=now,
-            )
-            generation.review_reason = "late_provider_generation_payment_conflict"
-            generation.save(update_fields=["review_reason", "updated_at"])
-            return None, False
 
         try:
             commit_generation_inventory(
