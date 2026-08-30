@@ -413,14 +413,14 @@ def _latest_request_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _metadata_batch_key(row: dict[str, Any]) -> str:
-    """Group the six alias request IDs emitted by one hourly run."""
+    """Group the six alias request IDs emitted by one manual diagnostic."""
     request_id = str(row.get("request_id") or "").strip()
     match = _METADATA_BATCH_RE.fullmatch(request_id)
     return match.group(1) if match else request_id
 
 
 def _latest_metadata_batch(rows: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """Return redacted completeness evidence for the newest metadata batch."""
+    """Return redacted completeness evidence for the newest manual batch."""
     if not rows:
         return None
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)

@@ -1885,6 +1885,9 @@ body.bot-drawer-open{overflow:hidden;}
       {id:'gemini-3.5-flash',short:'3.5'},
       {id:'gemini-3.5-flash-lite',short:'3.5 Lite'},
     ];
+    const schemaVersion=4;
+    const slotOrder=['gslot_7f3a','gslot_c921','gslot_18de','gslot_a604','gslot_52bb','gslot_e17c'];
+    const slotSet=new Set(slotOrder);
     const stateLabels={available:'Доступний у пулі',busy:'Зайнятий у пулі',cooldown:'Cooldown у пулі',unconfigured:'Не налаштовано',unavailable:'Недоступний у пулі'};
     const liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО',DEGRADED:'DEGRADED',OFFLINE:'OFFLINE',STALE:'STALE',NOT_CONFIGURED:'NOT CONFIGURED'};
     const liveStateDescriptions={LIVE:'Нещодавня реальна генерація успішна',READY:'Ручний metadata GET успішний; генерацію не доведено',DEGRADED:'Основний маршрут не пройшов, але fallback підтверджено',OFFLINE:'Жоден маршрут не підтверджено',STALE:'Немає свіжого спостереження',NOT_CONFIGURED:'Секрет для alias не налаштовано'};
@@ -1906,58 +1909,30 @@ body.bot-drawer-open{overflow:hidden;}
     function liveStateClass(value){return 'is-'+normalizeLiveState(value).toLowerCase().replaceAll('_','-');}
     function normalizeObservation(value){const state=String(value||'no_observation');return allowedObservationStates.has(state)?state:'no_observation';}
     function shortModel(value){const model=models.find(item=>item.id===String(value||''));return model?model.short:'';}
-    function evidenceTimestamp(data){
-      const value=data&& (data.last_observation_at||data.last_check_at||data.checked_at);
-      const parsed=Date.parse(String(value||''));return Number.isFinite(parsed)?parsed:0;
-    }
-    function mergeEvidence(generation,metadata){
-      const generationData=generation&&typeof generation==='object'?generation:{};
-      const metadataData=metadata&&typeof metadata==='object'?metadata:{};
-      const generationHistory=Array.isArray(generationData.history)?generationData.history:[];
-      const metadataHistory=Array.isArray(metadataData.history)?metadataData.history:[];
-      const bucketSources=[];
-      const mergedHistory=Array.from({length:24},(_,index)=>{
-        const generationBucket=generationHistory[index]&&typeof generationHistory[index]==='object'?generationHistory[index]:{};
-        const metadataBucket=metadataHistory[index]&&typeof metadataHistory[index]==='object'?metadataHistory[index]:{};
-        const generationStatus=normalizeObservation(generationBucket.status);
-        if(generationStatus!=='no_observation'){
-          bucketSources[index]='generation';
-          return {...metadataBucket,...generationBucket,status:generationStatus};
-        }
-        const metadataStatus=normalizeObservation(metadataBucket.status);
-        if(metadataStatus!=='no_observation'){
-          bucketSources[index]='metadata';
-          return metadataBucket;
-        }
-        bucketSources[index]='none';
-        const bucketStart=generationBucket.bucket_start||metadataBucket.bucket_start;
-        return bucketStart?{bucket_start:bucketStart,status:'no_observation'}:{status:'no_observation'};
+    function normalizeSnapshot(data){
+      if(!data||typeof data!=='object'||Number(data.schema_version)!==schemaVersion||!Array.isArray(data.keys))return null;
+      const bySlot=new Map();
+      for(const item of data.keys){
+        if(!item||typeof item!=='object')return null;
+        const slotId=String(item.slot_id||'');
+        if(!slotSet.has(slotId)||bySlot.has(slotId))return null;
+        bySlot.set(slotId,item);
+      }
+      if(bySlot.size!==slotOrder.length)return null;
+      const keyRows=slotOrder.map((slotId,index)=>{
+        const item=bySlot.get(slotId);const expectedLabel='API key '+String(index+1);
+        if(String(item.display_label||'')!==expectedLabel)return null;
+        return {...item,slot_id:slotId,display_label:expectedLabel};
       });
-      const selectedStatuses=mergedHistory.map(bucket=>normalizeObservation(bucket.status));
-      const meaningfulStatuses=selectedStatuses.filter(status=>status!=='no_observation'&&status!=='not_needed');
-      const generationUsed=bucketSources.includes('generation');
-      const metadataUsed=bucketSources.includes('metadata');
-      const soleData=generationUsed&&!metadataUsed?generationData:metadataUsed&&!generationUsed?metadataData:null;
-      const generationAt=evidenceTimestamp(generationData);const metadataAt=evidenceTimestamp(metadataData);
-      const rawGeneration=integer(generationData.observations)>0;
-      const rawMetadata=integer(metadataData.observations)>0;
-      const fallbackSource=(metadataAt>generationAt||(!generationAt&&!rawGeneration&&rawMetadata))?'metadata':(generationAt||rawGeneration)?'generation':'none';
-      const fallbackData=soleData||(fallbackSource==='metadata'?metadataData:generationData);
-      const latestObservedIndex=selectedStatuses.reduce((found,status,index)=>status!=='no_observation'?index:found,-1);
-      const latestMeaningfulIndex=selectedStatuses.reduce((found,status,index)=>status!=='no_observation'&&status!=='not_needed'?index:found,-1);
-      const latestIndex=latestMeaningfulIndex>=0?latestMeaningfulIndex:latestObservedIndex;
-      const latestSource=latestIndex>=0?bucketSources[latestIndex]:fallbackSource;
-      const latestData=latestSource==='metadata'?metadataData:generationData;
-      const mergedHasObservations=selectedStatuses.some(status=>status!=='no_observation');
-      const observations=soleData?integer(soleData.observations):mergedHasObservations?selectedStatuses.filter(status=>status!=='no_observation').length:integer(fallbackData.observations);
-      const skipped=soleData?integer(soleData.skipped):selectedStatuses.filter(status=>status==='not_needed').length;
-      const successes=soleData?integer(soleData.successes):meaningfulStatuses.filter(status=>status==='success'||status==='recovered').length;
-      const failures=soleData?integer(soleData.failures):Math.max(0,meaningfulStatuses.length-successes);
-      const recovered=soleData?integer(soleData.recovered):selectedStatuses.filter(status=>status==='recovered').length;
-      const status=latestIndex>=0?selectedStatuses[latestIndex]:normalizeObservation(fallbackData.status);
-      const source=generationUsed&&metadataUsed?'реальна генерація + ручний metadata':generationUsed?'реальна генерація':metadataUsed?'ручний metadata':fallbackSource==='generation'?'реальна генерація':fallbackSource==='metadata'?'ручний metadata':'';
-      const data={...fallbackData,status,observations,successes,failures,skipped,recovered,last_observation_at:soleData?fallbackData.last_observation_at:(latestData.last_observation_at||fallbackData.last_observation_at||null),last_latency_ms:integer(soleData?fallbackData.last_latency_ms:(latestData.last_latency_ms||fallbackData.last_latency_ms)),history:mergedHistory};
-      return {data,source};
+      return keyRows.includes(null)?null:{...data,keys:keyRows};
+    }
+    function metadataEvidenceText(data){
+      const metadata=data&&typeof data==='object'?data:{};if(!integer(metadata.observations))return '';
+      const state=normalizeObservation(metadata.status);
+      if(state==='success'||state==='recovered')return 'Metadata: доступна';
+      if(state==='terminal')return 'Metadata: помилка';
+      if(state==='not_needed')return 'Metadata: не потрібна';
+      return 'Metadata: недостатньо даних';
     }
     function renderSummary(data,keyRows){
       if(!summary)return;const rows=Array.isArray(keyRows)?keyRows:[];const states=rows.map(item=>normalizeLiveState(item&&item.live_state));
@@ -1972,7 +1947,7 @@ body.bot-drawer-open{overflow:hidden;}
       const checked=integer(batch.checked_aliases);const expected=integer(batch.expected_aliases)||6;
       batchStatus.textContent='Остання ручна metadata-діагностика: '+checked+'/'+expected+' ключів · '+formatDate(batch.completed_at);
       batchStatus.classList.add(batch.complete?'is-complete':'is-incomplete');
-      batchStatus.title=batch.complete?'Усі ключі цього hourly batch мають збережене спостереження':'Частина ключів цього hourly batch не має збереженого спостереження';
+      batchStatus.title=batch.complete?'Усі ключі цієї ручної діагностики мають збережене спостереження':'Частина ключів цієї ручної діагностики не має збереженого спостереження';
     }
     function renderFallback(data,latestRoute){
       if(!fallback)return;fallback.replaceChildren();fallback.hidden=false;
@@ -1996,7 +1971,7 @@ body.bot-drawer-open{overflow:hidden;}
       const httpCode=integer(data.http_code);const httpDetail=httpCode?' · HTTP '+httpCode:'';
       fallback.append(make('strong','',from+' → '+to),make('span','',reason+httpDetail+' · '+formatDate(data.observed_at)));
     }
-    function renderModel(modelConfig,modelData,keyLabel,source){
+    function renderModel(modelConfig,modelData,keyLabel,metadataData){
       const data=modelData&&typeof modelData==='object'?modelData:{};
       const row=make('div','gemini-health-model');
       row.appendChild(make('span','gemini-health-model-label',modelConfig.short));
@@ -2017,17 +1992,21 @@ body.bot-drawer-open{overflow:hidden;}
       if(!observations){meta.dataset.observationState='insufficient_observations';headline='Недостатньо спостережень';}
       else if(normalizeObservation(data.status)==='not_needed'){headline='Не потрібна';detail='Маршрут уже підтверджено · ручний зріз';}
       else{const ratio=Math.round((successes/observations)*100);headline=successes+'/'+observations+' · '+ratio+'%';detail=(integer(data.last_latency_ms)?integer(data.last_latency_ms)+' ms · ':'')+(observationLabels[normalizeObservation(data.status)]||'Немає даних');}
-      if(source)detail+=(detail?' · ':'')+source;
-      meta.append(make('strong','',headline));if(detail)meta.append(make('span','gemini-health-model-detail',detail));meta.title=[headline,detail].filter(Boolean).join(' · ');
+      const metadataDetail=metadataEvidenceText(metadataData);
+      meta.append(make('strong','',headline));
+      if(detail)meta.append(make('span','gemini-health-model-detail',detail));
+      if(metadataDetail)meta.append(make('span','gemini-health-model-detail is-metadata',metadataDetail));
+      meta.title=[headline,detail,metadataDetail].filter(Boolean).join(' · ');
       row.appendChild(meta);return row;
     }
     function renderKey(item,index){
-      const data=item&&typeof item==='object'?item:{};const label='API key '+String(index);const state=normalizeState(data.state);const liveState=normalizeLiveState(data.live_state);
+      const data=item&&typeof item==='object'?item:{};const label=String(data.display_label||'API key '+String(index));const state=normalizeState(data.state);const liveState=normalizeLiveState(data.live_state);
       const row=make('article','gemini-health-row');
       const meta=make('div','gemini-health-key-meta');
       const liveCapsule=make('span','gemini-health-live-capsule '+liveStateClass(liveState),liveStateLabels[liveState]);liveCapsule.title=liveStateDescriptions[liveState];liveCapsule.setAttribute('aria-label',liveStateDescriptions[liveState]);
       const activeModel=shortModel(data.active_model);const activeRoute=make('span','gemini-health-active-route',activeModel?'Маршрут '+activeModel:'Маршрут не підтверджено');
-      const evidence=make('span','gemini-health-evidence',data.source==='generation'?'Доведено реальною генерацією':data.source==='manual_metadata'?'Ручний metadata GET':'Очікує першого спостереження');
+      const evidenceText=data.source==='generation'?(data.freshness==='stale'?'Остання реальна генерація застаріла':'Доведено реальною генерацією'):data.source==='manual_metadata'?'Ручний metadata GET':'Очікує першого спостереження';
+      const evidence=make('span','gemini-health-evidence',evidenceText);
       const poolState=make('span','gemini-health-pool-state is-'+state,stateLabels[state]);
       meta.append(make('div','gemini-health-key-title',label),liveCapsule,activeRoute,evidence,poolState);row.appendChild(meta);
       const modelRows=make('div','gemini-health-models');
@@ -2035,8 +2014,7 @@ body.bot-drawer-open{overflow:hidden;}
       models.forEach(model=>{
         const generation=generationModels[model.id]&&typeof generationModels[model.id]==='object'?generationModels[model.id]:{};
         const metadata=metadataModels[model.id]&&typeof metadataModels[model.id]==='object'?metadataModels[model.id]:{};
-        const evidenceData=mergeEvidence(generation,metadata);
-        modelRows.appendChild(renderModel(model,evidenceData.data,label,evidenceData.source));
+        modelRows.appendChild(renderModel(model,generation,label,metadata));
       });
       row.appendChild(modelRows);
       const actions=make('div','gemini-health-actions');const actionLabel=make('label','', 'Ручна перевірка');
@@ -2051,7 +2029,7 @@ body.bot-drawer-open{overflow:hidden;}
           const response=await fetch(probeUrl,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body});
           const result=await response.json().catch(()=>({}));if(!response.ok||result.success===false)throw new Error('probe_failed');
           const refreshed=await load();
-          if(refreshed&&result.probe&&result.probe.status==='ok')setFeedback('Ручну перевірку завершено; ключ відповів.','success');
+          if(refreshed&&result.probe&&['ok','metadata_ok'].includes(result.probe.status))setFeedback('Ручну перевірку завершено; ключ відповів.','success');
           else if(refreshed)setFeedback('Результат ручної перевірки зафіксовано у зрізі.','stale');
           else setFeedback('Перевірку завершено, але новий зріз поки недоступний.','stale');
         }catch(_){setFeedback('Ручна перевірка не завершилася. Спробуйте пізніше.','error');}
@@ -2061,7 +2039,7 @@ body.bot-drawer-open{overflow:hidden;}
     }
     function render(data,{passive=false}={}){
       lastSnapshot=data;const source=Array.isArray(data.keys)?data.keys:[];renderSummary(data.summary||{},source);renderBatch(data);renderFallback(data.fallback||null,data.latest_route||null);
-      if(keys){keys.replaceChildren();for(let index=1;index<=6;index+=1)keys.appendChild(renderKey(source[index-1]||{},index));keys.setAttribute('aria-busy','false');}
+      if(keys){const sourceBySlot=new Map(source.map(item=>[String(item.slot_id||''),item]));keys.replaceChildren();slotOrder.forEach((slotId,index)=>keys.appendChild(renderKey(sourceBySlot.get(slotId),index+1)));keys.setAttribute('aria-busy','false');}
       if(freshness){freshness.textContent='Оновлено '+formatDate(data.generated_at);freshness.title=String(data.generated_at||'');}
       if(!passive){const summaryData=data.summary||{};const observations=integer(summaryData.observations)+integer(summaryData.metadata_observations);setFeedback(observations?'На графіку лише збережені спроби, без фонових запитів.':'За 24 години ще немає спостережень.','');}
     }
@@ -2078,8 +2056,8 @@ body.bot-drawer-open{overflow:hidden;}
       if(!passive){if(keys)keys.setAttribute('aria-busy','true');setFeedback(lastSnapshot?'Оновлюємо збережений зріз…':'Завантажуємо збережений зріз…');}
       try{
         const response=await fetch(healthUrl,{headers:{'X-Requested-With':'XMLHttpRequest'}});
-        const raw=await response.json().catch(()=>({}));const data=raw&&raw.snapshot&&typeof raw.snapshot==='object'?raw.snapshot:raw;
-        if(!response.ok||!data||!Array.isArray(data.keys))throw new Error('invalid_schema');render(data,{passive});return true;
+        const raw=await response.json().catch(()=>({}));const data=raw&&raw.snapshot&&typeof raw.snapshot==='object'?raw.snapshot:raw;const normalized=normalizeSnapshot(data);
+        if(!response.ok||!normalized)throw new Error('invalid_schema');render(normalized,{passive});return true;
       }catch(_){
         if(keys&&!passive)keys.setAttribute('aria-busy','false');
         if(lastSnapshot){if(!passive)setFeedback('Новий зріз недоступний; показано останні успішно завантажені дані.','stale');}

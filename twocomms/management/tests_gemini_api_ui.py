@@ -28,7 +28,8 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         ):
             self.assertIn(f'id="{element_id}"', self.template)
         self.assertIn("'API key '+String(index)", self.template)
-        self.assertIn("for(let index=1;index<=6;index+=1)", self.template)
+        self.assertIn("slotOrder.forEach((slotId,index)", self.template)
+        self.assertIn("sourceBySlot.get(slotId)", self.template)
 
         tab_start = self.template.index('data-tab="api"')
         tab_guard_start = self.template.rindex("{% if bot_is_admin %}", 0, tab_start)
@@ -153,7 +154,7 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         self.assertIn("<span>ПЕРЕВІРЕНО</span>", panel)
         self.assertNotIn("<span>READY</span>", panel)
 
-    def test_checker_shows_saved_hourly_batch_completeness(self):
+    def test_checker_shows_saved_manual_batch_completeness(self):
         panel_start = self.template.index('data-panel="api"')
         panel_end = self.template.index("{% endif %}", panel_start)
         panel = self.template[panel_start:panel_end]
@@ -166,28 +167,42 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         self.assertIn("checked_aliases", source)
         self.assertIn("expected_aliases", source)
         self.assertIn("complete", source)
+        self.assertNotIn("hourly batch", source)
 
-    def test_rails_merge_generation_before_metadata_per_bucket(self):
+    def test_generation_rails_keep_metadata_as_separate_capability_detail(self):
         start = self.template.index("const GeminiHealth=(function(){")
         end = self.template.index("/* ============", start + 32)
         source = self.template[start:end]
 
         for contract in (
-            "function mergeEvidence(generation,metadata)",
-            "const mergedHistory=Array.from({length:24}",
-            "const generationStatus=normalizeObservation(generationBucket.status)",
-            "if(generationStatus!=='no_observation')",
-            "const metadataStatus=normalizeObservation(metadataBucket.status)",
-            "if(metadataStatus!=='no_observation')",
-            "return metadataBucket;",
-            "history:mergedHistory",
-            "const evidenceData=mergeEvidence(generation,metadata)",
+            "function metadataEvidenceText(data)",
+            "function renderModel(modelConfig,modelData,keyLabel,metadataData)",
+            "const history=Array.isArray(data.history)?data.history:[]",
+            "const metadataDetail=metadataEvidenceText(metadataData)",
+            "renderModel(model,generation,label,metadata)",
         ):
             self.assertIn(contract, source)
-        self.assertLess(
-            source.index("if(generationStatus!=='no_observation')"),
-            source.index("if(metadataStatus!=='no_observation')"),
-        )
+        self.assertNotIn("function mergeEvidence", source)
+        self.assertNotIn("return metadataBucket", source)
+
+    def test_snapshot_schema_and_project_slots_are_strict_and_stable(self):
+        start = self.template.index("const GeminiHealth=(function(){")
+        end = self.template.index("/* ============", start + 32)
+        source = self.template[start:end]
+
+        for contract in (
+            "const schemaVersion=4",
+            "const slotOrder=['gslot_7f3a','gslot_c921','gslot_18de','gslot_a604','gslot_52bb','gslot_e17c']",
+            "function normalizeSnapshot(data)",
+            "Number(data.schema_version)!==schemaVersion",
+            "const bySlot=new Map()",
+            "bySlot.has(slotId)",
+            "bySlot.size!==slotOrder.length",
+            "String(item.display_label||'')!==expectedLabel",
+            "const normalized=normalizeSnapshot(data)",
+        ):
+            self.assertIn(contract, source)
+        self.assertNotIn("source[index-1]", source)
 
     def test_api_styles_stack_narrow_and_honor_reduced_motion(self):
         for contract in (
