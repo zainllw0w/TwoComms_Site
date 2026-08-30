@@ -99,7 +99,8 @@ def _race_winner(proposal_id, generation_id, barrier, outcomes):
             outcomes.append((generation_id, "loser"))
         else:
             generation.winner_slot = 1
-            generation.save(update_fields=["winner_slot", "updated_at"])
+            generation.state = "winner_claimed"
+            generation.save(update_fields=["winner_slot", "state", "updated_at"])
             proposal.winner_invoice_generation = generation
             proposal.save(update_fields=["winner_invoice_generation", "updated_at"])
             outcomes.append((generation_id, "winner"))
@@ -283,15 +284,18 @@ def _orchestrate(args):
             invalid_checks_rejected += 1
     winner_slot_rejected = False
     first.winner_slot = 1
-    first.save(update_fields=["winner_slot", "updated_at"])
+    first.state = "winner_claimed"
+    first.save(update_fields=["winner_slot", "state", "updated_at"])
     try:
         with transaction.atomic():
             second.winner_slot = 1
-            second.save(update_fields=["winner_slot", "updated_at"])
+            second.state = "winner_claimed"
+            second.save(update_fields=["winner_slot", "state", "updated_at"])
     except IntegrityError:
         winner_slot_rejected = True
     first.winner_slot = None
-    first.save(update_fields=["winner_slot", "updated_at"])
+    first.state = "planned"
+    first.save(update_fields=["winner_slot", "state", "updated_at"])
     second.refresh_from_db()
 
     barrier = threading.Barrier(2)

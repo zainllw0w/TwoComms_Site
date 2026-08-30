@@ -20,6 +20,11 @@ _DIRECT_PREPAY_QUESTION_RE = re.compile(
     r".{0,80}\b(?:200|двісті|двести)\s*(?:грн|uah|₴)?\b)",
     re.IGNORECASE | re.DOTALL,
 )
+_QUESTION_MARKER_RE = re.compile(
+    r"(?:\?|\b(?:можна|можно|чи|можливо|возможно|can\s+i|could\s+i|"
+    r"do\s+you|is\s+it\s+possible)\b)",
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,7 +86,10 @@ def resolve_payment_policy(
         )
     if latest.quick_reply_payload == PREPAY_200_QUICK_REPLY:
         kind = "quick_reply"
-    elif _DIRECT_PREPAY_QUESTION_RE.search(str(latest.text or "")):
+    elif (
+        _DIRECT_PREPAY_QUESTION_RE.search(str(latest.text or ""))
+        and _QUESTION_MARKER_RE.search(str(latest.text or ""))
+    ):
         kind = "direct_question"
     else:
         return PaymentPolicyDecision(

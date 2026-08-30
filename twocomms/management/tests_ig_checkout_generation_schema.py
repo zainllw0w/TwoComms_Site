@@ -128,9 +128,19 @@ class CheckoutGenerationSchemaTests(TestCase):
         )
         with self.assertRaises(IntegrityError), transaction.atomic():
             self._generation(proposal, 2, active_slot=1)
-        second = self._generation(proposal, 2, winner_slot=1)
+        second = self._generation(
+            proposal,
+            2,
+            winner_slot=1,
+            state=IgCheckoutInvoiceGeneration.State.WINNER_CLAIMED,
+        )
         with self.assertRaises(IntegrityError), transaction.atomic():
-            self._generation(proposal, 3, winner_slot=1)
+            self._generation(
+                proposal,
+                3,
+                winner_slot=1,
+                state=IgCheckoutInvoiceGeneration.State.WINNER_CLAIMED,
+            )
         other_client = IgClient.objects.create(
             igsid="checkout-generation-schema-other"
         )
