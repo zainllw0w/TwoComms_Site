@@ -351,6 +351,31 @@ class GeminiHealthApiTests(TestCase):
         self.assertEqual(key["source"], "manual_metadata")
         self.assertFalse(key["generation_quota_proven"])
 
+    def test_manual_metadata_ready_supports_every_display_model(self):
+        self._configure()
+        for model in gemini_health.DISPLAY_MODELS:
+            with self.subTest(model=model):
+                cache.clear()
+                GeminiRequestAttempt.objects.all().delete()
+                with patch(
+                    "management.services.gemini_probe.probe_key_metadata",
+                    return_value={
+                        "status": "metadata_ok",
+                        "http_code": 200,
+                        "finish_reason": "",
+                        "latency_ms": 9,
+                    },
+                ):
+                    response = self._post_probe(model=model)
+
+                self.assertEqual(response.status_code, 200)
+                snapshot = self.client.get(self._health_url()).json()
+                key = snapshot["keys"][0]
+                self.assertEqual(key["live_state"], "READY")
+                self.assertEqual(key["active_model"], model)
+                self.assertEqual(key["source"], "manual_metadata")
+                self.assertFalse(key["generation_quota_proven"])
+
     def test_failed_probe_normalizes_untrusted_result_and_does_not_cooldown(self):
         state = self._configure()
         provider_result = {

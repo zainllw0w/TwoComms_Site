@@ -395,7 +395,7 @@ class GeminiHealthSnapshotTests(TestCase):
             "terminal",
         )
 
-    def test_fallback_is_emitted_only_for_proven_37_failure_then_36_success(self):
+    def test_fallback_uses_neutral_timeout_reason_for_actual_models(self):
         at = self.now - datetime.timedelta(minutes=4)
         self._attempt(
             request_id="proven-fallback",
@@ -427,7 +427,7 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertIsNotNone(fallback)
         self.assertEqual(fallback["from_model"], "gemini-3.7-flash")
         self.assertEqual(fallback["to_model"], "gemini-3.6-flash")
-        self.assertEqual(fallback["reason"], "3.7 timed out")
+        self.assertEqual(fallback["reason"], "model timeout")
         self.assertEqual(fallback["http_code"], 503)
         serialized = json.dumps(snapshot)
         self.assertNotIn("provider secret detail", serialized)
@@ -641,10 +641,14 @@ class GeminiHealthSnapshotTests(TestCase):
             at=at + datetime.timedelta(seconds=1),
         )
 
-        winner_row = self._build()["keys"][1]
+        snapshot = self._build()
+        winner_row = snapshot["keys"][1]
 
         self.assertEqual(winner_row["live_state"], "DEGRADED")
         self.assertEqual(winner_row["active_model"], "gemini-3.5-flash")
+        self.assertEqual(snapshot["fallback"]["from_model"], "gemini-3.5-flash-lite")
+        self.assertEqual(snapshot["fallback"]["to_model"], "gemini-3.5-flash")
+        self.assertEqual(snapshot["fallback"]["reason"], "model timeout")
 
     def test_complex_chain_37_failure_then_lite_winner_is_degraded(self):
         at = self.now - datetime.timedelta(minutes=4)
@@ -767,6 +771,44 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(winner_row["live_state"], "DEGRADED")
         self.assertEqual(winner_row["active_model"], "gemini-3.5-flash")
 
+    def test_claimed_winner_beats_a_later_failed_loser_on_same_project(self):
+        at = self.now - datetime.timedelta(minutes=4)
+        self._attempt(
+            request_id="winner-before-late-failure",
+            key_name="GEMINI_API",
+            model="gemini-3.5-flash-lite",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=1,
+            at=at,
+        )
+        self._attempt(
+            request_id="winner-before-late-failure",
+            key_name="GEMINI_API2",
+            model="gemini-3.5-flash",
+            outcome="succeeded",
+            role="chat",
+            candidate_index=7,
+            winner_claimed=True,
+            at=at + datetime.timedelta(seconds=1),
+        )
+        self._attempt(
+            request_id="winner-before-late-failure",
+            key_name="GEMINI_API2",
+            model="gemini-3.6-flash",
+            outcome="failed",
+            failure_kind="read_timeout",
+            role="chat",
+            candidate_index=13,
+            at=at + datetime.timedelta(seconds=2),
+        )
+
+        winner_row = self._build()["keys"][1]
+
+        self.assertEqual(winner_row["live_state"], "DEGRADED")
+        self.assertEqual(winner_row["active_model"], "gemini-3.5-flash")
+
     def test_metadata_primary_failure_without_observed_fallback_is_stale(self):
         self._attempt(
             request_id="metadata-partial-deadline",
@@ -804,23 +846,26 @@ class GeminiHealthSnapshotTests(TestCase):
         self.assertEqual(model["skipped"], 1)
         self.assertEqual(set(bucket["status"] for bucket in model["history"]), {"no_observation", "not_needed"})
 
-    def test_metadata_success_is_ready_and_not_generation_evidence(self):
-        self._attempt(
-            request_id="metadata-ready",
-            key_name="GEMINI_API",
-            model="gemini-3.7-flash",
-            outcome="succeeded",
-            role="health_metadata",
-            at=self.now - datetime.timedelta(minutes=4),
-        )
+    def test_metadata_success_is_ready_for_every_model_and_quota_unproven(self):
+        for model in gemini_health.DISPLAY_MODELS:
+            with self.subTest(model=model):
+                GeminiRequestAttempt.objects.all().delete()
+                self._attempt(
+                    request_id=f"metadata-ready-{model}",
+                    key_name="GEMINI_API",
+                    model=model,
+                    outcome="succeeded",
+                    role="health_metadata",
+                    at=self.now - datetime.timedelta(minutes=4),
+                )
 
-        row = self._build()["keys"][0]
+                row = self._build()["keys"][0]
 
-        self.assertEqual(row["live_state"], "READY")
-        self.assertEqual(row["active_model"], "gemini-3.7-flash")
-        self.assertEqual(row["models"]["gemini-3.7-flash"]["observations"], 0)
-        self.assertEqual(row["metadata_models"]["gemini-3.7-flash"]["observations"], 1)
-        self.assertFalse(row["generation_quota_proven"])
+                self.assertEqual(row["live_state"], "READY")
+                self.assertEqual(row["active_model"], model)
+                self.assertEqual(row["models"][model]["observations"], 0)
+                self.assertEqual(row["metadata_models"][model]["observations"], 1)
+                self.assertFalse(row["generation_quota_proven"])
 
     def test_fresh_metadata_does_not_mask_stale_generation_state(self):
         self._attempt(

@@ -1892,7 +1892,7 @@ body.bot-drawer-open{overflow:hidden;}
     const liveStateLabels={LIVE:'LIVE',READY:'ПЕРЕВІРЕНО',DEGRADED:'DEGRADED',OFFLINE:'OFFLINE',STALE:'STALE',NOT_CONFIGURED:'NOT CONFIGURED'};
     const liveStateDescriptions={LIVE:'Нещодавня реальна генерація успішна',READY:'Ручний metadata GET успішний; генерацію не доведено',DEGRADED:'Основний маршрут не пройшов, але fallback підтверджено',OFFLINE:'Жоден маршрут не підтверджено',STALE:'Немає свіжого спостереження',NOT_CONFIGURED:'Секрет для alias не налаштовано'};
     const observationLabels={success:'Успішне',recovered:'Відновлено після збою',terminal:'Помилка',no_observation:'Немає даних',not_needed:'Не перевірялась: 3.7 успішна'};
-    const fallbackReasons={'3.7 timed out':'3.7 не відповіла вчасно','provider overload':'Провайдер перевантажений','network transport failure':'Помилка мережевого з’єднання','quota cooldown':'Ключ на cooldown','model unavailable':'Модель тимчасово недоступна','invalid key':'Ключ відхилено','invalid response':'Некоректна відповідь'};
+    const fallbackReasons={'model timeout':'Модель не відповіла вчасно','provider overload':'Провайдер перевантажений','network transport failure':'Помилка мережевого з’єднання','quota cooldown':'Ключ на cooldown','model unavailable':'Модель тимчасово недоступна','invalid key':'Ключ відхилено','invalid response':'Некоректна відповідь'};
     const allowedObservationStates=new Set(['success','recovered','terminal','no_observation','not_needed']);
     let lastSnapshot=null;
     let loading=false;
@@ -1965,11 +1965,12 @@ body.bot-drawer-open{overflow:hidden;}
       }
       if(!data){fallback.dataset.state='neutral';fallback.append(make('strong','', 'Перемикання не зафіксовано'),make('span','', 'За останні 24 години немає доведеного переходу між моделями.'));return;}
       fallback.dataset.state='fallback';
-      const from=models.some(item=>item.id===data.from_model)?data.from_model:'gemini-3.7-flash';
-      const to=models.some(item=>item.id===data.to_model)?data.to_model:'gemini-3.6-flash';
+      const from=models.some(item=>item.id===data.from_model)?data.from_model:'';
+      const to=models.some(item=>item.id===data.to_model)?data.to_model:'';
+      const routeLabel=from&&to?from+' → '+to:'Перемикання моделі';
       const reason=fallbackReasons[String(data.reason||'')]||'Причину нормалізовано сервером';
       const httpCode=integer(data.http_code);const httpDetail=httpCode?' · HTTP '+httpCode:'';
-      fallback.append(make('strong','',from+' → '+to),make('span','',reason+httpDetail+' · '+formatDate(data.observed_at)));
+      fallback.append(make('strong','',routeLabel),make('span','',reason+httpDetail+' · '+formatDate(data.observed_at)));
     }
     function renderModel(modelConfig,modelData,keyLabel,metadataData){
       const data=modelData&&typeof modelData==='object'?modelData:{};

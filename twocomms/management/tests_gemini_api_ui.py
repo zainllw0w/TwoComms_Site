@@ -185,6 +185,21 @@ class GeminiApiHealthTemplateContractTests(SimpleTestCase):
         self.assertNotIn("function mergeEvidence", source)
         self.assertNotIn("return metadataBucket", source)
 
+    def test_fallback_copy_uses_actual_models_and_neutral_timeout_reason(self):
+        start = self.template.index("const GeminiHealth=(function(){")
+        end = self.template.index("/* ============", start + 32)
+        source = self.template[start:end]
+
+        for contract in (
+            "'model timeout':'Модель не відповіла вчасно'",
+            "const from=models.some(item=>item.id===data.from_model)?data.from_model:''",
+            "const to=models.some(item=>item.id===data.to_model)?data.to_model:''",
+            "const routeLabel=from&&to?from+' → '+to:'Перемикання моделі'",
+        ):
+            self.assertIn(contract, source)
+        self.assertNotIn("'3.7 timed out'", source)
+        self.assertNotIn("?data.from_model:'gemini-3.7-flash'", source)
+
     def test_snapshot_schema_and_project_slots_are_strict_and_stable(self):
         start = self.template.index("const GeminiHealth=(function(){")
         end = self.template.index("/* ============", start + 32)

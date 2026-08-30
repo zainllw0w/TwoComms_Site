@@ -51,9 +51,9 @@ _METADATA_BATCH_RE = re.compile(r"^(meta-\d{10}-[0-9a-f]{8})-(?:I|[2-6])$")
 
 _SUCCESS_OUTCOMES = frozenset(("success", "succeeded", "ok"))
 _FAILURE_REASON_LABELS = {
-    "read_timeout": "3.7 timed out",
-    "timeout": "3.7 timed out",
-    "http_408": "3.7 timed out",
+    "read_timeout": "model timeout",
+    "timeout": "model timeout",
+    "http_408": "model timeout",
     "http_5xx": "provider overload",
     "transport": "network transport failure",
     "overload": "provider overload",
@@ -484,19 +484,19 @@ def _runtime_live_state(
     if not _fresh(local_request_rows, generated_at):
         return None
     latest = local_request_rows[-1]
+    route_rows = request_rows or local_request_rows
+    winner = _actual_winner(route_rows)
+    if (
+        winner is not None
+        and str(winner.get("key_name") or "") == str(latest.get("key_name") or "")
+    ):
+        winner_model = str(winner.get("model") or "")
+        return (
+            "DEGRADED" if _winner_used_fallback(route_rows, winner) else "LIVE",
+            winner_model if winner_model in GENERATION_MODELS else None,
+        )
     if _attempt_succeeded(latest):
         model = str(latest.get("model") or "")
-        route_rows = request_rows or local_request_rows
-        winner = _actual_winner(route_rows)
-        if (
-            winner is not None
-            and str(winner.get("key_name") or "") == str(latest.get("key_name") or "")
-        ):
-            winner_model = str(winner.get("model") or model)
-            return (
-                "DEGRADED" if _winner_used_fallback(route_rows, winner) else "LIVE",
-                winner_model if winner_model in GENERATION_MODELS else None,
-            )
         return "LIVE", model if model in GENERATION_MODELS else None
     return "OFFLINE", None
 
@@ -505,25 +505,21 @@ def _metadata_live_state(
     rows: list[dict[str, Any]], generated_at: dt.datetime,
 ) -> tuple[str, str | None] | None:
     """Classify one fresh, explicitly requested metadata observation."""
-    request_rows = _latest_request_rows(rows)
+    request_rows = [
+        row for row in _latest_request_rows(rows) if not _attempt_not_needed(row)
+    ]
     if not _fresh(request_rows, generated_at):
         return None
-    by_model = {
-        str(row.get("model") or ""): row
-        for row in request_rows
-        if str(row.get("model") or "") in DISPLAY_MODELS
-    }
-    primary = by_model.get(DISPLAY_MODELS[0])
-    secondary = by_model.get(DISPLAY_MODELS[1])
-    if primary and _attempt_succeeded(primary):
-        return "READY", DISPLAY_MODELS[0]
-    if primary and not _attempt_succeeded(primary):
-        if secondary and _attempt_succeeded(secondary):
-            return "DEGRADED", DISPLAY_MODELS[1]
-        if secondary and not _attempt_not_needed(secondary):
-            return "OFFLINE", None
+    winner = _actual_winner(request_rows)
+    if winner is None:
         return None
-    return None
+    winner_model = str(winner.get("model") or "")
+    if winner_model not in DISPLAY_MODELS:
+        return None
+    return (
+        "DEGRADED" if _winner_used_fallback(request_rows, winner) else "READY",
+        winner_model,
+    )
 
 
 def _pool_row_by_key(pool_rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
