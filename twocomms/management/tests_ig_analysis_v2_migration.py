@@ -40,7 +40,8 @@ class AnalysisV2MigrationTests(SimpleTestCase):
         self.assertIn("DROP TRIGGER IF EXISTS ig_anres_no_update", sql)
         self.assertIn("DROP TRIGGER IF EXISTS ig_anres_no_delete", sql)
         self.assertIn("DROP TRIGGER IF EXISTS ig_anprop_no_delete", sql)
-        self.assertEqual(sql.count("SIGNAL SQLSTATE '45000'"), 3)
+        self.assertIn("DROP TRIGGER IF EXISTS ig_anprop_identity_update", sql)
+        self.assertEqual(sql.count("SIGNAL SQLSTATE '45000'"), 4)
 
     def test_fresh_schema_creates_result_then_proposal_and_verifies_engines(self):
         result_model = SimpleNamespace(_meta=SimpleNamespace(db_table=self.migration.RESULT_TABLE))
@@ -237,13 +238,27 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
                     f"UPDATE {migration.RESULT_TABLE} SET score_band=%s WHERE id=%s",
                     ["qualified", result.pk],
                 )
+            decided_at = timezone.now()
             with connection.cursor() as cursor:
                 cursor.execute(
-                    f"UPDATE {migration.PROPOSAL_TABLE} SET status=%s WHERE id=%s",
-                    ["shadow_validated", proposal.pk],
+                    f"UPDATE {migration.PROPOSAL_TABLE} "
+                    "SET status=%s, decision_code=%s, projector_version=%s, "
+                    "decided_at=%s, updated_at=%s WHERE id=%s",
+                    [
+                        "shadow_validated", "shadow_valid",
+                        "analysis-v2-projector.1", decided_at, decided_at,
+                        proposal.pk,
+                    ],
                 )
             proposal.refresh_from_db()
             self.assertEqual(proposal.status, "shadow_validated")
+            self.assertEqual(proposal.decision_code, "shadow_valid")
+            self.assertEqual(proposal.projector_version, "analysis-v2-projector.1")
+            with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+                cursor.execute(
+                    f"UPDATE {migration.PROPOSAL_TABLE} SET typed_value=%s WHERE id=%s",
+                    ['{"reason_codes":["recipient_conflict"]}', proposal.pk],
+                )
             with self.assertRaises(DatabaseError), connection.cursor() as cursor:
                 cursor.execute(
                     f"DELETE FROM {migration.PROPOSAL_TABLE} WHERE id=%s",
@@ -260,5 +275,6 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
                     "ig_anres_no_update",
                     "ig_anres_no_delete",
                     "ig_anprop_no_delete",
+                    "ig_anprop_identity_update",
                 ):
                     cursor.execute(f"DROP TRIGGER IF EXISTS {name}")

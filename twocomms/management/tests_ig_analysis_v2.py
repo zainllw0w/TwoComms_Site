@@ -380,16 +380,133 @@ class AnalysisV2RuntimeTests(TestCase):
             Decimal("0.6100"),
         )
 
+    def test_greeting_plus_manager_claim_and_payment_truth_has_no_probability(self):
+        by_id = {
+            self.user_message.pk: {
+                "message_id": self.user_message.pk,
+                "role": "user",
+                "text": "Привіт",
+            },
+            self.manager_message.pk: self.by_id[self.manager_message.pk],
+        }
+        legacy = {
+            **self.legacy,
+            "interaction_type": IgConversationAnalysisSnapshot.InteractionType.HIGH_INTENT,
+            "purchase_probability": Decimal("0.9900"),
+            "evidence": [
+                {"message_id": self.user_message.pk, "quote": "Привіт", "claim": "intent"},
+                {"message_id": self.manager_message.pk, "quote": "точно купить", "claim": "intent"},
+            ],
+            "repeat_intent": {},
+        }
+        parsed = {
+            "analysis_v2": {
+                "purchase_intent": {
+                    "probability": 0.99,
+                    "confidence": 0.99,
+                    "evidence_message_ids": [self.user_message.pk],
+                }
+            }
+        }
+        normalized = v2.normalize_analysis_v2(
+            parsed=parsed,
+            legacy_normalized=legacy,
+            by_id=by_id,
+            client=self.client_row,
+            truth_state={"verified_payment": True, "order_truth": [{"paid": True}]},
+            analyzed_at=timezone.now(),
+        )
+        self.assertIsNone(normalized.result_values["purchase_probability"])
+        self.assertEqual(
+            normalized.result_values["probability_basis"],
+            IgConversationAnalysisResult.ProbabilityBasis.INSUFFICIENT_EVIDENCE,
+        )
+
+    def test_manager_no_buy_plus_user_greeting_and_payment_truth_is_not_user_no_buy(self):
+        by_id = {
+            self.user_message.pk: {
+                "message_id": self.user_message.pk,
+                "role": "user",
+                "text": "Привіт",
+            },
+            self.manager_message.pk: {
+                "message_id": self.manager_message.pk,
+                "role": "manager",
+                "text": "Не буду купувати цю футболку",
+            },
+        }
+        legacy = {
+            **self.legacy,
+            "interaction_type": IgConversationAnalysisSnapshot.InteractionType.EXPLICIT_NO_BUY,
+            "purchase_probability": Decimal("0.0000"),
+            "evidence": [
+                {"message_id": self.user_message.pk, "quote": "Привіт", "claim": "interaction"},
+                {"message_id": self.manager_message.pk, "quote": "Не буду", "claim": "no buy"},
+            ],
+            "repeat_intent": {},
+        }
+        normalized = v2.normalize_analysis_v2(
+            parsed={},
+            legacy_normalized=legacy,
+            by_id=by_id,
+            client=self.client_row,
+            truth_state={"verified_payment": True, "order_truth": [{"paid": True}]},
+            analyzed_at=timezone.now(),
+        )
+        self.assertIsNone(normalized.result_values["purchase_probability"])
+        self.assertEqual(
+            normalized.result_values["probability_basis"],
+            IgConversationAnalysisResult.ProbabilityBasis.INSUFFICIENT_EVIDENCE,
+        )
+
+    def test_verified_user_opt_out_overrides_untrusted_model_intent(self):
+        by_id = {
+            self.user_message.pk: {
+                "message_id": self.user_message.pk,
+                "role": "user",
+                "text": "Не пишіть мені більше",
+            },
+            self.manager_message.pk: self.by_id[self.manager_message.pk],
+        }
+        normalized = v2.normalize_analysis_v2(
+            parsed=self.parsed,
+            legacy_normalized={
+                **self.legacy,
+                "interaction_type": IgConversationAnalysisSnapshot.InteractionType.OPT_OUT,
+                "score_band": IgConversationAnalysisSnapshot.Band.OPTED_OUT,
+            },
+            by_id=by_id,
+            client=self.client_row,
+            truth_state={"verified_payment": True},
+            analyzed_at=timezone.now(),
+        )
+        self.assertEqual(normalized.result_values["purchase_probability"], Decimal("0"))
+        self.assertEqual(
+            normalized.result_values["probability_basis"],
+            IgConversationAnalysisResult.ProbabilityBasis.DETERMINISTIC_OPT_OUT,
+        )
+        self.assertEqual(
+            normalized.result_values["interaction_type"],
+            IgConversationAnalysisSnapshot.InteractionType.OPT_OUT,
+        )
+
     def test_explicit_no_buy_has_deterministic_zero(self):
         legacy = {
             **self.legacy,
             "interaction_type": IgConversationAnalysisSnapshot.InteractionType.EXPLICIT_NO_BUY,
             "score_band": IgConversationAnalysisSnapshot.Band.LOST,
         }
+        by_id = {
+            **self.by_id,
+            self.user_message.pk: {
+                **self.by_id[self.user_message.pk],
+                "text": "Не буду купувати цю футболку",
+            },
+        }
         normalized = v2.normalize_analysis_v2(
             parsed={},
             legacy_normalized=legacy,
-            by_id=self.by_id,
+            by_id=by_id,
             client=self.client_row,
             truth_state={"verified_payment": False},
             analyzed_at=timezone.now(),
@@ -462,6 +579,15 @@ class AnalysisV2RuntimeTests(TestCase):
             prompt = analysis._analysis_system_prompt()
         self.assertTrue(prompt.startswith(analysis.SYSTEM_PROMPT))
         self.assertIn("optional об'єкт `analysis_v2`", prompt)
+
+    @override_settings(
+        IG_ANALYSIS_V2_MODE="shadow",
+        IG_ANALYSIS_MATERIALITY_MODE="shadow",
+        IG_ANALYSIS_V2_EXTENDED_PROMPT=True,
+    )
+    def test_explicit_prompt_canary_persists_distinct_version(self):
+        result = self._persist()
+        self.assertEqual(result.prompt_version, v2.EXTENDED_PROMPT_VERSION)
 
     @override_settings(
         IG_ANALYSIS_V2_MODE="shadow",
@@ -575,6 +701,38 @@ class AnalysisV2RuntimeTests(TestCase):
         )
 
         result = self._persist()
+        existing = list(result.proposals.order_by("ordinal"))
+        for ordinal in range(len(existing) + 1, 13):
+            values = {
+                "proposal_type": IgAnalysisProposal.ProposalType.UPDATE_PROBABILITY,
+                "target_scope": IgAnalysisProposal.TargetScope.CLIENT,
+                "target_definition_key": "",
+                "target_definition_version": "",
+                "target_key": "",
+                "typed_value": {
+                    "probability": "0.6100",
+                    "basis": "customer_evidence",
+                },
+                "evidence_message_ids": [self.user_message.pk],
+                "confidence": Decimal("0.8200"),
+                "source_result_digest": result.result_digest,
+                "expected_materiality_digest": result.materiality_digest,
+                "expected_authority_digest": result.authority_digest,
+                "expected_state_correlation": result.state_correlation,
+            }
+            IgAnalysisProposal.objects.create(
+                proposal_key=v2.proposal_key_for_values(
+                    result_key=result.result_key,
+                    ordinal=ordinal,
+                    values=values,
+                ),
+                analysis_result=result,
+                ordinal=ordinal,
+                client=self.client_row,
+                commercial_episode=self.episode,
+                line_id=result.line_id,
+                **values,
+            )
         proposal_ids = list(result.proposals.values_list("pk", flat=True))
         IgAnalysisProposal._base_manager.filter(pk__in=proposal_ids).update(
             status=IgAnalysisProposal.Status.PENDING,
@@ -583,7 +741,69 @@ class AnalysisV2RuntimeTests(TestCase):
             decided_at=None,
         )
 
-        with CaptureQueriesContext(connection) as queries:
+        with CaptureQueriesContext(connection) as one_queries:
+            project_shadow_proposals(proposal_ids[:1], now=timezone.now())
+        IgAnalysisProposal._base_manager.filter(pk__in=proposal_ids).update(
+            status=IgAnalysisProposal.Status.PENDING,
+            decision_code="",
+            projector_version="",
+            decided_at=None,
+        )
+        with CaptureQueriesContext(connection) as twelve_queries:
             project_shadow_proposals(proposal_ids, now=timezone.now())
 
-        self.assertLessEqual(len(queries), 16)
+        self.assertLessEqual(len(twelve_queries), len(one_queries) + 1)
+
+        cross_client_ids = []
+        for offset in range(12):
+            other_client = IgClient.objects.create(
+                igsid=f"analysis-v2-projector-client-{offset}"
+            )
+            ordinal = 13 + offset
+            values = {
+                "proposal_type": IgAnalysisProposal.ProposalType.UPDATE_PROBABILITY,
+                "target_scope": IgAnalysisProposal.TargetScope.CLIENT,
+                "target_definition_key": "",
+                "target_definition_version": "",
+                "target_key": "",
+                "typed_value": {
+                    "probability": "0.6100",
+                    "basis": "customer_evidence",
+                },
+                "evidence_message_ids": [self.user_message.pk],
+                "confidence": Decimal("0.8200"),
+                "source_result_digest": result.result_digest,
+                "expected_materiality_digest": result.materiality_digest,
+                "expected_authority_digest": result.authority_digest,
+                "expected_state_correlation": result.state_correlation,
+            }
+            proposal = IgAnalysisProposal.objects.create(
+                proposal_key=v2.proposal_key_for_values(
+                    result_key=result.result_key,
+                    ordinal=ordinal,
+                    values=values,
+                ),
+                analysis_result=result,
+                ordinal=ordinal,
+                client=other_client,
+                commercial_episode=self.episode,
+                line_id=result.line_id,
+                **values,
+            )
+            cross_client_ids.append(proposal.pk)
+
+        with CaptureQueriesContext(connection) as one_client_query_shape:
+            project_shadow_proposals(cross_client_ids[:1], now=timezone.now())
+        IgAnalysisProposal._base_manager.filter(pk__in=cross_client_ids).update(
+            status=IgAnalysisProposal.Status.PENDING,
+            decision_code="",
+            projector_version="",
+            decided_at=None,
+        )
+        with CaptureQueriesContext(connection) as twelve_client_query_shape:
+            project_shadow_proposals(cross_client_ids, now=timezone.now())
+
+        self.assertLessEqual(
+            len(twelve_client_query_shape),
+            len(one_client_query_shape) + 1,
+        )

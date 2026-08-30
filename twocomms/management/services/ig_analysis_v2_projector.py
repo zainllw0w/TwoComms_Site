@@ -9,12 +9,15 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.db.models import BigIntegerField, OuterRef, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from management.models import (
     IgAnalysisProposal,
     IgConversationAnalysisJob,
     IgConversationAnalysisResult,
+    IgFunnelResetAudit,
     IgObjection,
     InstagramBotMessage,
 )
@@ -227,11 +230,23 @@ def project_shadow_proposals(proposal_ids, *, now=None) -> dict:
     now = now or timezone.now()
     counts = {"validated": 0, "blocked": 0, "rejected": 0}
     with transaction.atomic():
+        reset_floor = (
+            IgFunnelResetAudit.objects.filter(client_id=OuterRef("client_id"))
+            .order_by("-id")
+            .values("reset_after_message_id")[:1]
+        )
         proposals = list(
             IgAnalysisProposal.objects.select_for_update()
             .select_related(
                 "analysis_result", "analysis_result__legacy_snapshot",
                 "client", "client__analysis_job",
+                "client__current_commercial_episode",
+            )
+            .annotate(
+                _materiality_reset_after_message_id=Coalesce(
+                    Subquery(reset_floor, output_field=BigIntegerField()),
+                    Value(0, output_field=BigIntegerField()),
+                )
             )
             .filter(
                 pk__in=list(proposal_ids or [])[:12],
@@ -241,9 +256,15 @@ def project_shadow_proposals(proposal_ids, *, now=None) -> dict:
         )
         from management.services.ig_funnel_reset import current_message_floor
 
+        clients_by_id = {}
+        for proposal in proposals:
+            client = clients_by_id.setdefault(proposal.client_id, proposal.client)
+            client.materiality_reset_after_message_id = (
+                proposal._materiality_reset_after_message_id
+            )
         floor_by_client = {
-            proposal.client_id: current_message_floor(proposal.client)
-            for proposal in proposals
+            client_id: current_message_floor(client)
+            for client_id, client in clients_by_id.items()
         }
         all_evidence_ids = {
             int(value)

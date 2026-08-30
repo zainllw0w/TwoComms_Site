@@ -4868,6 +4868,10 @@ class IgConversationAnalysisSnapshot(models.Model):
 
 _ANALYSIS_V2_CODE_RE = re.compile(r"^[a-z0-9_.:+-]{0,160}$")
 _ANALYSIS_V2_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+_ANALYSIS_V2_VERSION_TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9_.:+-]*$")
+_ANALYSIS_V2_VERSION_MARKER_RE = re.compile(
+    r"(?:^|[._-])v[0-9]+(?:$|[._-])"
+)
 _ANALYSIS_V2_PROJECT_SLOTS = frozenset({
     "", "gslot_7f3a", "gslot_c921", "gslot_18de",
     "gslot_a604", "gslot_52bb", "gslot_e17c",
@@ -4875,6 +4879,7 @@ _ANALYSIS_V2_PROJECT_SLOTS = frozenset({
 _ANALYSIS_V2_CLAIM_CODES = frozenset({
     "interaction", "purchase_intent", "objection", "deferred_intent",
     "repeat_intent", "injection_risk", "conflict",
+    "explicit_no_buy", "opt_out",
 })
 _ANALYSIS_V2_CONFLICT_CODES = frozenset({
     "product_conflict", "recipient_conflict", "line_conflict",
@@ -4936,6 +4941,19 @@ def _validate_finite_01(value, *, field_name, optional=False):
         raise ValidationError({field_name: "Expected a finite 0..1 value."})
 
 
+def _validate_analysis_version_token(value, *, field_name, maximum):
+    """Accept future version tokens without accepting arbitrary free text."""
+    normalized = str(value or "")
+    if not normalized:
+        return
+    if (
+        len(normalized) > maximum
+        or not _ANALYSIS_V2_VERSION_TOKEN_RE.fullmatch(normalized)
+        or not _ANALYSIS_V2_VERSION_MARKER_RE.search(normalized)
+    ):
+        raise ValidationError({field_name: "Expected a bounded version token."})
+
+
 def _validate_analysis_v2_codes(values, *, field_name):
     if not isinstance(values, list) or any(
         not isinstance(value, str)
@@ -4964,6 +4982,14 @@ def _validate_analysis_result_payload(result):
             raise ValidationError({"evidence_manifest": "Unknown claim code."})
     if len(manifest) > 40 or len({row["message_id"] for row in manifest}) != len(manifest):
         raise ValidationError({"evidence_manifest": "Evidence identities must be unique and bounded."})
+    customer_rows = [row for row in manifest if row["source_role"] == "user"]
+    manager_rows = [row for row in manifest if row["source_role"] == "manager"]
+    if result.customer_evidence_count != len(customer_rows):
+        raise ValidationError({"customer_evidence_count": "Customer evidence count mismatch."})
+    if result.manager_evidence_count != len(manager_rows):
+        raise ValidationError({"manager_evidence_count": "Manager evidence count mismatch."})
+    if result.authority_evidence_count not in {0, 1}:
+        raise ValidationError({"authority_evidence_count": "Authority evidence count must be 0 or 1."})
     _validate_analysis_v2_codes(result.conflict_codes, field_name="conflict_codes")
     if any(code not in _ANALYSIS_V2_CONFLICT_CODES for code in result.conflict_codes):
         raise ValidationError({"conflict_codes": "Unknown conflict code."})
@@ -5017,8 +5043,41 @@ def _validate_analysis_result_payload(result):
         raise ValidationError({"probability_basis": "Insufficient evidence must remain nullable."})
     if result.probability_basis in {"customer_evidence", "deterministic_no_buy", "deterministic_opt_out"} and result.customer_evidence_count <= 0:
         raise ValidationError({"customer_evidence_count": "Customer evidence is required."})
+    user_claims = {
+        code for row in customer_rows for code in row.get("claim_codes", [])
+    }
+    user_claim_ids = {
+        code: {
+            row["message_id"]
+            for row in customer_rows
+            if code in row.get("claim_codes", [])
+        }
+        for code in _ANALYSIS_V2_CLAIM_CODES
+    }
+    required_claim = {
+        "customer_evidence": "purchase_intent",
+        "deterministic_no_buy": "explicit_no_buy",
+        "deterministic_opt_out": "opt_out",
+    }.get(result.probability_basis)
+    if required_claim and required_claim not in user_claims:
+        raise ValidationError({"probability_basis": "Claim-specific user evidence is required."})
+    if result.probability_basis == "customer_evidence" and result.purchase_probability is None:
+        raise ValidationError({"purchase_probability": "Customer evidence requires a probability."})
+    if result.probability_basis in {"deterministic_no_buy", "deterministic_opt_out"} and (
+        result.purchase_probability != Decimal("0")
+        or result.purchase_confidence != Decimal("1")
+    ):
+        raise ValidationError({"purchase_probability": "Deterministic terminal intent must be zero with full confidence."})
+    deterministic_interaction = {
+        "deterministic_no_buy": IgConversationAnalysisSnapshot.InteractionType.EXPLICIT_NO_BUY,
+        "deterministic_opt_out": IgConversationAnalysisSnapshot.InteractionType.OPT_OUT,
+    }.get(result.probability_basis)
+    if deterministic_interaction and result.interaction_type != deterministic_interaction:
+        raise ValidationError({"interaction_type": "Deterministic terminal intent type mismatch."})
     if result.active_objection_type not in {"", *IgObjection.Type.values}:
         raise ValidationError({"active_objection_type": "Unsupported objection type."})
+    if result.active_objection_type and not user_claim_ids["objection"]:
+        raise ValidationError({"active_objection_type": "Objection requires claim-specific user evidence."})
     deferred_conditions = {
         "none": {""}, "date": {"customer_date"}, "event": {"after_event"},
         "payday": {"payday"}, "indefinite": {"indefinite"},
@@ -5027,22 +5086,46 @@ def _validate_analysis_result_payload(result):
         raise ValidationError({"deferred_condition_code": "Invalid deferred intent schema."})
     if (result.deferred_kind == "date") != bool(result.deferred_until):
         raise ValidationError({"deferred_until": "Only date deferrals require a timestamp."})
+    if result.deferred_kind != "none" and not user_claim_ids["deferred_intent"]:
+        raise ValidationError({"deferred_kind": "Deferral requires claim-specific user evidence."})
     if result.repeat_intent_kind not in _ANALYSIS_V2_REPEAT_KINDS:
         raise ValidationError({"repeat_intent_kind": "Unsupported repeat kind."})
+    if result.repeat_intent_kind and not user_claim_ids["repeat_intent"]:
+        raise ValidationError({"repeat_intent_kind": "Repeat intent requires claim-specific user evidence."})
+    injection_claim_ids = sorted(
+        row["message_id"]
+        for row in manifest
+        if "injection_risk" in row.get("claim_codes", [])
+    )
+    if sorted(result.injection_evidence_message_ids) != injection_claim_ids:
+        raise ValidationError({"injection_evidence_message_ids": "Injection evidence manifest mismatch."})
+    if (result.injection_risk == "none") != (not injection_claim_ids):
+        raise ValidationError({"injection_risk": "Injection signal and evidence must agree."})
+    if bool(result.has_conflicts) != bool(result.conflict_codes):
+        raise ValidationError({"has_conflicts": "Conflict flag and typed codes must agree."})
     if result.project_slot not in _ANALYSIS_V2_PROJECT_SLOTS:
         raise ValidationError({"project_slot": "Unknown project slot."})
     if result.gemini_request_ref and not re.fullmatch(r"greq_[0-9a-f]{20}", result.gemini_request_ref):
         raise ValidationError({"gemini_request_ref": "Invalid opaque request reference."})
-    if result.prompt_version not in {"", "2026-07-30.crm.episode-potential.v3"}:
-        raise ValidationError({"prompt_version": "Unknown prompt version."})
-    if result.routing_policy_version not in {"", "gemini-routing-v2.1"}:
-        raise ValidationError({"routing_policy_version": "Unknown routing policy."})
-    if result.reasoning_policy_version not in {"", "2026-07-23.v1"}:
-        raise ValidationError({"reasoning_policy_version": "Unknown reasoning policy."})
-    if result.analysis_model not in {
-        "", "unknown", "rules", "gemini-3.7-flash", "gemini-3.6-flash",
-        "gemini-3.5-flash", "gemini-3.5-flash-lite",
-    }:
+    _validate_analysis_version_token(
+        result.prompt_version,
+        field_name="prompt_version",
+        maximum=40,
+    )
+    _validate_analysis_version_token(
+        result.routing_policy_version,
+        field_name="routing_policy_version",
+        maximum=32,
+    )
+    _validate_analysis_version_token(
+        result.reasoning_policy_version,
+        field_name="reasoning_policy_version",
+        maximum=32,
+    )
+    if not re.fullmatch(
+        r"(?:|unknown|rules|gemini-[a-z0-9][a-z0-9_.:+-]{0,71})",
+        result.analysis_model,
+    ):
         raise ValidationError({"analysis_model": "Unknown analysis model."})
     if result.usage_status not in {"accounting_unknown", "provider_reported", "estimated"}:
         raise ValidationError({"usage_status": "Unknown usage status."})

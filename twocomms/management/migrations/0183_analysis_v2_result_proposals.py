@@ -171,10 +171,20 @@ def create_result_append_only_triggers(apps, schema_editor):
     update_name = "ig_anres_no_update"
     delete_name = "ig_anres_no_delete"
     proposal_delete_name = "ig_anprop_no_delete"
+    proposal_update_name = "ig_anprop_identity_update"
+    identity_columns = (
+        "proposal_key", "analysis_result_id", "ordinal", "client_id",
+        "commercial_episode_id", "line_id", "proposal_type", "target_scope",
+        "target_definition_key", "target_definition_version", "target_key",
+        "typed_value", "evidence_message_ids", "confidence",
+        "source_result_digest", "expected_materiality_digest",
+        "expected_authority_digest", "expected_state_correlation", "created_at",
+    )
     if schema_editor.connection.vendor == "mysql":
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {update_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {delete_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_delete_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_update_name}")
         schema_editor.execute(
             f"CREATE TRIGGER {update_name} BEFORE UPDATE ON {RESULT_TABLE} "
             "FOR EACH ROW SIGNAL SQLSTATE '45000' "
@@ -190,10 +200,21 @@ def create_result_append_only_triggers(apps, schema_editor):
             "FOR EACH ROW SIGNAL SQLSTATE '45000' "
             "SET MESSAGE_TEXT='IgAnalysisProposal cannot be deleted'"
         )
+        unchanged = " AND ".join(
+            f"OLD.{column} <=> NEW.{column}" for column in identity_columns
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_update_name} BEFORE UPDATE ON {PROPOSAL_TABLE} "
+            f"FOR EACH ROW BEGIN IF NOT ({unchanged}) THEN "
+            "SIGNAL SQLSTATE '45000' "
+            "SET MESSAGE_TEXT='IgAnalysisProposal identity is immutable'; "
+            "END IF; END"
+        )
     elif schema_editor.connection.vendor == "sqlite":
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {update_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {delete_name}")
         schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_delete_name}")
+        schema_editor.execute(f"DROP TRIGGER IF EXISTS {proposal_update_name}")
         schema_editor.execute(
             f"CREATE TRIGGER {update_name} BEFORE UPDATE ON {RESULT_TABLE} "
             "BEGIN SELECT RAISE(ABORT, 'IgConversationAnalysisResult is append-only'); END"
@@ -205,6 +226,14 @@ def create_result_append_only_triggers(apps, schema_editor):
         schema_editor.execute(
             f"CREATE TRIGGER {proposal_delete_name} BEFORE DELETE ON {PROPOSAL_TABLE} "
             "BEGIN SELECT RAISE(ABORT, 'IgAnalysisProposal cannot be deleted'); END"
+        )
+        changed = " OR ".join(
+            f"OLD.{column} IS NOT NEW.{column}" for column in identity_columns
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_update_name} BEFORE UPDATE ON {PROPOSAL_TABLE} "
+            f"WHEN {changed} BEGIN SELECT RAISE(ABORT, "
+            "'IgAnalysisProposal identity is immutable'); END"
         )
     elif schema_editor.connection.vendor == "postgresql":
         schema_editor.execute(
@@ -224,6 +253,31 @@ def create_result_append_only_triggers(apps, schema_editor):
         schema_editor.execute(
             f"CREATE TRIGGER {proposal_delete_name} BEFORE DELETE ON {PROPOSAL_TABLE} "
             "FOR EACH ROW EXECUTE FUNCTION ig_analysis_v2_append_only_raise()"
+        )
+        schema_editor.execute(
+            "CREATE OR REPLACE FUNCTION ig_analysis_proposal_identity_raise() "
+            "RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+            "IF ROW(OLD.proposal_key, OLD.analysis_result_id, OLD.ordinal, OLD.client_id, "
+            "OLD.commercial_episode_id, OLD.line_id, OLD.proposal_type, OLD.target_scope, "
+            "OLD.target_definition_key, OLD.target_definition_version, OLD.target_key, "
+            "OLD.typed_value, OLD.evidence_message_ids, OLD.confidence, "
+            "OLD.source_result_digest, OLD.expected_materiality_digest, "
+            "OLD.expected_authority_digest, OLD.expected_state_correlation, OLD.created_at) "
+            "IS DISTINCT FROM ROW(NEW.proposal_key, NEW.analysis_result_id, NEW.ordinal, "
+            "NEW.client_id, NEW.commercial_episode_id, NEW.line_id, NEW.proposal_type, "
+            "NEW.target_scope, NEW.target_definition_key, NEW.target_definition_version, "
+            "NEW.target_key, NEW.typed_value, NEW.evidence_message_ids, NEW.confidence, "
+            "NEW.source_result_digest, NEW.expected_materiality_digest, "
+            "NEW.expected_authority_digest, NEW.expected_state_correlation, NEW.created_at) "
+            "THEN RAISE EXCEPTION 'IgAnalysisProposal identity is immutable'; END IF; "
+            "RETURN NEW; END; $$"
+        )
+        schema_editor.execute(
+            f"DROP TRIGGER IF EXISTS {proposal_update_name} ON {PROPOSAL_TABLE}"
+        )
+        schema_editor.execute(
+            f"CREATE TRIGGER {proposal_update_name} BEFORE UPDATE ON {PROPOSAL_TABLE} "
+            "FOR EACH ROW EXECUTE FUNCTION ig_analysis_proposal_identity_raise()"
         )
 
 

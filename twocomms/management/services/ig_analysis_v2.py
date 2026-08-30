@@ -25,6 +25,7 @@ from management.models import (
 
 RESULT_SCHEMA_VERSION = "analysis-v2.1"
 NORMALIZER_VERSION = "analysis-v2-normalizer.1"
+EXTENDED_PROMPT_VERSION = "2026-08-30.crm.analysis-v2-canary.v1"
 MAX_EVIDENCE = 40
 MAX_PROPOSALS = 12
 MAX_TOKEN_COUNT = 2**63 - 1
@@ -68,6 +69,8 @@ _CLAIM_CODES = frozenset({
     "repeat_intent",
     "injection_risk",
     "conflict",
+    "explicit_no_buy",
+    "opt_out",
 })
 _DEFERRED_CONDITIONS = frozenset({
     "customer_date",
@@ -243,10 +246,12 @@ def _build_evidence_manifest(
 ) -> tuple[list[dict], dict[str, list[int]]]:
     claims: dict[int, set[str]] = {}
 
-    def add(values, claim_code, roles=None):
+    def add(values, claim_code, roles=None, predicate=None):
         if claim_code not in _CLAIM_CODES:
             return
         for message_id in _message_ids(values, by_id, roles=roles):
+            if predicate and not predicate(str(by_id[message_id].get("text") or "")):
+                continue
             claims.setdefault(message_id, set()).add(claim_code)
 
     legacy_ids = [
@@ -264,7 +269,22 @@ def _build_evidence_manifest(
         )
     purchase = analysis_v2.get("purchase_intent")
     if isinstance(purchase, dict):
-        add(purchase.get("evidence_message_ids"), "purchase_intent", {"user"})
+        from management.services.bot_sales_classifier import (
+            PAYMENT_RE,
+            PRICE_RE,
+            PRODUCT_RE,
+            PURCHASE_DECISION_RE,
+            SIZE_RE,
+        )
+
+        add(
+            purchase.get("evidence_message_ids"),
+            "purchase_intent",
+            {"user"},
+            lambda text: any(pattern.search(text) for pattern in (
+                PURCHASE_DECISION_RE, PAYMENT_RE, PRODUCT_RE, PRICE_RE, SIZE_RE,
+            )),
+        )
     objection = analysis_v2.get("active_objection")
     if isinstance(objection, dict):
         add(objection.get("evidence_message_ids"), "objection", {"user"})
@@ -280,6 +300,21 @@ def _build_evidence_manifest(
     for conflict in analysis_v2.get("conflicts") or []:
         if isinstance(conflict, dict):
             add(conflict.get("evidence_message_ids"), "conflict")
+    from management.services.bot_sales_classifier import NO_BUY_RE, is_explicit_opt_out
+
+    user_ids = [
+        message_id
+        for message_id, source in by_id.items()
+        if isinstance(source, dict) and source.get("role") == "user"
+    ]
+    add(user_ids, "explicit_no_buy", {"user"}, lambda text: bool(NO_BUY_RE.search(text)))
+    add(user_ids, "opt_out", {"user"}, is_explicit_opt_out)
+    add(
+        list(by_id),
+        "injection_risk",
+        {"user", "manager", "model"},
+        lambda text: bool(_INJECTION_RE.search(text)),
+    )
 
     manifest = []
     by_claim = {claim: [] for claim in _CLAIM_CODES}
@@ -327,14 +362,22 @@ def _deferred_intent(analysis_v2: dict, by_id: dict[int, dict], analyzed_at):
     if kind not in valid_kinds or kind == "none" or not evidence_ids:
         return "none", None, "", []
     condition = _safe_code(raw.get("condition_code"), maximum=32)
-    if condition not in _DEFERRED_CONDITIONS:
-        condition = ""
+    expected_condition = {
+        IgConversationAnalysisResult.DeferredKind.DATE: "customer_date",
+        IgConversationAnalysisResult.DeferredKind.EVENT: "after_event",
+        IgConversationAnalysisResult.DeferredKind.PAYDAY: "payday",
+        IgConversationAnalysisResult.DeferredKind.INDEFINITE: "indefinite",
+    }.get(kind)
+    if condition not in _DEFERRED_CONDITIONS or condition != expected_condition:
+        return "none", None, "", []
     deferred_until = parse_datetime(str(raw.get("deferred_until") or ""))
     if deferred_until is not None and timezone.is_naive(deferred_until):
         deferred_until = timezone.make_aware(deferred_until)
     if deferred_until is not None and not (
         analyzed_at < deferred_until <= analyzed_at + timedelta(days=366)
     ):
+        deferred_until = None
+    if kind != IgConversationAnalysisResult.DeferredKind.DATE:
         deferred_until = None
     if kind == IgConversationAnalysisResult.DeferredKind.DATE and deferred_until is None:
         return "none", None, "", []
@@ -411,11 +454,9 @@ def normalize_analysis_v2(
     })
     purchase_raw = analysis_v2.get("purchase_intent")
     purchase_raw = purchase_raw if isinstance(purchase_raw, dict) else {}
-    probability_ids = by_claim.get("purchase_intent") or [
-        row["message_id"]
-        for row in manifest
-        if row["source_role"] == "user" and "interaction" in row["claim_codes"]
-    ]
+    probability_ids = by_claim.get("purchase_intent") or []
+    no_buy_ids = by_claim.get("explicit_no_buy") or []
+    opt_out_ids = by_claim.get("opt_out") or []
     interaction_type = str(
         legacy_normalized.get("interaction_type")
         or IgConversationAnalysisSnapshot.InteractionType.UNKNOWN
@@ -431,11 +472,21 @@ def normalize_analysis_v2(
         interaction_type = IgConversationAnalysisSnapshot.InteractionType.INFORMATION_ONLY
         score_band = IgConversationAnalysisSnapshot.Band.COLD
 
-    if customer_ids and interaction_type == IgConversationAnalysisSnapshot.InteractionType.OPT_OUT:
+    if (
+        opt_out_ids
+        and interaction_type == IgConversationAnalysisSnapshot.InteractionType.OPT_OUT
+    ):
+        interaction_type = IgConversationAnalysisSnapshot.InteractionType.OPT_OUT
+        score_band = IgConversationAnalysisSnapshot.Band.OPTED_OUT
         probability = Decimal("0.0000")
         probability_confidence = Decimal("1.0000")
         probability_basis = IgConversationAnalysisResult.ProbabilityBasis.DETERMINISTIC_OPT_OUT
-    elif customer_ids and interaction_type == IgConversationAnalysisSnapshot.InteractionType.EXPLICIT_NO_BUY:
+    elif (
+        no_buy_ids
+        and interaction_type == IgConversationAnalysisSnapshot.InteractionType.EXPLICIT_NO_BUY
+    ):
+        interaction_type = IgConversationAnalysisSnapshot.InteractionType.EXPLICIT_NO_BUY
+        score_band = IgConversationAnalysisSnapshot.Band.LOST
         probability = Decimal("0.0000")
         probability_confidence = Decimal("1.0000")
         probability_basis = IgConversationAnalysisResult.ProbabilityBasis.DETERMINISTIC_NO_BUY
@@ -448,7 +499,14 @@ def normalize_analysis_v2(
             purchase_raw.get("confidence", legacy_normalized.get("confidence")),
             nullable=True,
         )
-        probability_basis = IgConversationAnalysisResult.ProbabilityBasis.CUSTOMER_EVIDENCE
+        probability_basis = (
+            IgConversationAnalysisResult.ProbabilityBasis.CUSTOMER_EVIDENCE
+            if probability is not None
+            else IgConversationAnalysisResult.ProbabilityBasis.INSUFFICIENT_EVIDENCE
+        )
+        if probability is None:
+            probability_confidence = None
+            uncertainties.add("probability_evidence_missing")
     else:
         probability = None
         probability_confidence = None
@@ -721,7 +779,11 @@ def persist_shadow_result(
         "normalizer_version": NORMALIZER_VERSION,
         "source_kind": IgConversationAnalysisResult.SourceKind.AI,
         "analysis_model": str(provider_result.get("model") or "")[:80],
-        "prompt_version": str(legacy_snapshot.analysis_prompt_version or "")[:40],
+        "prompt_version": (
+            EXTENDED_PROMPT_VERSION
+            if bool(getattr(settings, "IG_ANALYSIS_V2_EXTENDED_PROMPT", False))
+            else str(legacy_snapshot.analysis_prompt_version or "")[:40]
+        ),
         "routing_policy_version": str(meta.get("routing_policy_version") or "")[:32],
         "reasoning_policy_version": str(meta.get("reasoning_policy_version") or "")[:32],
         "project_slot": project_slot,

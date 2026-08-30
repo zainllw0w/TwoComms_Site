@@ -148,6 +148,38 @@ class AnalysisV2SchemaTests(TestCase):
                 decision_code="customername"
             )
 
+    def test_manifest_counts_and_probability_basis_are_recomputed(self):
+        with self.assertRaises(ValidationError):
+            self._result(customer_evidence_count=0)
+        with self.assertRaises(ValidationError):
+            self._result(
+                evidence_manifest=[{
+                    "message_id": 1,
+                    "source_role": "user",
+                    "claim_codes": ["interaction"],
+                }],
+            )
+        with self.assertRaises(ValidationError):
+            self._result(
+                probability_basis=(
+                    IgConversationAnalysisResult.ProbabilityBasis.DETERMINISTIC_OPT_OUT
+                ),
+                purchase_probability=Decimal("0.0000"),
+                purchase_confidence=Decimal("1.0000"),
+            )
+
+    def test_version_tokens_are_forward_safe_but_not_free_text(self):
+        result = self._result(
+            result_key="analysis-v2:" + hashlib.sha256(b"future-version").hexdigest(),
+            analysis_model="gemini-4.1-flash-pro-preview",
+            prompt_version="2030-01-01.crm.analysis-v9",
+            routing_policy_version="gemini-routing-v9.2",
+            reasoning_policy_version="reasoning-v4.3",
+        )
+        self.assertEqual(result.prompt_version, "2030-01-01.crm.analysis-v9")
+        with self.assertRaises(ValidationError):
+            self._result(prompt_version="customername")
+
     def test_result_is_append_only_at_every_orm_boundary(self):
         result = self._result()
         result.score_band = IgConversationAnalysisSnapshot.Band.QUALIFIED

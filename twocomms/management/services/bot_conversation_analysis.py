@@ -128,7 +128,7 @@ ANALYSIS_V2_PROMPT_FRAGMENT = """
                          "evidence_message_ids": [тільки user message_id]},
   "deferred_intent": {"kind": "none|date|event|payday|indefinite",
                        "condition_code": "customer_date|after_event|payday|indefinite",
-                       "deferred_until": "ISO-8601 або порожньо",
+                       "deferred_until": "ISO-8601 тільки для kind=date, інакше порожньо",
                        "evidence_message_ids": [тільки user message_id]},
   "ltv_signals": {"evidence_message_ids": [тільки user message_id]},
   "adversarial_risk": {"level": "none|suspected|high",

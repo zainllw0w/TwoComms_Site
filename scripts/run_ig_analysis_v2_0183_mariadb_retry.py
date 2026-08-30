@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -15,6 +16,7 @@ DISPOSABLE_NAME_RE = re.compile(r"^test_twocomms_[A-Za-z0-9_]+$")
 KILL_EXIT_CODE = 97
 TARGET = ("management", "0183_analysis_v2_result_proposals")
 BEFORE = ("management", "0182_analysis_materiality_ledger")
+PROPOSAL_TABLE = "management_iganalysisproposal"
 
 
 def _arguments():
@@ -101,21 +103,105 @@ def _orchestrate(args):
         }
         cursor.execute(
             "SELECT TRIGGER_NAME FROM information_schema.TRIGGERS "
-            "WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN (%s, %s, %s)",
-            ["ig_anres_no_update", "ig_anres_no_delete", "ig_anprop_no_delete"],
+            "WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN (%s, %s, %s, %s)",
+            [
+                "ig_anres_no_update", "ig_anres_no_delete",
+                "ig_anprop_no_delete", "ig_anprop_identity_update",
+            ],
         )
         triggers = sorted(str(row[0]) for row in cursor.fetchall())
     if set(engines) != set(tables) or set(engines.values()) != {"INNODB"}:
         raise RuntimeError(f"unexpected Analysis V2 engines: {engines}")
     if triggers != sorted([
         "ig_anres_no_update", "ig_anres_no_delete", "ig_anprop_no_delete",
+        "ig_anprop_identity_update",
     ]):
         raise RuntimeError(f"unexpected Analysis V2 triggers: {triggers}")
+    from django.db import DatabaseError
+    from django.utils import timezone
+    from management.models import (
+        IgAnalysisProposal,
+        IgClient,
+        IgConversationAnalysisResult,
+        IgConversationAnalysisSnapshot,
+    )
+
+    client = IgClient.objects.create(igsid="analysis-v2-0183-mariadb-proof")
+    snapshot = IgConversationAnalysisSnapshot.objects.create(
+        client=client,
+        dedupe_key="analysis-v2-0183-mariadb-proof:snapshot",
+        score_band=IgConversationAnalysisSnapshot.Band.COLD,
+    )
+    result = IgConversationAnalysisResult.objects.create(
+        result_key="analysis-v2:" + hashlib.sha256(b"mariadb-proof-result").hexdigest(),
+        legacy_snapshot=snapshot,
+        client=client,
+        watermark_message_id=1,
+        job_revision=1,
+        materiality_event_highwater=1,
+        materiality_digest="a" * 64,
+        state_correlation="b" * 64,
+        result_schema_version="analysis-v2.1",
+        normalizer_version="analysis-v2-normalizer.1",
+        score_band=IgConversationAnalysisSnapshot.Band.COLD,
+        result_digest="c" * 64,
+        analyzed_at=timezone.now(),
+    )
+    proposal = IgAnalysisProposal.objects.create(
+        proposal_key=(
+            "analysis-proposal:"
+            + hashlib.sha256(b"mariadb-proof-proposal").hexdigest()
+        ),
+        analysis_result=result,
+        ordinal=1,
+        client=client,
+        proposal_type=IgAnalysisProposal.ProposalType.REQUEST_CLARIFICATION,
+        target_scope=IgAnalysisProposal.TargetScope.CLIENT,
+        typed_value={"reason_codes": ["product_conflict"]},
+        evidence_message_ids=[1],
+        confidence="1.0000",
+        source_result_digest=result.result_digest,
+        expected_materiality_digest=result.materiality_digest,
+        expected_state_correlation=result.state_correlation,
+    )
+    decided_at = timezone.now()
+    with resumed_connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE {PROPOSAL_TABLE} "
+            "SET status=%s, decision_code=%s, projector_version=%s, "
+            "decided_at=%s, updated_at=%s WHERE id=%s",
+            [
+                "shadow_validated", "shadow_valid",
+                "analysis-v2-projector.1", decided_at, decided_at, proposal.pk,
+            ],
+        )
+    proposal.refresh_from_db()
+    mutable_update_ok = (
+        proposal.status == "shadow_validated"
+        and proposal.decision_code == "shadow_valid"
+        and proposal.projector_version == "analysis-v2-projector.1"
+    )
+    identity_update_rejected = False
+    try:
+        with resumed_connection.cursor() as cursor:
+            cursor.execute(
+                f"UPDATE {PROPOSAL_TABLE} SET typed_value=%s WHERE id=%s",
+                [json.dumps({"reason_codes": ["recipient_conflict"]}), proposal.pk],
+            )
+    except DatabaseError:
+        identity_update_rejected = True
+    if not mutable_update_ok or not identity_update_rejected:
+        raise RuntimeError(
+            "proposal trigger behavior mismatch: "
+            f"mutable={mutable_update_ok}, identity_rejected={identity_update_rejected}"
+        )
     print("IG_ANALYSIS_V2_0183_MARIADB_RETRY=" + json.dumps({
         "database": database,
         "kill_exit_code": child.returncode,
         "engines": engines,
         "triggers": triggers,
+        "proposal_mutable_update": mutable_update_ok,
+        "proposal_identity_update_rejected": identity_update_rejected,
     }, sort_keys=True))
 
 
