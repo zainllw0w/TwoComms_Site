@@ -24,7 +24,9 @@ from django.utils import timezone
 
 from management.models import (
     IgClient,
+    IgConversationAnalysisJob,
     IgConversationAnalysisSnapshot,
+    IgFunnelResetAudit,
     IgPermissionTransitionJob,
     InstagramBotLog,
     InstagramBotMessage,
@@ -1156,6 +1158,63 @@ class ClientsApiTests(TestCase):
             if "management_igfollowstate" in query["sql"].lower()
         ]
         self.assertLessEqual(len(follow_queries), 1)
+
+    @override_settings(
+        IG_ANALYSIS_MATERIALITY_MODE="shadow",
+        IG_ANALYSIS_CURRENT_SELECTOR_MODE="enforce",
+    )
+    def test_materiality_enforce_list_floor_and_empty_snapshots_are_constant_query(self):
+        def prepare(client, message):
+            IgConversationAnalysisJob.objects.create(
+                client=client,
+                watermark_message_id=message.pk,
+                analyzed_watermark_message_id=message.pk,
+                revision=1,
+                analyzed_revision=1,
+                status=IgConversationAnalysisJob.Status.DONE,
+                materiality_event_highwater=1,
+                analyzed_materiality_event_highwater=1,
+                materiality_digest="a" * 64,
+                analyzed_materiality_digest="a" * 64,
+                due_at=timezone.now(),
+                next_attempt_at=timezone.now(),
+            )
+            IgFunnelResetAudit.objects.create(
+                client=client,
+                reset_after_message_id=max(0, message.pk - 1),
+                reason="query_budget_fixture",
+                actor=self.admin,
+            )
+
+        prepare(self.c, self.c.messages.order_by("-id").first())
+
+        def query_shape():
+            with CaptureQueriesContext(connection) as queries:
+                response = self.client.get(reverse("management_bot_clients_api"))
+            self.assertEqual(response.status_code, 200)
+            sql = [row["sql"].lower() for row in queries.captured_queries]
+            return (
+                sum("management_igfunnelresetaudit" in row for row in sql),
+                sum("management_igconversationanalysissnapshot" in row for row in sql),
+            )
+
+        baseline = query_shape()
+        for index in range(5):
+            client = IgClient.get_or_create_for_sender(f"mat-query-{index}")
+            message = InstagramBotMessage.objects.create(
+                sender_id=client.igsid,
+                client=client,
+                role=InstagramBotMessage.Role.USER,
+                text="materiality query budget",
+                status=InstagramBotMessage.Status.DONE,
+            )
+            prepare(client, message)
+
+        expanded = query_shape()
+
+        self.assertEqual(expanded, baseline)
+        self.assertLessEqual(expanded[0], 1, expanded)
+        self.assertLessEqual(expanded[1], 3, expanded)
 
     @patch("management.services.ig_follow_state.refresh_follow_state_if_due", return_value="known")
     def test_follow_refresh_endpoint_is_explicit_and_returns_result(self, refresh):

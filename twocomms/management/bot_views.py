@@ -4374,7 +4374,7 @@ def _client_card(c, *, follow_settings=None, follow_now=None) -> dict:
                         seen_snapshot_ids.add(item.pk)
         latest_analysis = current_analysis_snapshot(
             c,
-            candidates=prefetched or None,
+            candidates=prefetched,
         )
     payment_status = ""
     try:
@@ -4617,10 +4617,11 @@ def bot_clients_api(request):
     follow_settings = InstagramBotSettings.load()
 
     view = (request.GET.get("view") or "all").strip().lower()
-    from django.db.models import Prefetch
+    from django.db.models import PositiveBigIntegerField, Prefetch
     from .ig_bot_models import (
         IgCommercialEpisode,
         IgConversationAnalysisSnapshot,
+        IgFunnelResetAudit,
         IgOrderAssignment,
         IgOrderAttribution,
         IgPaymentConfirmationReview,
@@ -4714,13 +4715,35 @@ def bot_clients_api(request):
         order__tracking_number__isnull=False,
     ).exclude(order__tracking_number="")
 
-    qs = _with_latest_interaction(annotate_verified_payment(
-        IgClient.objects.select_related(
-            "current_product",
-            "current_commercial_episode",
-            "follow_state_projection",
-            "analysis_job",
-        ).prefetch_related(
+    client_rows = IgClient.objects.select_related(
+        "current_product",
+        "current_commercial_episode",
+        "follow_state_projection",
+        "analysis_job",
+    )
+    from management.services.ig_analysis_materiality import (
+        RESET_FLOOR_ANNOTATION,
+        selector_enforced,
+    )
+
+    if selector_enforced():
+        reset_after = (
+            IgFunnelResetAudit.objects.filter(client_id=OuterRef("pk"))
+            .order_by("-id")
+            .values("reset_after_message_id")[:1]
+        )
+        client_rows = client_rows.annotate(**{
+            RESET_FLOOR_ANNOTATION: Coalesce(
+                Subquery(
+                    reset_after,
+                    output_field=PositiveBigIntegerField(),
+                ),
+                Value(0),
+                output_field=PositiveBigIntegerField(),
+            ),
+        })
+
+    client_rows = client_rows.prefetch_related(
         Prefetch(
             "analysis_snapshots",
             queryset=IgConversationAnalysisSnapshot.objects.select_related("commercial_episode").exclude(
@@ -4750,7 +4773,7 @@ def bot_clients_api(request):
             )[:1],
             to_attr="_latest_commercial_episode",
         ),
-        ).annotate(
+    ).annotate(
             has_manager_verified_order=Exists(manager_verified_orders),
             has_current_manager_confirmation=Exists(current_manager_reviews),
             has_current_paid_linked_order=(
@@ -4774,6 +4797,8 @@ def bot_clients_api(request):
             has_physical_order=Exists(physical_orders),
             has_shipped_linked_order=Exists(shipped_linked_orders),
         )
+    qs = _with_latest_interaction(annotate_verified_payment(
+        client_rows
     ))
     # `client_has_confirmed_purchase` is called once per row further down.
     # Annotating it here keeps the 200-client list at a constant query count.

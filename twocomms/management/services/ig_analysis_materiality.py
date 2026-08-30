@@ -25,6 +25,7 @@ from management.models import (
 
 QUIET_SECONDS = 90
 MAX_STALENESS_SECONDS = 10 * 60
+RESET_FLOOR_ANNOTATION = "materiality_reset_after_message_id"
 
 
 @dataclass(frozen=True, slots=True)

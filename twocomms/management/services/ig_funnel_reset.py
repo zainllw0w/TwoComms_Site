@@ -54,7 +54,16 @@ def current_message_floor(client, *, inclusive_episode: bool = True) -> int:
         )
         if client is None:
             return latest_reset_after_message_id(getattr(client, "pk", None)) + 1
-    reset_floor = latest_reset_after_message_id(client)
+    annotated_reset = getattr(
+        client,
+        "materiality_reset_after_message_id",
+        None,
+    )
+    reset_floor = (
+        int(annotated_reset or 0)
+        if annotated_reset is not None
+        else latest_reset_after_message_id(client)
+    )
     episode = getattr(client, "current_commercial_episode", None)
     if episode is None and getattr(client, "current_commercial_episode_id", None):
         episode = IgCommercialEpisode.objects.filter(
