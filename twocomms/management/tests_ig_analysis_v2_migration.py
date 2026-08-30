@@ -131,6 +131,25 @@ class AnalysisV2MigrationTests(SimpleTestCase):
             editor.execute.call_args_list,
         )
 
+    def test_mariadb_tinyint_one_is_the_only_integer_boolean_shape(self):
+        from management.migrations._resumable_schema import _validate_field
+
+        editor = Mock()
+        editor.connection.vendor = "mysql"
+        editor.connection.introspection.get_field_type.return_value = "IntegerField"
+        field = models.BooleanField(default=False)
+        field.set_attributes_from_name("has_conflicts")
+        column = SimpleNamespace(
+            type_code=1,
+            null_ok=False,
+            internal_size=1,
+        )
+
+        _validate_field(editor, self.migration.RESULT_TABLE, field, column)
+        column.internal_size = 4
+        with self.assertRaisesRegex(RuntimeError, "expected BooleanField"):
+            _validate_field(editor, self.migration.RESULT_TABLE, field, column)
+
     def test_unique_shape_rejects_named_incompatible_constraint(self):
         constraint = models.UniqueConstraint(
             fields=["result_key"],

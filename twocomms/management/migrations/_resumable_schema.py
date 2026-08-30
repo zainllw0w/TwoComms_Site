@@ -55,6 +55,13 @@ def _validate_field(schema_editor, table_name, field, column):
             "PositiveSmallIntegerField", "SmallIntegerField", "IntegerField",
         },
     }.get(expected, {expected})
+    if (
+        expected == "BooleanField"
+        and schema_editor.connection.vendor == "mysql"
+        and actual == "IntegerField"
+        and getattr(column, "internal_size", None) == 1
+    ):
+        compatible = compatible | {"IntegerField"}
     if actual not in compatible:
         raise RuntimeError(
             f"{table_name}.{field.column} has type {actual}, expected {expected}"
