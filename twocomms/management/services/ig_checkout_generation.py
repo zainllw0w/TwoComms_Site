@@ -252,6 +252,51 @@ def _server_owned_recipient_payload(attempt, deal):
     }
 
 
+def _provider_boundary_uncertain(generation, attempt) -> bool:
+    event_state = attempt.event_state if attempt is not None else {}
+    return bool(
+        generation.state in {
+            generation.State.PLANNED,
+            generation.State.PROVIDER_INFLIGHT,
+            generation.State.PROVIDER_AMBIGUOUS,
+            generation.State.AMBIGUITY_REVIEW,
+            generation.State.LATE_PROVIDER_REVIEW,
+        }
+        or (event_state or {}).get("invoice_creation_ambiguous")
+        or (
+            not generation.provider_invoice_id
+            and bool(generation.provider_request_digest)
+            and generation.state
+            not in {generation.State.FAILED, generation.State.CANCELLED}
+        )
+    )
+
+
+def _retry_source_is_safe(generation, attempt) -> bool:
+    if attempt is None or (attempt.event_state or {}).get(
+        "invoice_creation_ambiguous"
+    ):
+        return False
+    if generation.state == generation.State.FAILED:
+        return attempt.status == PaymentAttempt.Status.FAILED
+    if generation.state == generation.State.CANCELLED:
+        return attempt.status == PaymentAttempt.Status.CANCELLED
+    if generation.state == generation.State.EXPIRED:
+        return bool(
+            generation.provider_invoice_id
+            and attempt.status == PaymentAttempt.Status.EXPIRED
+        )
+    if generation.state == generation.State.INVOICE_CREATED:
+        return bool(
+            generation.provider_invoice_id
+            and attempt.status in {
+                PaymentAttempt.Status.INITIATED,
+                PaymentAttempt.Status.PROCESSING,
+            }
+        )
+    return False
+
+
 def _clear_current_generation(proposal, generation, *, terminal_status):
     if proposal.current_invoice_generation_id != generation.pk:
         return
@@ -337,9 +382,13 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
     if not locked.assisted_checkout_v2:
         raise CheckoutPaymentError("unavailable", "V2 checkout is unavailable.")
     now = timezone.now()
+    if locked.status == locked.Status.MANAGER_REVIEW:
+        raise CheckoutPaymentError(
+            "provider_ambiguous",
+            "Статус попереднього рахунку потрібно звірити перед повтором.",
+        )
     if locked.expires_at <= now or locked.status in {
         locked.Status.PAID,
-        locked.Status.MANAGER_REVIEW,
         locked.Status.REVOKED,
         locked.Status.SUPERSEDED,
     }:
@@ -412,11 +461,7 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
                 "in_progress", "Платіж уже створюється. Зачекайте кілька секунд."
             )
         if current.state == current.State.INVOICE_CREATED:
-            if (
-                not current.provider_invoice_id
-                or attempt is None
-                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
-            ):
+            if not _retry_source_is_safe(current, attempt):
                 raise CheckoutPaymentError(
                     "provider_ambiguous",
                     "Статус попереднього рахунку потрібно звірити перед повтором.",
@@ -439,6 +484,11 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
                     now=now,
                 )
         elif current.state == current.State.EXPIRED:
+            if not _retry_source_is_safe(current, attempt):
+                raise CheckoutPaymentError(
+                    "provider_ambiguous",
+                    "Статус попереднього рахунку потрібно звірити перед повтором.",
+                )
             require_locked_reissue(current)
             recipient_source_generation = current
             recipient_source_attempt = attempt
@@ -453,6 +503,11 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
                     now=now,
                 )
         elif current.state in {current.State.FAILED, current.State.CANCELLED}:
+            if not _retry_source_is_safe(current, attempt):
+                raise CheckoutPaymentError(
+                    "provider_ambiguous",
+                    "Статус попереднього рахунку потрібно звірити перед повтором.",
+                )
             if requested_reissue and requested_reissue != str(current.generation):
                 require_locked_reissue(current)
             recipient_source_generation = current
@@ -464,10 +519,20 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
     elif latest is not None:
         attempt = lock_attempt(latest)
         if latest.state == latest.State.EXPIRED:
+            if not _retry_source_is_safe(latest, attempt):
+                raise CheckoutPaymentError(
+                    "provider_ambiguous",
+                    "Статус попереднього рахунку потрібно звірити перед повтором.",
+                )
             require_locked_reissue(latest)
             recipient_source_generation = latest
             recipient_source_attempt = attempt
         elif latest.state in {latest.State.FAILED, latest.State.CANCELLED}:
+            if not _retry_source_is_safe(latest, attempt):
+                raise CheckoutPaymentError(
+                    "provider_ambiguous",
+                    "Статус попереднього рахунку потрібно звірити перед повтором.",
+                )
             if requested_reissue and requested_reissue != str(latest.generation):
                 require_locked_reissue(latest)
             recipient_source_generation = latest
@@ -476,11 +541,7 @@ def _prepare_generation(proposal, *, request, payload, grant_id=""):
             latest.state == latest.State.INVOICE_CREATED
             and latest.expires_at <= now
         ):
-            if (
-                not latest.provider_invoice_id
-                or attempt is None
-                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
-            ):
+            if not _retry_source_is_safe(latest, attempt):
                 raise CheckoutPaymentError(
                     "provider_ambiguous",
                     "Статус попереднього рахунку потрібно звірити перед повтором.",
@@ -1176,12 +1237,72 @@ def terminalize_generation_attempt(
         if graph is None:
             return None
         _deal, proposal, generation, attempt = graph
-        if attempt.order_id or generation.winner_slot == 1:
+        if (
+            attempt.order_id
+            or generation.winner_slot == 1
+            or generation.state in {
+                generation.State.WINNER_CLAIMED,
+                generation.State.PAID_WINNER,
+                generation.State.LATE_PAID_REVIEW,
+                generation.State.RESOURCE_REVIEW,
+            }
+        ):
             return {"outcome": "protected_payment", "attempt_id": attempt.pk}
         if require_due and generation.expires_at > now:
             return {"outcome": "not_due", "attempt_id": attempt.pk}
-        if generation.state == generation.State.PROVIDER_AMBIGUOUS:
-            return {"outcome": "provider_ambiguous", "attempt_id": attempt.pk}
+        if _provider_boundary_uncertain(generation, attempt):
+            if generation.state not in {
+                generation.State.AMBIGUITY_REVIEW,
+                generation.State.LATE_PROVIDER_REVIEW,
+            }:
+                generation.state = generation.State.PROVIDER_AMBIGUOUS
+            generation.review_reason = "terminalization_provider_identity_unknown"
+            generation.ambiguity_review_due_at = (
+                generation.ambiguity_review_due_at
+                or generation.expires_at + timedelta(
+                    seconds=AMBIGUITY_GRACE_SECONDS
+                )
+            )
+            generation.save(update_fields=[
+                "state", "review_reason", "ambiguity_review_due_at", "updated_at",
+            ])
+            event_state = dict(attempt.event_state or {})
+            event_state["invoice_creation_ambiguous"] = True
+            attempt.event_state = event_state
+            attempt.status = PaymentAttempt.Status.PROCESSING
+            attempt.error_reason = "terminalization_provider_identity_unknown"
+            attempt.last_status_at = now
+            attempt.save(update_fields=[
+                "status", "event_state", "error_reason", "last_status_at", "updated",
+            ])
+            proposal.status = proposal.Status.MANAGER_REVIEW
+            proposal.save(update_fields=["status", "updated_at"])
+            _event(
+                generation,
+                "provider_ambiguous",
+                f"terminalize:{attempt.pk}",
+                payload={
+                    "attempt_reference": attempt.reference,
+                    "provider_invoice_id_known": bool(
+                        generation.provider_invoice_id
+                    ),
+                    "review_due_at": (
+                        generation.ambiguity_review_due_at.isoformat()
+                    ),
+                },
+            )
+            _queue_ambiguity_review(
+                proposal,
+                generation,
+                attempt,
+                reason="terminalization_provider_identity_unknown",
+            )
+            return {
+                "outcome": "provider_ambiguous",
+                "attempt_id": attempt.pk,
+                "released_inventory": 0,
+                "released_promo": False,
+            }
         state = (
             generation.State.EXPIRED
             if terminal_status == PaymentAttempt.Status.EXPIRED
@@ -1938,6 +2059,8 @@ def expire_due_v2_proposals(*, now=None, limit=100, dry_run=False):
                         proposal_id=proposal.pk,
                     )
                     if generation.state in {
+                        generation.State.PLANNED,
+                        generation.State.PROVIDER_INFLIGHT,
                         generation.State.PROVIDER_AMBIGUOUS,
                         generation.State.LATE_PROVIDER_REVIEW,
                         generation.State.AMBIGUITY_REVIEW,

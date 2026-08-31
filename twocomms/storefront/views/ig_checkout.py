@@ -147,6 +147,8 @@ CHECKOUT_COPY = {
         "state_cancellation_ambiguous_body": "Не повторюйте оплату. Ми спочатку звіримо статус із банком.",
         "state_generation_expired_reissuable_title": "Рахунок завершився — можна створити новий",
         "state_generation_expired_reissuable_body": "Пропозиція ще активна. Дані отримувача й доставки залишаються зафіксованими; можна створити один новий 25-хвилинний рахунок.",
+        "state_generation_retryable_title": "Рахунок не створено — можна повторити",
+        "state_generation_retryable_body": "Дані отримувача й доставки залишаються зафіксованими. Для змін потрібна нова пропозиція в Direct.",
         "reissue_invoice": "Створити новий рахунок",
     },
     "ru": {
@@ -264,6 +266,8 @@ CHECKOUT_COPY = {
         "state_cancellation_ambiguous_body": "Не повторяйте оплату. Сначала мы сверим статус с банком.",
         "state_generation_expired_reissuable_title": "Счёт завершился — можно создать новый",
         "state_generation_expired_reissuable_body": "Предложение ещё активно. Данные получателя и доставки остаются зафиксированными; можно создать один новый 25-минутный счёт.",
+        "state_generation_retryable_title": "Счёт не создан — можно повторить",
+        "state_generation_retryable_body": "Данные получателя и доставки остаются зафиксированными. Для изменений нужна новая ссылка из Direct.",
         "reissue_invoice": "Создать новый счёт",
     },
     "en": {
@@ -381,6 +385,8 @@ CHECKOUT_COPY = {
         "state_cancellation_ambiguous_body": "Do not pay again. We will first verify the status with the bank.",
         "state_generation_expired_reissuable_title": "The invoice expired — you can create a new one",
         "state_generation_expired_reissuable_body": "The offer is still active. Recipient and delivery details remain locked; you can create one new 25-minute invoice.",
+        "state_generation_retryable_title": "The invoice was not created — retry safely",
+        "state_generation_retryable_body": "Recipient and delivery details remain locked. Request a new offer in Direct to change them.",
         "reissue_invoice": "Create a new invoice",
     },
 }
@@ -641,6 +647,16 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
         ):
             return "cancellation_ambiguous"
         if (
+            generation.state == generation.State.EXPIRED
+            and (
+                not generation.provider_invoice_id
+                or attempt is None
+                or attempt.status != attempt.Status.EXPIRED
+                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
+            )
+        ):
+            return "cancellation_ambiguous"
+        if (
             proposal.expires_at > timezone.now()
             and (
                 generation.state == generation.State.EXPIRED
@@ -649,6 +665,10 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
                     and generation.state == generation.State.INVOICE_CREATED
                     and bool(generation.provider_invoice_id)
                     and attempt is not None
+                    and attempt.status in {
+                        attempt.Status.INITIATED,
+                        attempt.Status.PROCESSING,
+                    }
                     and not (attempt.event_state or {}).get(
                         "invoice_creation_ambiguous"
                     )
@@ -658,10 +678,26 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
             return "generation_expired_reissuable"
         if generation.state in {
             generation.State.FAILED,
-            generation.State.EXPIRED,
             generation.State.CANCELLED,
         }:
-            return "ready" if proposal.expires_at > timezone.now() else "expired"
+            expected_attempt_status = (
+                attempt.Status.FAILED
+                if generation.state == generation.State.FAILED and attempt is not None
+                else attempt.Status.CANCELLED if attempt is not None else ""
+            )
+            if (
+                attempt is None
+                or attempt.status != expected_attempt_status
+                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
+            ):
+                return "cancellation_ambiguous"
+            return (
+                "generation_retryable"
+                if proposal.expires_at > timezone.now()
+                else "expired"
+            )
+        if generation.state == generation.State.EXPIRED:
+            return "expired"
         if generation.state == generation.State.LATE_PAID_REVIEW:
             return "cancellation_ambiguous"
     if attempt is not None and (attempt.event_state or {}).get("invoice_creation_ambiguous"):
@@ -723,20 +759,24 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         if generation is not None and generation.payment_attempt_id
         else proposal.payment_attempt
     )
+    locked_retry_states = {
+        "generation_expired_reissuable",
+        "generation_retryable",
+    }
     delivery_locked = bool(proposal.details_locked_at) or state in {
         "locked",
         "pending",
         "paid",
-        "generation_expired_reissuable",
+        *locked_retry_states,
     }
     payable = state == "ready" and not delivery_locked
     reissue_allowed = bool(
-        state == "generation_expired_reissuable"
+        state in locked_retry_states
         and generation is not None
         and attempt is not None
     )
     share_allowed = state in {
-        "ready", "locked", "pending", "generation_expired_reissuable",
+        "ready", "locked", "pending", *locked_retry_states,
     }
     payment_url = ""
     if (
@@ -813,7 +853,7 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         "state_body": copy[f"state_{state}_body"],
         "customer_name": (
             ""
-            if state == "generation_expired_reissuable"
+            if state in locked_retry_states
             else _customer_name(proposal.client.display_name)
         ),
         "proposal": {
@@ -1022,7 +1062,9 @@ def ig_checkout_status(request, proposal_id):
     ui_state = _checkout_state(proposal, generation)
     public_state = (
         "verified" if ui_state == "paid" else
-        "reissue" if ui_state == "generation_expired_reissuable" else
+        "reissue" if ui_state in {
+            "generation_expired_reissuable", "generation_retryable",
+        } else
         "expired" if ui_state == "expired" else
         "cancellation_ambiguous" if ui_state == "cancellation_ambiguous" else
         "failed" if ui_state in {"failed", "unavailable", "cancelled", "superseded"} else
