@@ -299,6 +299,15 @@ def _delete_direct_bot_records(identifier: str) -> dict:
             InstagramBotProcessedMessage.objects.filter(mid__in=mids).delete()
         client_ids = [client.pk for client in clients]
         if client_ids:
+            # Analysis/memory tables use DO_NOTHING relations and append-only
+            # guards during normal runtime. The already committed privacy
+            # fence is the only boundary allowed to purge those behavioral
+            # rows before the client identity disappears.
+            from management.services.ig_typed_memory import (
+                purge_client_analysis_memory,
+            )
+
+            purge_client_analysis_memory(client_ids)
             # Remove private reward payloads but retain a secret-bound,
             # irreversible consumed marker. Without it, deleting and later
             # recreating the same IGSID would mint a second lifetime grant.

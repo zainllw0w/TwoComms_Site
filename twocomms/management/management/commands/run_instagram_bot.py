@@ -397,6 +397,11 @@ def _analysis_worker(stop_event: threading.Event):
                 ):
                     try:
                         reconcile_analysis_jobs(limit=ANALYSIS_RECONCILE_BATCH)
+                        from management.services.ig_typed_memory import (
+                            reconcile_typed_memory,
+                        )
+
+                        reconcile_typed_memory(limit=ANALYSIS_RECONCILE_BATCH)
                     except Exception as exc:
                         try:
                             bot.log(

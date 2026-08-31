@@ -303,6 +303,20 @@ def reset_funnel(*, client_id: int, actor, reason: str = "manual_reset") -> dict
     from management.services.ig_turn_snapshot import invalidate
 
     invalidate(f"funnel_reset_floor:{client.pk}")
+    def invalidate_typed_memory_after_commit():
+        try:
+            from management.services.ig_typed_memory import (
+                invalidate_memory_for_reset,
+            )
+
+            invalidate_memory_for_reset(
+                client_id=client.pk,
+                reset_after_message_id=boundary,
+            )
+        except Exception:
+            pass
+
+    transaction.on_commit(invalidate_typed_memory_after_commit)
     return {
         "ok": True,
         "status": 200,

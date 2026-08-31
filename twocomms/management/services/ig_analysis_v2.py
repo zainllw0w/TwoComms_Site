@@ -23,9 +23,9 @@ from management.models import (
 )
 
 
-RESULT_SCHEMA_VERSION = "analysis-v2.1"
+RESULT_SCHEMA_VERSION = "analysis-v2.2"
 NORMALIZER_VERSION = "analysis-v2-normalizer.1"
-EXTENDED_PROMPT_VERSION = "2026-08-30.crm.analysis-v2-canary.v1"
+EXTENDED_PROMPT_VERSION = "2026-08-31.analysis-v2-lang.v2"
 MAX_EVIDENCE = 40
 MAX_PROPOSALS = 12
 MAX_TOKEN_COUNT = 2**63 - 1
@@ -105,6 +105,10 @@ _RESULT_DIGEST_FIELDS = (
     "gemini_request_ref", "usage_status", "prompt_tokens", "thoughts_tokens",
     "candidates_tokens", "total_tokens", "analysis_latency_ms", "analyzed_at",
 )
+_RESULT_DIGEST_FIELDS_V22 = (
+    *_RESULT_DIGEST_FIELDS,
+    "language_evidence_message_ids",
+)
 _PROPOSAL_DIGEST_FIELDS = (
     "proposal_type", "target_scope", "target_definition_key",
     "target_definition_version", "target_key", "typed_value",
@@ -167,12 +171,18 @@ def _sha(payload) -> str:
 
 
 def result_digest_for_values(values: dict) -> str:
-    return _sha({field: values.get(field) for field in _RESULT_DIGEST_FIELDS})
+    fields = (
+        _RESULT_DIGEST_FIELDS_V22
+        if values.get("result_schema_version") == "analysis-v2.2"
+        else _RESULT_DIGEST_FIELDS
+    )
+    return _sha({field: values.get(field) for field in fields})
 
 
 def result_digest_for_instance(result: IgConversationAnalysisResult) -> str:
     return result_digest_for_values({
-        field: getattr(result, field) for field in _RESULT_DIGEST_FIELDS
+        field: getattr(result, field)
+        for field in _RESULT_DIGEST_FIELDS_V22
     })
 
 
@@ -557,9 +567,17 @@ def normalize_analysis_v2(
         if isinstance(row, dict)
         and str(row.get("code") or "").strip().casefold() in _CONFLICT_CODES
     })
+    language_ids = _message_ids(
+        analysis_v2.get("language_evidence_message_ids"),
+        by_id,
+        roles={"user"},
+    )
+    if analysis_v2.get("schema_version") != 2:
+        language_ids = []
     language = str(analysis_v2.get("detected_language") or "").strip().casefold()
-    if language not in _LANGUAGES:
+    if language not in _LANGUAGES or not language_ids:
         language = ""
+        language_ids = []
 
     proposals = []
     if probability is not None and probability_basis == (
@@ -617,6 +635,7 @@ def normalize_analysis_v2(
         "interaction_type": interaction_type,
         "score_band": score_band,
         "detected_language": language,
+        "language_evidence_message_ids": language_ids,
         "purchase_probability": probability,
         "purchase_confidence": probability_confidence,
         "probability_basis": probability_basis,

@@ -48,6 +48,9 @@ class Command(BaseCommand):
             self.stdout.write(json.dumps(result, ensure_ascii=False, sort_keys=True))
             return
         result = reconcile_analysis_jobs(limit=options["limit"])
+        from management.services.ig_typed_memory import reconcile_typed_memory
+
+        result["typed_memory"] = reconcile_typed_memory(limit=options["limit"])
         if options["run_due"]:
             result["processed"] = process_due_analysis(limit=1)
             result["processed_events"] = process_due_analysis_events(limit=1)

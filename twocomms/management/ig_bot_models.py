@@ -51,6 +51,9 @@ __all__ = [
     "IgConversationAnalysisSnapshot",
     "IgConversationAnalysisResult",
     "IgAnalysisProposal",
+    "IgMemoryFact",
+    "IgMemoryFactEvidence",
+    "IgMemoryHead",
     "IgConversationAnalysisEvent",
     "IgConversationAnalysisJob",
     "IgAiReplyRecoveryJob",
@@ -5381,7 +5384,7 @@ def _validate_analysis_result_payload(result):
         _validate_hex(getattr(result, field_name), field_name=field_name, optional=True)
     if not re.fullmatch(r"analysis-v2:[0-9a-f]{64}", str(result.result_key or "")):
         raise ValidationError({"result_key": "Invalid Analysis V2 result identity."})
-    if result.result_schema_version != "analysis-v2.1":
+    if result.result_schema_version not in {"analysis-v2.1", "analysis-v2.2"}:
         raise ValidationError({"result_schema_version": "Unsupported result schema."})
     if result.normalizer_version != "analysis-v2-normalizer.1":
         raise ValidationError({"normalizer_version": "Unsupported normalizer."})
@@ -5393,6 +5396,10 @@ def _validate_analysis_result_payload(result):
         raise ValidationError({"score_band": "Unsupported score band."})
     if result.detected_language not in {"", "uk", "ru", "en", "mixed", "unknown"}:
         raise ValidationError({"detected_language": "Unsupported language code."})
+    _validate_positive_message_ids(
+        result.language_evidence_message_ids,
+        field_name="language_evidence_message_ids",
+    )
     if result.probability_basis not in {
         "customer_evidence", "deterministic_no_buy", "deterministic_opt_out",
         "insufficient_evidence",
@@ -5427,6 +5434,15 @@ def _validate_analysis_result_payload(result):
         }
         for code in _ANALYSIS_V2_CLAIM_CODES
     }
+    if result.result_schema_version == "analysis-v2.2" and (
+        bool(result.detected_language) != bool(result.language_evidence_message_ids)
+    ):
+        raise ValidationError({"detected_language": "Language and user evidence must agree."})
+    if (
+        result.result_schema_version == "analysis-v2.1"
+        and result.language_evidence_message_ids
+    ):
+        raise ValidationError({"language_evidence_message_ids": "V2.1 has no language-evidence field."})
     required_claim = {
         "customer_evidence": "purchase_intent",
         "deterministic_no_buy": "explicit_no_buy",
@@ -5710,6 +5726,7 @@ class IgConversationAnalysisResult(models.Model):
         db_index=True,
     )
     detected_language = models.CharField(max_length=12, blank=True, default="")
+    language_evidence_message_ids = models.JSONField(default=list, blank=True)
     purchase_probability = models.DecimalField(
         max_digits=5,
         decimal_places=4,
@@ -6077,6 +6094,739 @@ class IgAnalysisProposal(models.Model):
 
     def delete(self, *args, **kwargs):
         raise ValueError("IgAnalysisProposal cannot be deleted")
+
+
+_MEMORY_CODE_RE = re.compile(r"^[a-z0-9_.:+-]{1,96}$")
+_MEMORY_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
+_MEMORY_RECORD_RE = re.compile(r"^memory-fact:[0-9a-f]{64}$")
+_MEMORY_SLOT_RE = re.compile(r"^memory-slot:[0-9a-f]{64}$")
+_MEMORY_SCHEMA_VERSION = "typed-memory.v1"
+_MEMORY_POLICY_VERSION = "typed-memory-projector.v1"
+_MEMORY_FACT_KEYS = frozenset({
+    "observed_language", "objection_observed", "deferred_intent",
+})
+_MEMORY_CLAIM_BY_FACT = {
+    "observed_language": "language",
+    "objection_observed": "objection",
+    "deferred_intent": "deferred_intent",
+}
+_MEMORY_INVALIDATION_REASONS = frozenset({
+    "episode_closed", "explicit_retraction", "line_replaced",
+    "reset_boundary", "superseded_by_new_assertion", "valid_until_elapsed",
+})
+_MEMORY_NON_TTL_INVALIDATION_REASONS = (
+    "episode_closed", "explicit_retraction", "line_replaced",
+    "reset_boundary", "superseded_by_new_assertion",
+)
+
+
+def _memory_scope_shape(instance) -> bool:
+    scope = str(instance.scope or "")
+    episode_id = getattr(instance, "commercial_episode_id", None)
+    line_id = str(getattr(instance, "line_id", "") or "")
+    order_id = getattr(instance, "order_id", None)
+    case_id = getattr(instance, "post_sale_case_id", None)
+    return {
+        "client": not episode_id and not line_id and not order_id and not case_id,
+        "episode": bool(episode_id and not line_id and not order_id and not case_id),
+        "line": bool(episode_id and line_id and not order_id and not case_id),
+        "order": bool(order_id and not episode_id and not line_id and not case_id),
+        "case": bool(case_id and not episode_id and not line_id and not order_id),
+    }.get(scope, False)
+
+
+def _validate_memory_typed_value(fact_key, value, *, operation):
+    if not isinstance(value, dict):
+        raise ValidationError({"typed_value": "Typed memory value must be an object."})
+    if operation != "assert":
+        if value:
+            raise ValidationError({"typed_value": "Memory tombstones cannot contain values."})
+        return
+    if fact_key == "observed_language":
+        if set(value) != {"code"} or value.get("code") not in {
+            "uk", "ru", "en", "mixed", "unknown",
+        }:
+            raise ValidationError({"typed_value": "Invalid observed-language value."})
+        return
+    if fact_key == "objection_observed":
+        if set(value) != {"type"} or value.get("type") not in IgObjection.Type.values:
+            raise ValidationError({"typed_value": "Invalid objection value."})
+        return
+    if fact_key == "deferred_intent":
+        if set(value) != {"kind", "condition_code", "deferred_until"}:
+            raise ValidationError({"typed_value": "Invalid deferred-intent shape."})
+        expected = {
+            "date": "customer_date", "event": "after_event",
+            "payday": "payday", "indefinite": "indefinite",
+        }
+        kind = value.get("kind")
+        parsed = parse_datetime(str(value.get("deferred_until") or ""))
+        if (
+            kind not in expected
+            or value.get("condition_code") != expected.get(kind)
+            or ((kind == "date") != bool(parsed))
+        ):
+            raise ValidationError({"typed_value": "Invalid deferred-intent value."})
+        return
+    raise ValidationError({"fact_key": "Unsupported typed-memory fact."})
+
+
+def _validate_memory_fact_payload(fact):
+    if not _MEMORY_RECORD_RE.fullmatch(str(fact.record_key or "")):
+        raise ValidationError({"record_key": "Invalid typed-memory record identity."})
+    if not _MEMORY_SLOT_RE.fullmatch(str(fact.slot_key or "")):
+        raise ValidationError({"slot_key": "Invalid typed-memory slot identity."})
+    if fact.fact_key not in _MEMORY_FACT_KEYS:
+        raise ValidationError({"fact_key": "Unsupported typed-memory fact."})
+    if fact.schema_version != _MEMORY_SCHEMA_VERSION:
+        raise ValidationError({"schema_version": "Unsupported typed-memory schema."})
+    if not _memory_scope_shape(fact):
+        raise ValidationError({"scope": "Typed-memory scope coordinates are inconsistent."})
+    if fact.line_id and not _MEMORY_CODE_RE.fullmatch(str(fact.line_id)):
+        raise ValidationError({"line_id": "Invalid line identity."})
+    if fact.operation not in {"assert", "invalidate", "expire"}:
+        raise ValidationError({"operation": "Unsupported typed-memory operation."})
+    _validate_memory_typed_value(
+        fact.fact_key,
+        fact.typed_value,
+        operation=fact.operation,
+    )
+    _validate_finite_01(fact.confidence, field_name="confidence", optional=True)
+    if not _MEMORY_HEX_RE.fullmatch(str(fact.integrity_hmac or "")):
+        raise ValidationError({"integrity_hmac": "Invalid typed-memory HMAC."})
+    if not _MEMORY_CODE_RE.fullmatch(str(fact.integrity_key_id or "")):
+        raise ValidationError({"integrity_key_id": "Invalid typed-memory HMAC key id."})
+    if fact.valid_until and fact.valid_until <= fact.observed_at:
+        raise ValidationError({"valid_until": "Memory expiry must follow observation."})
+    if fact.operation == "assert":
+        if (
+            fact.producer != "analysis_v2"
+            or fact.producer_policy_version != _MEMORY_POLICY_VERSION
+            or fact.closure_method != "analysis_assertion"
+            or fact.source_role != "user"
+            or not fact.source_result_id
+            or not 1 <= int(fact.expected_evidence_count or 0) <= 40
+            or fact.reason_code
+            or fact.source_event_digest
+        ):
+            raise ValidationError({"source_result": "Analysis assertions require user evidence."})
+        for field_name in (
+            "source_result_digest", "source_materiality_digest",
+            "source_state_correlation",
+        ):
+            if not _MEMORY_HEX_RE.fullmatch(str(getattr(fact, field_name) or "")):
+                raise ValidationError({field_name: "Invalid analysis identity."})
+        if int(fact.source_watermark_message_id or 0) <= 0:
+            raise ValidationError({"source_watermark_message_id": "Invalid analysis watermark."})
+        result = fact.source_result
+        if (
+            result.client_id != fact.client_id
+            or result.result_schema_version != "analysis-v2.2"
+            or result.result_digest != fact.source_result_digest
+            or result.materiality_digest != fact.source_materiality_digest
+            or result.state_correlation != fact.source_state_correlation
+            or result.watermark_message_id != fact.source_watermark_message_id
+            or result.analyzed_at != fact.observed_at
+        ):
+            raise ValidationError({"source_result": "Fact does not match its Analysis V2 source."})
+        if fact.fact_key == "observed_language" and (
+            fact.typed_value != {"code": result.detected_language}
+            or fact.expected_evidence_count
+            != len(result.language_evidence_message_ids or [])
+            or fact.confidence is not None
+            or fact.valid_until is not None
+        ):
+            raise ValidationError({"typed_value": "Language fact does not match its source."})
+        if fact.fact_key == "objection_observed" and (
+            fact.typed_value != {"type": result.active_objection_type}
+            or fact.commercial_episode_id != result.commercial_episode_id
+            or fact.line_id != result.line_id
+            or fact.confidence != result.active_objection_confidence
+            or fact.valid_until is not None
+            or fact.expected_evidence_count != sum(
+                row.get("source_role") == "user"
+                and "objection" in (row.get("claim_codes") or [])
+                for row in result.evidence_manifest or []
+                if isinstance(row, dict)
+            )
+        ):
+            raise ValidationError({"typed_value": "Objection fact does not match its source."})
+        if fact.fact_key == "deferred_intent" and (
+            fact.commercial_episode_id != result.commercial_episode_id
+            or fact.line_id
+            or fact.typed_value.get("kind") != result.deferred_kind
+            or fact.typed_value.get("condition_code") != result.deferred_condition_code
+            or fact.confidence is not None
+            or fact.valid_until != result.deferred_until
+            or fact.expected_evidence_count != sum(
+                row.get("source_role") == "user"
+                and "deferred_intent" in (row.get("claim_codes") or [])
+                for row in result.evidence_manifest or []
+                if isinstance(row, dict)
+            )
+        ):
+            raise ValidationError({"typed_value": "Deferred fact does not match its source."})
+    else:
+        tombstone_shape = (
+            fact.operation == "invalidate"
+            and fact.closure_method == "deterministic_invalidation"
+            and fact.reason_code in (
+                _MEMORY_NON_TTL_INVALIDATION_REASONS
+            )
+        ) or (
+            fact.operation == "expire"
+            and fact.closure_method == "ttl_expiry"
+            and fact.reason_code == "valid_until_elapsed"
+        )
+        if (
+            not tombstone_shape
+            or
+            fact.producer != "deterministic_projector"
+            or fact.producer_policy_version != _MEMORY_POLICY_VERSION
+            or fact.closure_method not in {"deterministic_invalidation", "ttl_expiry"}
+            or fact.source_role not in {"system", "authority"}
+            or fact.source_result_id
+            or fact.source_result_digest
+            or fact.source_materiality_digest
+            or fact.source_state_correlation
+            or fact.source_watermark_message_id
+            or fact.expected_evidence_count
+            or fact.reason_code not in _MEMORY_INVALIDATION_REASONS
+            or not _MEMORY_HEX_RE.fullmatch(str(fact.source_event_digest or ""))
+            or fact.confidence is not None
+            or fact.valid_until is not None
+            or not fact.supersedes_id
+        ):
+            raise ValidationError({"source_event_digest": "Invalid deterministic tombstone source."})
+    expected_policy = {
+        "observed_language": ("client", "low", "client"),
+        "objection_observed": ({"episode", "line"}, "personal_preference", "episode"),
+        "deferred_intent": ("episode", "personal_preference", None),
+    }[fact.fact_key]
+    allowed_scope = expected_policy[0]
+    if isinstance(allowed_scope, set):
+        scope_ok = fact.scope in allowed_scope
+    else:
+        scope_ok = fact.scope == allowed_scope
+    retention_ok = (
+        fact.retention_class in {"episode", "until_date"}
+        if fact.fact_key == "deferred_intent"
+        else fact.retention_class == expected_policy[2]
+    )
+    if not scope_ok or fact.sensitivity != expected_policy[1] or not retention_ok:
+        raise ValidationError({"fact_key": "Fact scope/sensitivity/retention policy mismatch."})
+    if fact.fact_key == "deferred_intent" and fact.operation == "assert":
+        kind = fact.typed_value.get("kind")
+        parsed_until = parse_datetime(str(fact.typed_value.get("deferred_until") or ""))
+        if parsed_until is not None and timezone.is_naive(parsed_until):
+            parsed_until = timezone.make_aware(parsed_until)
+        if kind == "date":
+            if (
+                parsed_until is None
+                or fact.valid_until != parsed_until
+                or fact.retention_class != "until_date"
+            ):
+                raise ValidationError({"valid_until": "Date deferral expiry is inconsistent."})
+        elif fact.valid_until is not None or fact.retention_class != "episode":
+            raise ValidationError({"valid_until": "Non-date deferral cannot carry an expiry."})
+    if fact.supersedes_id:
+        previous = fact.supersedes
+        if (
+            previous.slot_key != fact.slot_key
+            or previous.client_id != fact.client_id
+            or previous.scope != fact.scope
+            or previous.commercial_episode_id != fact.commercial_episode_id
+            or previous.line_id != fact.line_id
+            or previous.order_id != fact.order_id
+            or previous.post_sale_case_id != fact.post_sale_case_id
+            or previous.fact_key != fact.fact_key
+            or previous.schema_version != fact.schema_version
+            or not previous.current_for_heads.filter(slot_key=fact.slot_key).exists()
+        ):
+            raise ValidationError({"supersedes": "Memory fact predecessor is not current."})
+    elif IgMemoryHead.objects.filter(slot_key=fact.slot_key).exists():
+        raise ValidationError({"supersedes": "Existing memory slot requires a predecessor."})
+
+
+class _IgMemoryImmutableQuerySet(models.QuerySet):
+    @staticmethod
+    def _reject():
+        raise ValueError("Typed-memory evidence is append-only")
+
+    def update(self, **kwargs):
+        self._reject()
+
+    def delete(self):
+        self._reject()
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        self._reject()
+
+    def bulk_create(self, objs, *args, **kwargs):
+        if kwargs.get("update_conflicts") or kwargs.get("update_fields"):
+            self._reject()
+        validator = (
+            _validate_memory_fact_payload
+            if self.model.__name__ == "IgMemoryFact"
+            else _validate_memory_evidence_payload
+        )
+        for obj in objs:
+            validator(obj)
+        return super().bulk_create(objs, *args, **kwargs)
+
+
+class IgMemoryFact(models.Model):
+    """Immutable typed assertion or tombstone derived from reviewed evidence."""
+
+    class Scope(models.TextChoices):
+        CLIENT = "client", _("Client")
+        EPISODE = "episode", _("Episode")
+        LINE = "line", _("Line")
+        ORDER = "order", _("Order")
+        CASE = "case", _("Case")
+
+    class FactKey(models.TextChoices):
+        OBSERVED_LANGUAGE = "observed_language", _("Observed language")
+        OBJECTION_OBSERVED = "objection_observed", _("Observed objection")
+        DEFERRED_INTENT = "deferred_intent", _("Deferred intent")
+
+    class Operation(models.TextChoices):
+        ASSERT = "assert", _("Assert")
+        INVALIDATE = "invalidate", _("Invalidate")
+        EXPIRE = "expire", _("Expire")
+
+    record_key = models.CharField(max_length=80)
+    slot_key = models.CharField(max_length=80)
+    client = models.ForeignKey(
+        "management.IgClient", on_delete=models.DO_NOTHING,
+        related_name="memory_facts", db_constraint=False,
+    )
+    scope = models.CharField(max_length=16, choices=Scope.choices)
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="memory_facts", db_constraint=False,
+    )
+    line_id = models.CharField(max_length=96, blank=True, default="")
+    order = models.ForeignKey(
+        "orders.Order", null=True, blank=True, on_delete=models.DO_NOTHING,
+        related_name="instagram_memory_facts", db_constraint=False,
+    )
+    post_sale_case = models.ForeignKey(
+        "management.IgPostSaleCase", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="memory_facts", db_constraint=False,
+    )
+    fact_key = models.CharField(max_length=32, choices=FactKey.choices)
+    schema_version = models.CharField(max_length=32, default=_MEMORY_SCHEMA_VERSION)
+    operation = models.CharField(max_length=16, choices=Operation.choices)
+    typed_value = models.JSONField(default=dict, blank=True)
+    confidence = models.DecimalField(max_digits=5, decimal_places=4, null=True, blank=True)
+    source_role = models.CharField(max_length=16)
+    producer = models.CharField(max_length=32)
+    producer_policy_version = models.CharField(
+        max_length=32, default=_MEMORY_POLICY_VERSION,
+    )
+    closure_method = models.CharField(max_length=32)
+    source_result = models.ForeignKey(
+        "management.IgConversationAnalysisResult", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="memory_facts", db_constraint=False,
+    )
+    source_result_digest = models.CharField(max_length=64, blank=True, default="")
+    source_materiality_digest = models.CharField(max_length=64, blank=True, default="")
+    source_state_correlation = models.CharField(max_length=64, blank=True, default="")
+    source_watermark_message_id = models.PositiveBigIntegerField(default=0)
+    source_event_digest = models.CharField(max_length=64, blank=True, default="")
+    expected_evidence_count = models.PositiveSmallIntegerField(default=0)
+    supersedes = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.DO_NOTHING,
+        related_name="superseding_facts", db_constraint=False,
+    )
+    reason_code = models.CharField(max_length=48, blank=True, default="")
+    integrity_hmac = models.CharField(max_length=64)
+    integrity_key_id = models.CharField(max_length=32)
+    observed_at = models.DateTimeField()
+    valid_until = models.DateTimeField(null=True, blank=True)
+    sensitivity = models.CharField(max_length=24)
+    retention_class = models.CharField(max_length=24)
+    created_at = models.DateTimeField(auto_now_add=True)
+    objects = _IgMemoryImmutableQuerySet.as_manager()
+
+    class Meta:
+        base_manager_name = "objects"
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(fields=["record_key"], name="ig_memfact_record_uniq"),
+            models.UniqueConstraint(fields=["supersedes"], name="ig_memfact_supersedes_uniq"),
+            models.CheckConstraint(
+                condition=models.Q(confidence__isnull=True) | (
+                    models.Q(confidence__gte=Decimal("0"))
+                    & models.Q(confidence__lte=Decimal("1"))
+                ),
+                name="ig_memfact_conf_range",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(valid_until__isnull=True)
+                | models.Q(valid_until__gt=models.F("observed_at")),
+                name="ig_memfact_expiry_order",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        scope="client", commercial_episode__isnull=True,
+                        line_id="", order__isnull=True, post_sale_case__isnull=True,
+                    )
+                    | models.Q(
+                        scope="episode", commercial_episode__isnull=False,
+                        line_id="", order__isnull=True, post_sale_case__isnull=True,
+                    )
+                    | models.Q(
+                        scope="line", commercial_episode__isnull=False,
+                        order__isnull=True, post_sale_case__isnull=True,
+                    ) & ~models.Q(line_id="")
+                    | models.Q(
+                        scope="order", commercial_episode__isnull=True,
+                        line_id="", order__isnull=False, post_sale_case__isnull=True,
+                    )
+                    | models.Q(
+                        scope="case", commercial_episode__isnull=True,
+                        line_id="", order__isnull=True, post_sale_case__isnull=False,
+                    )
+                ),
+                name="ig_memfact_scope_shape",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        operation="assert", producer="analysis_v2",
+                        producer_policy_version=_MEMORY_POLICY_VERSION,
+                        closure_method="analysis_assertion",
+                        source_role="user", source_result__isnull=False,
+                        source_event_digest="", reason_code="",
+                        expected_evidence_count__gte=1,
+                        expected_evidence_count__lte=40,
+                    )
+                    | models.Q(
+                        operation="invalidate",
+                        producer="deterministic_projector",
+                        producer_policy_version=_MEMORY_POLICY_VERSION,
+                        closure_method="deterministic_invalidation",
+                        source_role__in=("system", "authority"),
+                        source_result__isnull=True, source_result_digest="",
+                        source_materiality_digest="", source_state_correlation="",
+                        source_watermark_message_id=0,
+                        expected_evidence_count=0,
+                        reason_code__in=tuple(
+                            _MEMORY_NON_TTL_INVALIDATION_REASONS
+                        ),
+                    )
+                    | models.Q(
+                        operation="expire", producer="deterministic_projector",
+                        producer_policy_version=_MEMORY_POLICY_VERSION,
+                        closure_method="ttl_expiry",
+                        source_role__in=("system", "authority"),
+                        source_result__isnull=True, source_result_digest="",
+                        source_materiality_digest="", source_state_correlation="",
+                        source_watermark_message_id=0,
+                        expected_evidence_count=0,
+                        reason_code="valid_until_elapsed",
+                    )
+                ),
+                name="ig_memfact_source_shape",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["client", "-observed_at"], name="ig_memfact_client_obs"),
+            models.Index(fields=["slot_key", "-id"], name="ig_memfact_slot_id"),
+            models.Index(fields=["source_result", "fact_key"], name="ig_memfact_result_key"),
+            models.Index(fields=["valid_until", "id"], name="ig_memfact_valid_until"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None or not self._state.adding:
+            raise ValueError("IgMemoryFact is append-only")
+        _validate_memory_fact_payload(self)
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgMemoryFact is append-only")
+
+
+def _validate_memory_evidence_payload(evidence):
+    if not 1 <= int(evidence.ordinal or 0) <= 40:
+        raise ValidationError({"ordinal": "Memory evidence ordinal must be 1..40."})
+    if int(evidence.message_id or 0) <= 0 or evidence.source_role != "user":
+        raise ValidationError({"message_id": "Memory evidence must be customer-owned."})
+    if evidence.claim_code not in {"language", "objection", "deferred_intent"}:
+        raise ValidationError({"claim_code": "Unsupported memory evidence claim."})
+    if evidence.fact_id and (
+        evidence.claim_code != _MEMORY_CLAIM_BY_FACT.get(evidence.fact.fact_key)
+    ):
+        raise ValidationError({"claim_code": "Evidence claim does not match the fact."})
+    if evidence.fact_id:
+        fact = evidence.fact
+        if evidence.ordinal > fact.expected_evidence_count or not fact.source_result_id:
+            raise ValidationError({"ordinal": "Evidence exceeds the fact manifest."})
+        result = fact.source_result
+        if evidence.claim_code == "language":
+            owned = evidence.message_id in (result.language_evidence_message_ids or [])
+        else:
+            owned = any(
+                isinstance(row, dict)
+                and row.get("message_id") == evidence.message_id
+                and row.get("source_role") == "user"
+                and evidence.claim_code in (row.get("claim_codes") or [])
+                for row in result.evidence_manifest or []
+            )
+        if not owned:
+            raise ValidationError({"message_id": "Evidence is not owned by the source result."})
+    if not _MEMORY_HEX_RE.fullmatch(str(evidence.evidence_hmac or "")):
+        raise ValidationError({"evidence_hmac": "Invalid memory evidence HMAC."})
+    if not _MEMORY_CODE_RE.fullmatch(str(evidence.integrity_key_id or "")):
+        raise ValidationError({"integrity_key_id": "Invalid memory evidence key id."})
+
+
+class IgMemoryFactEvidence(models.Model):
+    fact = models.ForeignKey(
+        "management.IgMemoryFact", on_delete=models.DO_NOTHING,
+        related_name="evidence_rows", db_constraint=False,
+    )
+    ordinal = models.PositiveSmallIntegerField()
+    message_id = models.PositiveBigIntegerField()
+    source_role = models.CharField(max_length=16)
+    claim_code = models.CharField(max_length=32)
+    evidence_hmac = models.CharField(max_length=64)
+    integrity_key_id = models.CharField(max_length=32)
+    created_at = models.DateTimeField(auto_now_add=True)
+    objects = _IgMemoryImmutableQuerySet.as_manager()
+
+    class Meta:
+        base_manager_name = "objects"
+        ordering = ["ordinal", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["fact", "ordinal"], name="ig_memev_fact_ord_uniq"),
+            models.UniqueConstraint(
+                fields=["fact", "message_id", "claim_code"],
+                name="ig_memev_fact_msg_claim_uniq",
+            ),
+            models.CheckConstraint(condition=models.Q(ordinal__gte=1), name="ig_memev_ordinal_positive"),
+            models.CheckConstraint(condition=models.Q(message_id__gte=1), name="ig_memev_message_positive"),
+        ]
+        indexes = [
+            models.Index(fields=["message_id", "id"], name="ig_memev_message_id"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk is not None or not self._state.adding:
+            raise ValueError("IgMemoryFactEvidence is append-only")
+        _validate_memory_evidence_payload(self)
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgMemoryFactEvidence is append-only")
+
+
+def _validate_memory_head_payload(head):
+    if not _MEMORY_SLOT_RE.fullmatch(str(head.slot_key or "")):
+        raise ValidationError({"slot_key": "Invalid typed-memory slot identity."})
+    if head.schema_version != _MEMORY_SCHEMA_VERSION or not _memory_scope_shape(head):
+        raise ValidationError({"scope": "Invalid typed-memory head scope."})
+    if int(head.revision or 0) < 1:
+        raise ValidationError({"revision": "Memory head revision must be positive."})
+    if head.projection_policy_version != _MEMORY_POLICY_VERSION:
+        raise ValidationError({"projection_policy_version": "Unsupported memory projector."})
+    if not _MEMORY_HEX_RE.fullmatch(str(head.projection_hmac or "")):
+        raise ValidationError({"projection_hmac": "Invalid memory projection HMAC."})
+    if not _MEMORY_CODE_RE.fullmatch(str(head.integrity_key_id or "")):
+        raise ValidationError({"integrity_key_id": "Invalid memory projection key id."})
+    if head.current_fact_id:
+        fact = head.current_fact
+        expected_state = {
+            "assert": "active", "invalidate": "invalidated", "expire": "expired",
+        }.get(fact.operation)
+        if (
+            expected_state != head.state
+            or fact.slot_key != head.slot_key
+            or fact.client_id != head.client_id
+            or fact.scope != head.scope
+            or fact.commercial_episode_id != head.commercial_episode_id
+            or fact.line_id != head.line_id
+            or fact.order_id != head.order_id
+            or fact.post_sale_case_id != head.post_sale_case_id
+            or fact.fact_key != head.fact_key
+            or fact.schema_version != head.schema_version
+        ):
+            raise ValidationError({"current_fact": "Memory head fact does not match its slot."})
+        if head._state.adding and (
+            head.revision != 1
+            or fact.supersedes_id is not None
+            or fact.operation != "assert"
+        ):
+            raise ValidationError({"current_fact": "Invalid initial memory head."})
+
+
+class _IgMemoryHeadQuerySet(models.QuerySet):
+    _MUTABLE = frozenset({
+        "current_fact", "current_fact_id", "state", "revision",
+        "projection_policy_version", "projection_hmac", "integrity_key_id",
+        "projected_at", "updated_at",
+    })
+
+    def update(self, **kwargs):
+        raise ValueError("IgMemoryHead transitions require the locked projector")
+
+    def delete(self):
+        raise ValueError("IgMemoryHead cannot be deleted outside privacy erasure")
+
+    def bulk_create(self, objs, *args, **kwargs):
+        for obj in objs:
+            if obj.pk or not obj._state.adding:
+                raise ValueError("IgMemoryHead identity is immutable")
+            _validate_memory_head_payload(obj)
+        return super().bulk_create(objs, *args, **kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ValueError("IgMemoryHead transitions require the locked projector")
+
+
+class IgMemoryHead(models.Model):
+    class State(models.TextChoices):
+        ACTIVE = "active", _("Active")
+        INVALIDATED = "invalidated", _("Invalidated")
+        EXPIRED = "expired", _("Expired")
+
+    slot_key = models.CharField(max_length=80)
+    client = models.ForeignKey(
+        "management.IgClient", on_delete=models.DO_NOTHING,
+        related_name="memory_heads", db_constraint=False,
+    )
+    scope = models.CharField(max_length=16, choices=IgMemoryFact.Scope.choices)
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="memory_heads", db_constraint=False,
+    )
+    line_id = models.CharField(max_length=96, blank=True, default="")
+    order = models.ForeignKey(
+        "orders.Order", null=True, blank=True, on_delete=models.DO_NOTHING,
+        related_name="instagram_memory_heads", db_constraint=False,
+    )
+    post_sale_case = models.ForeignKey(
+        "management.IgPostSaleCase", null=True, blank=True,
+        on_delete=models.DO_NOTHING, related_name="memory_heads", db_constraint=False,
+    )
+    fact_key = models.CharField(max_length=32, choices=IgMemoryFact.FactKey.choices)
+    schema_version = models.CharField(max_length=32, default=_MEMORY_SCHEMA_VERSION)
+    current_fact = models.ForeignKey(
+        "management.IgMemoryFact", on_delete=models.DO_NOTHING,
+        related_name="current_for_heads", db_constraint=False,
+    )
+    state = models.CharField(max_length=16, choices=State.choices)
+    revision = models.PositiveBigIntegerField(default=1)
+    projection_policy_version = models.CharField(
+        max_length=32, default=_MEMORY_POLICY_VERSION,
+    )
+    projection_hmac = models.CharField(max_length=64)
+    integrity_key_id = models.CharField(max_length=32)
+    projected_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    objects = _IgMemoryHeadQuerySet.as_manager()
+
+    class Meta:
+        base_manager_name = "objects"
+        ordering = ["slot_key"]
+        constraints = [
+            models.UniqueConstraint(fields=["slot_key"], name="ig_memhead_slot_uniq"),
+            models.UniqueConstraint(fields=["current_fact"], name="ig_memhead_fact_uniq"),
+            models.CheckConstraint(condition=models.Q(revision__gte=1), name="ig_memhead_revision_positive"),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        scope="client", commercial_episode__isnull=True,
+                        line_id="", order__isnull=True, post_sale_case__isnull=True,
+                    )
+                    | models.Q(
+                        scope="episode", commercial_episode__isnull=False,
+                        line_id="", order__isnull=True, post_sale_case__isnull=True,
+                    )
+                    | models.Q(
+                        scope="line", commercial_episode__isnull=False,
+                        order__isnull=True, post_sale_case__isnull=True,
+                    ) & ~models.Q(line_id="")
+                    | models.Q(
+                        scope="order", commercial_episode__isnull=True,
+                        line_id="", order__isnull=False, post_sale_case__isnull=True,
+                    )
+                    | models.Q(
+                        scope="case", commercial_episode__isnull=True,
+                        line_id="", order__isnull=True, post_sale_case__isnull=False,
+                    )
+                ),
+                name="ig_memhead_scope_shape",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["client", "scope", "fact_key"], name="ig_memhead_client_scope"),
+            models.Index(
+                fields=["commercial_episode", "line_id", "fact_key"],
+                name="ig_memhead_episode_line",
+            ),
+            models.Index(fields=["state", "-updated_at"], name="ig_memhead_state_updated"),
+        ]
+
+    def save(self, *args, **kwargs):
+        _validate_memory_head_payload(self)
+        if self.pk:
+            previous = type(self)._base_manager.filter(pk=self.pk).values(
+                "slot_key", "client_id", "scope", "commercial_episode_id",
+                "line_id", "order_id", "post_sale_case_id", "fact_key",
+                "schema_version", "current_fact_id", "state", "revision",
+                "projected_at",
+            ).first()
+            if previous:
+                for field_name in (
+                    "slot_key", "client_id", "scope", "commercial_episode_id",
+                    "line_id", "order_id", "post_sale_case_id", "fact_key",
+                    "schema_version",
+                ):
+                    old_value = previous[field_name]
+                    if getattr(self, field_name) != old_value:
+                        raise ValueError("IgMemoryHead slot identity is immutable")
+                if (
+                    self.revision != int(previous["revision"] or 0) + 1
+                    or self.current_fact_id == previous["current_fact_id"]
+                    or self.projected_at < previous["projected_at"]
+                    or self.current_fact.supersedes_id != previous["current_fact_id"]
+                ):
+                    raise ValueError("IgMemoryHead transition is not monotonic")
+        elif (
+            self.revision != 1
+            or self.current_fact.supersedes_id is not None
+            or self.current_fact.operation != IgMemoryFact.Operation.ASSERT
+            or self.state != self.State.ACTIVE
+        ):
+            raise ValueError("IgMemoryHead initial projection is invalid")
+        fact = self.current_fact
+        expected_state = {
+            "assert": self.State.ACTIVE,
+            "invalidate": self.State.INVALIDATED,
+            "expire": self.State.EXPIRED,
+        }.get(fact.operation)
+        if (
+            expected_state != self.state
+            or fact.slot_key != self.slot_key
+            or fact.client_id != self.client_id
+            or fact.scope != self.scope
+            or fact.commercial_episode_id != self.commercial_episode_id
+            or fact.line_id != self.line_id
+            or fact.order_id != self.order_id
+            or fact.post_sale_case_id != self.post_sale_case_id
+            or fact.fact_key != self.fact_key
+            or fact.schema_version != self.schema_version
+        ):
+            raise ValueError("IgMemoryHead current fact does not match its slot")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgMemoryHead cannot be deleted outside privacy erasure")
 
 
 class _IgConversationAnalysisEventQuerySet(models.QuerySet):

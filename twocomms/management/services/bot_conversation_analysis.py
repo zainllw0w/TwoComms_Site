@@ -120,8 +120,9 @@ ANALYSIS_V2_PROMPT_FRAGMENT = """
 
 Якщо службовий режим Analysis V2 активний, додай optional об'єкт `analysis_v2`:
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "detected_language": "uk|ru|en|mixed|unknown",
+  "language_evidence_message_ids": [тільки user message_id, що підтверджують мову],
   "purchase_intent": {"probability": 0..1, "confidence": 0..1,
                        "evidence_message_ids": [тільки user message_id]},
   "active_objection": {"type": "allowlisted code", "confidence": 0..1,
@@ -737,6 +738,8 @@ def _skip_reason(
         return allowlist_reason
     if client.hidden_at:
         return "hidden"
+    if client.privacy_erasure_started_at:
+        return "privacy_erasure"
     if client.is_blocked or client.stage == IgClient.Stage.SPAM:
         return "spam_or_blocked"
     if client.opted_out_at and (
@@ -1614,7 +1617,7 @@ def _process_claim(
                 from management.services.ig_analysis_v2 import persist_shadow_result
 
                 with transaction.atomic():
-                    persist_shadow_result(
+                    analysis_v2_result = persist_shadow_result(
                         client=client,
                         legacy_snapshot=snapshot,
                         parsed=result.get("parsed"),
@@ -1627,6 +1630,25 @@ def _process_claim(
                         line_id=str(current_job.materiality_line_id or "")[:96],
                         provider_result=result,
                         analyzed_at=finalized_at,
+                    )
+                if analysis_v2_result is not None:
+                    # Run strictly after the legacy finalization commits. A
+                    # projector deadlock/failure can never roll that commit
+                    # back, and every publisher uses Client -> Job -> Result.
+                    def publish_typed_memory_after_commit(result_id):
+                        try:
+                            from management.services.ig_typed_memory import (
+                                publish_analysis_memory,
+                            )
+
+                            publish_analysis_memory(result_id)
+                        except Exception:
+                            pass
+
+                    transaction.on_commit(
+                        lambda result_id=analysis_v2_result.pk: (
+                            publish_typed_memory_after_commit(result_id)
+                        )
                     )
             except Exception:
                 pass

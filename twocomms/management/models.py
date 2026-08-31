@@ -3738,6 +3738,7 @@ class InstagramBotSettings(models.Model):
     last_gemini_thoughts_tokens = models.PositiveIntegerField(default=0)
     last_gemini_candidates_tokens = models.PositiveIntegerField(default=0)
     analysis_reconcile_cursor = models.PositiveBigIntegerField(default=0)
+    typed_memory_reconcile_cursor = models.PositiveBigIntegerField(default=0)
     analysis_reconcile_after = models.DateTimeField(default=timezone.now)
     analysis_backfill_enabled = models.BooleanField(default=False)
     # Independent bounded cursor for the one-time durable opt-out migration.

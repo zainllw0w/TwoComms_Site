@@ -161,6 +161,17 @@ IG_ANALYSIS_V2_EXTENDED_PROMPT = _env_bool(
     'IG_ANALYSIS_V2_EXTENDED_PROMPT',
     default=False,
 )
+IG_TYPED_MEMORY_MODE = os.environ.get(
+    'IG_TYPED_MEMORY_MODE',
+    'off',
+).strip().casefold()
+if IG_TYPED_MEMORY_MODE not in {'off', 'shadow_compare'}:
+    IG_TYPED_MEMORY_MODE = 'off'
+IG_TYPED_MEMORY_HMAC_KEYRING = _env_json('IG_TYPED_MEMORY_HMAC_KEYRING', {})
+IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID = os.environ.get(
+    'IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID',
+    '',
+).strip()
 try:
     IG_ASSISTED_CHECKOUT_V2_CANARY_PERCENT = max(
         0,

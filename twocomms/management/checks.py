@@ -128,3 +128,40 @@ def gemini_accounting_shadow_check(app_configs=None, **_kwargs):
             id="management.W915",
         ))
     return errors
+
+
+@register(Tags.compatibility)
+def typed_memory_shadow_check(app_configs=None, **_kwargs):
+    """Fail closed when shadow memory is requested without its evidence/HMAC gates."""
+    del app_configs
+    from management.services import ig_typed_memory
+
+    mode = ig_typed_memory.configured_mode()
+    if mode == ig_typed_memory.MODE_OFF:
+        return []
+    errors = []
+    if (
+        str(getattr(settings, "IG_ANALYSIS_V2_MODE", "off") or "off") != "shadow"
+        or str(getattr(settings, "IG_ANALYSIS_MATERIALITY_MODE", "off") or "off")
+        != "shadow"
+        or not bool(getattr(settings, "IG_ANALYSIS_V2_EXTENDED_PROMPT", False))
+    ):
+        errors.append(Error(
+            "Typed-memory shadow requires materiality + Analysis V2 language-evidence shadow.",
+            hint=(
+                "Enable both upstream shadow modes and the v2.2 extended prompt, "
+                "or roll IG_TYPED_MEMORY_MODE back to off."
+            ),
+            id="management.E920",
+        ))
+    active, ring = ig_typed_memory._keyring()
+    if not active or not ring:
+        errors.append(Error(
+            "Typed-memory shadow requires an active retained HMAC keyring.",
+            hint=(
+                "Configure IG_TYPED_MEMORY_HMAC_KEYRING with a random >=32-byte "
+                "secret and set IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID."
+            ),
+            id="management.E921",
+        ))
+    return errors
