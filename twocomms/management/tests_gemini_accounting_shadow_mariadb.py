@@ -3,6 +3,7 @@
 Run only through ``test_settings_mariadb`` and an explicitly disposable
 ``test_twocomms_*`` database.  The normal SQLite suite skips this module.
 """
+import datetime as dt
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest import skipUnless
@@ -18,6 +19,7 @@ from management.models import (
     IgClient,
     InstagramBotMessage,
 )
+from management.services import call_ai_analysis as ai
 from management.services import gemini_accounting_runtime as runtime
 from management.services.gemini_routing import TurnFacts, classify_live_turn, persist_decision
 from management.services.ig_turn_lineage import Lane, turn_lineage
@@ -337,3 +339,81 @@ class GeminiShadowMariaDbConcurrencyTests(TransactionTestCase):
                 model=model,
             )
             self.assertEqual(state.in_flight_count, 0)
+
+    def test_expired_reaper_and_late_success_converge_without_deadlock(self):
+        model = "gemini-3.7-flash"
+        observer = runtime.begin_request(
+            request_id="maria-reaper-late-success",
+            role="management",
+            reasoning_task="conversation_reanalysis",
+            candidate_plan=[{
+                "candidate_index": 1,
+                "key_name": "GEMINI_API",
+                "project_identity": "gemini-project-race",
+                "identity_status": "known",
+                "model": model,
+                "skip_reason": "",
+            }],
+            deadline_seconds=1,
+            lane="analysis",
+        )
+        boundary = observer.attempt(
+            key_name="GEMINI_API",
+            model=model,
+            candidate_index=1,
+        )
+        self.assertTrue(boundary.before_provider(
+            serialized_bytes=128,
+            inline_count=0,
+        ))
+        boundary.failed(ai._GeminiTransient("timeout: ambiguous provider result"))
+        expired_now = runtime.timezone.now()
+        GeminiRequest._base_manager.filter(pk=observer.graph_id).update(
+            deadline_at=expired_now - dt.timedelta(seconds=1),
+        )
+        start = Barrier(2)
+
+        def reconcile_graph():
+            close_old_connections()
+            try:
+                start.wait(timeout=10)
+                return runtime.reconcile_expired_request_graphs(
+                    now=expired_now,
+                    limit=10,
+                )
+            finally:
+                close_old_connections()
+
+        def settle_late_success():
+            close_old_connections()
+            try:
+                start.wait(timeout=10)
+                boundary.succeeded({
+                    "promptTokenCount": 12,
+                    "candidatesTokenCount": 2,
+                    "totalTokenCount": 14,
+                })
+                return True
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            reconcile_future = executor.submit(reconcile_graph)
+            success_future = executor.submit(settle_late_success)
+            reconciled = reconcile_future.result(timeout=20)
+            self.assertTrue(success_future.result(timeout=20))
+
+        self.assertIn(reconciled, {0, 1})
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+        state = GeminiQuotaState.objects.get(pk=boundary.state_id)
+        self.assertEqual(graph.terminal_resolution, "succeeded")
+        self.assertEqual(graph.winner_attempt_id, attempt.pk)
+        self.assertTrue(attempt.winner_claimed)
+        self.assertEqual(
+            attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+        )
+        self.assertEqual(state.rpd_dispatched, 1)
+        self.assertEqual(state.rpd_uncertain, 0)
+        self.assertEqual(state.in_flight_count, 0)

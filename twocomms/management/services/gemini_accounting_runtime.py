@@ -1847,9 +1847,22 @@ def reconcile_expired_request_graphs(*, now=None, limit: int = 100) -> int:
                     if graph.reply_message_id
                     and attempt.reply_message_id == graph.reply_message_id
                 ]
-                if len(claimed) == 1:
+                claimed_ids = {attempt.pk for attempt in claimed}
+                reply_ids = {attempt.pk for attempt in reply_matched}
+                evidence_conflicts = bool(
+                    len(claimed_ids) > 1
+                    or len(reply_ids) > 1
+                    or (
+                        claimed_ids
+                        and reply_ids
+                        and claimed_ids != reply_ids
+                    )
+                )
+                if evidence_conflicts:
+                    continue
+                if len(claimed_ids) == 1:
                     succeeded_attempt = claimed[0]
-                elif len(reply_matched) == 1:
+                elif len(reply_ids) == 1:
                     succeeded_attempt = reply_matched[0]
                 elif len(trustworthy_successes) == 1 and len(success_like) == 1:
                     succeeded_attempt = trustworthy_successes[0]

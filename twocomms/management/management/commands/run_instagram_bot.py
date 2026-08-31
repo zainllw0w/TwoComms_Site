@@ -396,7 +396,23 @@ def _analysis_worker(stop_event: threading.Event):
                     or monotonic_now - last_reconcile_at >= ANALYSIS_RECONCILE_EVERY
                 ):
                     try:
-                        reconcile_analysis_jobs(limit=ANALYSIS_RECONCILE_BATCH)
+                        reconcile_result = reconcile_analysis_jobs(
+                            limit=ANALYSIS_RECONCILE_BATCH
+                        )
+                        if isinstance(reconcile_result, dict):
+                            graph_count = int(
+                                reconcile_result.get(
+                                    "request_graphs_reconciled",
+                                    0,
+                                )
+                                or 0
+                            )
+                            if graph_count > 0:
+                                bot.log(
+                                    "info",
+                                    "gemini_request_graphs_reconciled",
+                                    f"reconciled={graph_count}",
+                                )
                         from management.services.ig_typed_memory import (
                             reconcile_typed_memory,
                         )

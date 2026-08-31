@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import re
@@ -181,6 +182,110 @@ def _run_focused_existing(connection) -> None:
     }
     if any(result[key] != value for key, value in expected.items()):
         raise RuntimeError(f"focused S3b concurrency mismatch: {result}")
+
+    from management.services import call_ai_analysis as call_ai
+
+    # The focused path runs after Django setup, whose base test profile keeps
+    # accounting off.  Enable the exact same fail-closed shadow contract used
+    # above for this second, standalone concurrency proof.  The script is a
+    # one-shot process, so an assertion failure exits without leaking settings
+    # into another test worker.
+    race_override = override_settings(
+        GEMINI_ACCOUNTING_V2_MODE="shadow",
+        GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="2026-08-29T00:00:00-07:00",
+        GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY="focused-maria-shadow-key",
+        GEMINI_KEY_PROJECT_GROUPS={"GEMINI_API": "gemini-project-focused"},
+    )
+    race_override.enable()
+
+    observer = runtime.begin_request(
+        request_id="focused-maria-reaper-late-success",
+        role="management",
+        reasoning_task="conversation_reanalysis",
+        candidate_plan=[{
+            "candidate_index": 1,
+            "key_name": "GEMINI_API",
+            "project_identity": "gemini-project-focused",
+            "identity_status": "known",
+            "model": model,
+            "skip_reason": "",
+        }],
+        deadline_seconds=1,
+        lane="analysis",
+    )
+    boundary = observer.attempt(
+        key_name="GEMINI_API",
+        model=model,
+        candidate_index=1,
+    )
+    if not boundary.before_provider(serialized_bytes=128, inline_count=0):
+        raise RuntimeError("late-success proof provider boundary was not persisted")
+    boundary.failed(call_ai._GeminiTransient("timeout: ambiguous provider result"))
+    expired_now = runtime.timezone.now()
+    GeminiRequest._base_manager.filter(pk=observer.graph_id).update(
+        deadline_at=expired_now - dt.timedelta(seconds=1),
+    )
+    race_start = Barrier(2)
+
+    def reconcile_expired():
+        close_old_connections()
+        try:
+            race_start.wait(timeout=10)
+            return runtime.reconcile_expired_request_graphs(
+                now=expired_now,
+                limit=10,
+            )
+        finally:
+            close_old_connections()
+
+    def settle_late_success():
+        close_old_connections()
+        try:
+            race_start.wait(timeout=10)
+            boundary.succeeded({
+                "promptTokenCount": 12,
+                "candidatesTokenCount": 2,
+                "totalTokenCount": 14,
+            })
+            return True
+        finally:
+            close_old_connections()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        reaper_future = executor.submit(reconcile_expired)
+        success_future = executor.submit(settle_late_success)
+        reaper_count = reaper_future.result(timeout=20)
+        if not success_future.result(timeout=20):
+            raise RuntimeError("late-success proof did not settle")
+
+    race_graph = GeminiRequest.objects.get(pk=observer.graph_id)
+    race_attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+    race_state = GeminiQuotaState.objects.get(pk=boundary.state_id)
+    race_result = {
+        "reaper_count": reaper_count,
+        "terminal_resolution": race_graph.terminal_resolution,
+        "winner_matches": race_graph.winner_attempt_id == race_attempt.pk,
+        "attempt_fsm": race_attempt.fsm_state,
+        "rpd_dispatched": race_state.rpd_dispatched,
+        "rpd_uncertain": race_state.rpd_uncertain,
+        "in_flight": race_state.in_flight_count,
+    }
+    race_expected = {
+        "terminal_resolution": "succeeded",
+        "winner_matches": True,
+        "attempt_fsm": GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+        "rpd_dispatched": 3,
+        "rpd_uncertain": 0,
+        "in_flight": 0,
+    }
+    if reaper_count not in {0, 1} or any(
+        race_result[key] != value for key, value in race_expected.items()
+    ):
+        raise RuntimeError(
+            f"focused reaper/late-success concurrency mismatch: {race_result}"
+        )
+    race_override.disable()
+    result["reaper_late_success"] = race_result
     print("GEMINI_S3B_MARIADB=" + json.dumps(result, sort_keys=True))
 
 

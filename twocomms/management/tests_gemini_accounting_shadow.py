@@ -275,6 +275,19 @@ class GeminiShadowPureContractTests(SimpleTestCase):
             [item.id for item in gemini_accounting_shadow_check()],
         )
 
+    @override_settings(**{
+        **SHADOW,
+        "IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION": False,
+    })
+    @patch.dict(os.environ, {key: "" for key in KEY_ENV}, clear=False)
+    def test_system_check_rejects_legacy_retry_with_active_shadow(self):
+        from management.checks import gemini_accounting_shadow_check
+
+        self.assertIn(
+            "management.E917",
+            [item.id for item in gemini_accounting_shadow_check()],
+        )
+
     @override_settings(**{**SHADOW, "GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY": ""})
     @patch.dict(os.environ, {key: "" for key in KEY_ENV}, clear=False)
     def test_system_check_labels_secret_key_hmac_as_shadow_only_fallback(self):
@@ -2394,7 +2407,7 @@ class GeminiShadowAnalysisGraphRegressionTests(TestCase):
                 ai.gemini_keys,
                 "iter_attempts",
                 side_effect=lambda *_args, **_kwargs: iter(candidates),
-            ),
+            ) as iterator,
             patch.object(ai.gemini_keys, "attempts_per_model", return_value=2),
             patch.object(ai.gemini_keys, "max_rounds", return_value=2),
             patch.object(
@@ -2415,6 +2428,10 @@ class GeminiShadowAnalysisGraphRegressionTests(TestCase):
             )
 
         self.assertEqual(result["parsed"], "analysis recovered")
+        iterator.assert_called_once_with(
+            "management",
+            model_chain_override=["gemini-3.6-flash"],
+        )
         self.assertEqual(provider_keys, ["analysis-key-1", "analysis-key-2"])
         graph = GeminiRequest.objects.get()
         graph.refresh_from_db()
@@ -2501,6 +2518,23 @@ class GeminiShadowAnalysisGraphRegressionTests(TestCase):
         self.assertFalse(any(
             row.get("key_name") == "(manual)" for row in graph.candidate_plan
         ))
+
+    @override_settings(IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION=False)
+    @patch.object(ai, "_gemini_call_once")
+    def test_active_shadow_rejects_unsafe_legacy_retry_configuration(self, provider):
+        with self.assertRaisesRegex(
+            ai.CallAIAnalysisError,
+            "single-boundary",
+        ):
+            ai._run_with_pool(
+                "management",
+                {"contents": []},
+                deadline_seconds=30,
+                reasoning_task="conversation_reanalysis",
+            )
+
+        provider.assert_not_called()
+        self.assertEqual(GeminiRequest.objects.count(), 0)
 
     @patch.dict(
         os.environ,
@@ -2679,7 +2713,7 @@ class GeminiShadowAnalysisGraphRegressionTests(TestCase):
         )
         self.assertEqual(attempt.not_attempted_reason, "expired_reconcile")
 
-    def test_reaper_does_not_guess_between_ambiguous_successes(self):
+    def test_reaper_does_not_guess_when_claim_and_reply_evidence_conflict(self):
         now = timezone.now()
         plan = _raw_plan("gemini-3.6-flash") + [{
             "candidate_index": 2,
@@ -2718,9 +2752,12 @@ class GeminiShadowAnalysisGraphRegressionTests(TestCase):
                 finished_at=now - dt.timedelta(seconds=4),
                 settled_at=now - dt.timedelta(seconds=4),
                 permit_released_at=now - dt.timedelta(seconds=4),
+                winner_claimed=index == 1,
+                reply_message_id=77 if index == 2 else None,
             )
         GeminiRequest._base_manager.filter(pk=graph.pk).update(
             deadline_at=now - dt.timedelta(seconds=1),
+            reply_message_id=77,
         )
 
         self.assertEqual(runtime.reconcile_expired_request_graphs(now=now), 0)

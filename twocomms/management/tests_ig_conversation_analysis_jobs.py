@@ -1151,9 +1151,13 @@ class ConversationAnalysisJobTests(TestCase):
     ):
         now = timezone.now()
 
-        result = analysis.reconcile_analysis_jobs(limit=25, now=now)
+        with patch.object(analysis.logger, "exception") as log_exception:
+            result = analysis.reconcile_analysis_jobs(limit=25, now=now)
 
         reconcile_graphs.assert_called_once_with(now=now, limit=25)
+        log_exception.assert_called_once_with(
+            "expired Gemini request graph reconciliation failed"
+        )
         self.assertEqual(result["request_graphs_reconciled"], 0)
 
     def test_skipped_job_is_reconciled_when_verified_payment_truth_changes(self):

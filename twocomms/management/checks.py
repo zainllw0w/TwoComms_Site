@@ -79,6 +79,18 @@ def gemini_accounting_shadow_check(app_configs=None, **_kwargs):
     explicit = gemini_keys.explicit_project_groups()
     identities = [explicit.get(alias, "") for alias in configured]
     errors = []
+    if not bool(
+        getattr(settings, "IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION", True)
+    ):
+        errors.append(Error(
+            "Gemini shadow requires single-boundary background rotation.",
+            hint=(
+                "Keep IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION enabled while "
+                "shadow graph ownership is active; use accounting mode=off "
+                "before testing the legacy retry rollback."
+            ),
+            id="management.E917",
+        ))
     if any(not identity for identity in identities):
         errors.append(Error(
             "Every configured Gemini credential needs an explicit project identity mapping.",

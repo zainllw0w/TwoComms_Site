@@ -761,7 +761,7 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     # in another inner attempt or round.  This policy is deliberately
     # independent from accounting mode so shadow never changes execution.
     single_boundary_rotation = bool(
-        role == "management"
+        role != "chat"
         and getattr(
             settings,
             "IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION",
@@ -771,37 +771,54 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     if single_boundary_rotation:
         n_attempts = 1
         rounds = 1
+    frozen_execution_candidates = (
+        list(gemini_keys.iter_attempts(role, model_chain_override=models))
+        if single_boundary_rotation
+        else None
+    )
 
     accounting_observer = None
     planning_candidates = []
     accounting_ownership_blocked = False
+    unsafe_shadow_retry_configuration = False
     try:
         from management.services import gemini_accounting_runtime
 
         if gemini_accounting_runtime.shadow_runtime_active():
+            unsafe_shadow_retry_configuration = not single_boundary_rotation
             planning_candidates = list(
-                gemini_keys.iter_attempts(role, model_chain_override=models)
+                frozen_execution_candidates
+                if frozen_execution_candidates is not None
+                else gemini_keys.iter_attempts(
+                    role,
+                    model_chain_override=models,
+                )
             )
-            accounting_plan = gemini_accounting_runtime.generic_candidate_plan(
-                role=role,
-                models=models,
-                manual_key=manual_key,
-                execution_candidates=planning_candidates,
-            )
-            accounting_observer = gemini_accounting_runtime.begin_request(
-                request_id=None,
-                role=role,
-                reasoning_task=task,
-                candidate_plan=accounting_plan,
-                deadline_seconds=deadline_seconds,
-            )
-            accounting_ownership_blocked = bool(
-                getattr(accounting_observer, "provider_blocked", False)
-            )
-            if not getattr(accounting_observer, "enabled", False):
-                accounting_observer = None
+            if not unsafe_shadow_retry_configuration:
+                accounting_plan = gemini_accounting_runtime.generic_candidate_plan(
+                    role=role,
+                    models=models,
+                    manual_key=manual_key,
+                    execution_candidates=planning_candidates,
+                )
+                accounting_observer = gemini_accounting_runtime.begin_request(
+                    request_id=None,
+                    role=role,
+                    reasoning_task=task,
+                    candidate_plan=accounting_plan,
+                    deadline_seconds=deadline_seconds,
+                )
+                accounting_ownership_blocked = bool(
+                    getattr(accounting_observer, "provider_blocked", False)
+                )
+                if not getattr(accounting_observer, "enabled", False):
+                    accounting_observer = None
     except Exception:
         accounting_observer = None
+    if unsafe_shadow_retry_configuration:
+        raise CallAIAnalysisError(
+            "Gemini shadow requires single-boundary background rotation."
+        )
     if accounting_ownership_blocked:
         raise CallAIAnalysisError(
             "Gemini provider dispatch rejected: source/lane already owned."
@@ -877,15 +894,18 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
             if aborted:
                 break
 
-        # Accounting shadow observes the same fresh execution iterator as off
-        # mode.  Duplicate credentials/project identities are skipped inside
-        # each model tier so aliases cannot silently spend one project twice.
+        # Single-boundary mode freezes one execution snapshot for both off and
+        # shadow.  Shadow persists that exact order; it never performs a second
+        # availability read that could drift between plan and provider I/O.
+        # Legacy rollback (off + flag false) keeps the per-round iterator.
         seen_fingerprints_by_model: dict[str, set[bytes]] = {}
         seen_projects_by_model: dict[str, set[str]] = {}
-        for key_name, key_value, model in gemini_keys.iter_attempts(
-            role,
-            model_chain_override=models,
-        ):
+        execution_candidates = (
+            frozen_execution_candidates
+            if frozen_execution_candidates is not None
+            else gemini_keys.iter_attempts(role, model_chain_override=models)
+        )
+        for key_name, key_value, model in execution_candidates:
             if _over_deadline():
                 aborted = True
                 break

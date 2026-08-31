@@ -661,6 +661,52 @@ class AnalysisWorkerTests(SimpleTestCase):
             "applied": 0,
             "already_applied": 0,
             "already_rejected": 0,
+            "rejected": 0,
+            "retry_scheduled": 0,
+            "failed": 0,
+            "missing": 0,
+        },
+    )
+    @patch("management.management.commands.run_instagram_bot.bot.log")
+    @patch("management.services.bot_conversation_analysis.process_due_analysis")
+    @patch(
+        "management.services.bot_conversation_analysis.reconcile_analysis_jobs",
+        return_value={"request_graphs_reconciled": 3},
+    )
+    @patch("management.management.commands.run_instagram_bot.close_old_connections")
+    @patch(
+        "management.management.commands.run_instagram_bot.maintenance_status",
+        return_value={"active": False},
+    )
+    @patch(
+        "management.management.commands.run_instagram_bot.time.monotonic",
+        return_value=100.0,
+    )
+    def test_analysis_worker_logs_reconciled_graph_count_without_graph_details(
+        self,
+        _monotonic,
+        _maintenance,
+        _close,
+        reconcile,
+        _process,
+        log,
+        _process_events,
+    ):
+        _analysis_worker(_BoundedWorkerEvent(cycles=1))
+
+        reconcile.assert_called_once_with(limit=ANALYSIS_RECONCILE_BATCH)
+        log.assert_any_call(
+            "info",
+            "gemini_request_graphs_reconciled",
+            "reconciled=3",
+        )
+
+    @patch(
+        "management.services.ig_analysis_events.process_due_analysis_events",
+        return_value={
+            "applied": 0,
+            "already_applied": 0,
+            "already_rejected": 0,
             "rejected": 2,
             "retry_scheduled": 1,
             "failed": 0,
