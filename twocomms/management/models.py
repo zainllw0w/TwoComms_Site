@@ -3967,6 +3967,26 @@ class InstagramBotMessage(models.Model):
     send_state = models.CharField(max_length=16, blank=True, default="")
     send_started_at = models.DateTimeField(null=True, blank=True)
     send_completed_at = models.DateTimeField(null=True, blank=True)
+    # ЭА.21: ідемпотентний ключ відправки, записаний у ТІЙ САМІЙ умовній
+    # транзакції, що ставить `send_state="sending"` — тобто до будь-якого Meta I/O.
+    # Унікальність у БД означає, що другий воркер (або та сама строка після
+    # рестарту) фізично не може заявити той самий намір відправки вдруге.
+    #
+    # Чому `null=True`, а не `default=""`: унікальний індекс по порожньому рядку
+    # злився б для всіх історичних строк. MariaDB/MySQL допускає багато `NULL` в
+    # унікальному індексі — це той самий nullable-active-key паттерн, який уже
+    # застосований у recovery.
+    #
+    # Формат ключа задає `services/ig_send_intent.py`. Э2.2B розширює його
+    # revision-ом ходу, а не створює другу таблицю намірів.
+    # Унікальність задана окремим `UniqueConstraint`, а не `unique=True`: на
+    # SQLite `unique=True` змушує Django перебудувати таблицю, а перебудова
+    # ламає тригер `ig_anres_v22_insert_guard`, який посилається на цю таблицю з
+    # іншої. Окремий unique-індекс створюється без перебудови і на MariaDB, і на
+    # SQLite, тому структурний тестовий шар лишається робочим.
+    send_idempotency_key = models.CharField(
+        max_length=120, null=True, blank=True, default=None
+    )
     # Restricted delivery evidence for the logical reply. Customer-facing
     # alerts contain only counts, provider IDs and the failure boundary.
     delivery_original_text = models.TextField(blank=True, default="")
@@ -4041,6 +4061,15 @@ class InstagramBotMessage(models.Model):
                     "delete_failed", "deleted",
                 ]),
                 name="mgmt_igmsg_media_state",
+            ),
+            # ЭА.21: один намір відправки — одна строка. Стовпець nullable, а
+            # NULL не конфліктує в unique-індексі ні на MariaDB, ні на SQLite,
+            # тому історичні рядки лишаються валідними без backfill. Свідомо БЕЗ
+            # `condition=`: partial unique — не той контракт, на який можна
+            # спиратись на MariaDB.
+            models.UniqueConstraint(
+                fields=["send_idempotency_key"],
+                name="mgmt_igmsg_send_intent_unique",
             ),
         ]
 

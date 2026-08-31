@@ -1313,10 +1313,20 @@ def _recovery_send_boundary(
                         locked.save(update_fields=[
                             "status", "sending_started_at", "lease_until", "updated_at",
                         ])
-                        InstagramBotMessage.objects.filter(pk=locked.reply_message_id).update(
-                            send_state="sending",
-                            send_started_at=now,
-                            send_completed_at=None,
+                        # ЭА.21: намір відправки recovery заявляється тим самим
+                        # ідемпотентним ключем, що й живий шлях, але окремим
+                        # видом. Так recovery не може повторити substantive
+                        # відповідь і не блокує її.
+                        from management.services import ig_send_intent
+
+                        ig_send_intent.claim_send_intent(
+                            InstagramBotMessage.objects.filter(
+                                pk=locked.reply_message_id
+                            ),
+                            locked.reply_message,
+                            kind=ig_send_intent.KIND_RECOVERY,
+                            turn_id=0,
+                            now=now,
                         )
                     can_send = True
         yield can_send

@@ -8414,12 +8414,15 @@ def _deliver_durable_commerce_reply(
                 "state": "unknown",
                 "error": "automation_lease_lost_before_commerce_send",
             }
+        from management.services import ig_send_intent
+
         send_started_at = timezone.now()
-        if not _own_processing_claim(row).update(
-            send_state="sending",
-            send_started_at=send_started_at,
-            send_completed_at=None,
-        ):
+        intent_key, claimed = _claim_send_intent(
+            row, kind=ig_send_intent.KIND_SUBSTANTIVE
+        )
+        if not claimed:
+            # ЭА.21: намір цього ходу вже заявлений (інший шлях або попередній
+            # процес). Друга відправка того самого сенсу заборонена.
             return {
                 "state": "unknown",
                 "error": "inbound_claim_lost_before_commerce_send",
@@ -8427,6 +8430,7 @@ def _deliver_durable_commerce_reply(
         row.send_state = "sending"
         row.send_started_at = send_started_at
         row.send_completed_at = None
+        row.send_idempotency_key = intent_key or None
         receipt = send_text(
             s,
             row.sender_id,
@@ -11351,6 +11355,25 @@ def reclaim_stale_processing(max_age_seconds: int = STALE_PROCESSING_SECONDS) ->
     return requeued
 
 
+def _claim_send_intent(row: InstagramBotMessage, *, kind: str) -> tuple[str, int]:
+    """ЭА.21: заявити ідемпотентний намір відправки перед будь-яким Meta I/O.
+
+    Ключ будується від ходу клієнта, тому другий substantive-намір у тому самому
+    ході фізично неможливий — навіть після рестарту процесу посеред відправки.
+    Конфлікт унікального ключа — це штатний `intent_already_claimed`, і він
+    означає «не відправляти», а не «спробувати ще раз».
+    """
+    from management.services import ig_customer_turns, ig_send_intent
+
+    try:
+        turn_id = ig_customer_turns.turn_id_for_message(row.pk)
+    except Exception:
+        turn_id = 0
+    return ig_send_intent.claim_send_intent(
+        _own_processing_claim(row), row, kind=kind, turn_id=turn_id
+    )
+
+
 def _own_processing_claim(row: InstagramBotMessage):
     """Return a conditional update queryset for exactly this worker claim."""
     claim = InstagramBotMessage.objects.filter(
@@ -12966,15 +12989,24 @@ def _process_one_inside_reply_boundary(
         with customer_send_boundary(s.pk, row.client_id, permission) as send_allowed:
             if not send_allowed:
                 return "permission_denied", False
+            from management.services import ig_send_intent
+
             send_started_at = timezone.now()
-            if not _own_processing_claim(row).update(
-                send_state="sending", send_started_at=send_started_at, send_completed_at=None,
-            ):
-                log("warning", "claim_lost", f"{row.sender_id}: send claim lost before Meta request")
+            intent_key, claimed = _claim_send_intent(
+                row, kind=ig_send_intent.KIND_SUBSTANTIVE
+            )
+            if not claimed:
+                log(
+                    "warning",
+                    "claim_lost",
+                    f"{row.sender_id}: send claim lost before Meta request "
+                    f"(intent {intent_key or 'n/a'})",
+                )
                 return "allowed", True
             row.send_state = "sending"
             row.send_started_at = send_started_at
             row.send_completed_at = None
+            row.send_idempotency_key = intent_key or None
             return "allowed", False
 
     send_boundary_state, send_claim_lost = _mark_sending_after_typing_off(
