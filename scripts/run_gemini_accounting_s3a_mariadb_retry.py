@@ -16,6 +16,23 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
+
+
+SCRIPT_PATH = Path(__file__).resolve()
+REPO_ROOT = SCRIPT_PATH.parents[1]
+PROJECT_ROOT = REPO_ROOT / "twocomms"
+
+
+def _bootstrap_project() -> None:
+    """Make Django settings importable from any caller cwd without PYTHONPATH."""
+    project = str(PROJECT_ROOT)
+    if project not in sys.path:
+        sys.path.insert(0, project)
+    os.chdir(PROJECT_ROOT)
+
+
+_bootstrap_project()
 
 
 EXPECTED_SETTINGS = "test_settings_mariadb"
@@ -81,7 +98,7 @@ def _orchestrate(args):
     child = subprocess.run(
         [
             sys.executable,
-            os.path.abspath(__file__),
+            str(SCRIPT_PATH),
             "--confirm-disposable",
             "--phase",
             "kill",

@@ -656,6 +656,35 @@ class GeminiAccountingSchemaTests(TestCase):
 
 
 class GeminiAccountingMigrationContractTests(TestCase):
+    def test_mariadb_retry_script_bootstraps_from_clean_cwd_without_pythonpath(self):
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        repository_root = os.path.dirname(project_root)
+        script_path = os.path.join(
+            repository_root,
+            "scripts",
+            "run_gemini_accounting_s3a_mariadb_retry.py",
+        )
+        environment = {
+            key: value
+            for key, value in os.environ.items()
+            if key in {"PATH", "TMPDIR", "SYSTEMROOT"}
+        }
+        environment["DJANGO_SETTINGS_MODULE"] = "test_settings_mariadb"
+        environment.pop("PYTHONPATH", None)
+        with tempfile.TemporaryDirectory() as clean_cwd:
+            result = subprocess.run(
+                [sys.executable, script_path, "--confirm-disposable"],
+                cwd=clean_cwd,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("TEST_MARIADB_NAME must be set", result.stderr)
+        self.assertNotIn("ModuleNotFoundError", result.stderr)
+
     def test_engine_prerequisite_precedes_every_v2_fk_ddl(self):
         prerequisite = importlib.import_module(
             "management.migrations.0178_gemini_accounting_prerequisite_innodb"

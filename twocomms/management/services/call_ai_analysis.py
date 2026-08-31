@@ -1587,14 +1587,13 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         return result, "ok"
 
     def _hedged_primary(primary_candidates: list, primary_model: str):
-        """Хвиля hedged-викликів по ВСІХ ключах найкращої моделі.
+        """Legacy-only Lite hedge, unavailable to active V2 accounting.
 
-        Раніше тут був послідовний перебір із `CHAT_PRIMARY_ATTEMPT_LIMIT = 2`:
-        дві повільні спроби з'їдали 29 с із 35 с бюджету, і решта ключів найкращої
-        моделі не пробувалась взагалі. Тепер усі ключі йдуть однією хвилею зі
-        сходинковим старом: швидкий ключ виграє до старту наступного (і зайвої
-        квоти не витрачається), а повільність моделі виявляється паралельно, а не
-        ціною бюджету.
+        The executable V2 contract is the sequential branch below: all six
+        projects remain in the immutable plan, but only
+        ``CHAT_PRIMARY_ATTEMPT_LIMIT`` slow primary calls may cross provider I/O
+        before quality fallback.  This helper stays quarantined behind the
+        disabled legacy flag until it can own canonical concurrent boundaries.
         """
         if not primary_candidates:
             return None
@@ -1771,9 +1770,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     )
     quota_pressure = gemini_keys.model_quota_pressure("chat", primary)
     if quota_pressure or not hedging_affordable:
-        # Под квотой идём по кандидатам ПОСЛЕДОВАТЕЛЬНО. Первый же 429 закрывает
-        # пару (ключ, модель), и мы честно спускаемся по лестнице, не потратив
-        # на это разоблачение три параллельных запроса.
+        # Sequential SLA path: the immutable plan retains every project for
+        # evidence, fast key-specific failures may rotate immediately, and at
+        # most two slow primary calls cross provider I/O before quality fallback.
         primary_slow_calls = 0
         for key_name, key_value, _model in primary_attempts:
             index = candidate_indexes.get((key_name, primary), 0)

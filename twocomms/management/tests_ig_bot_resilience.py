@@ -4,10 +4,15 @@
 from datetime import timedelta
 from unittest.mock import MagicMock, call, patch
 
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
-from management.models import IgClient, InstagramBotMessage
+from management.models import (
+    GeminiRequest,
+    GeminiRequestAttempt,
+    IgClient,
+    InstagramBotMessage,
+)
 from management.services import instagram_bot as bot
 from management.services import call_ai_analysis as ai
 from management.services import gemini_keys as gk
@@ -399,19 +404,23 @@ class BackgroundPoolLeaseTests(SimpleTestCase):
         )
 
 
+@override_settings(
+    GEMINI_ACCOUNTING_V2_MODE="shadow",
+    GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="2026-08-29T00:00:00-07:00",
+    GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY="incident-regression-key",
+    GEMINI_KEY_PROJECT_GROUPS={
+        alias: f"gemini-project-{index}"
+        for index, alias in enumerate(ENV6, start=1)
+    },
+)
 class AdaptiveChatIncidentRegressionTests(TestCase):
-    """Э-HEDGE: контракт бюджету ходу після переходу на hedged-хвилю.
+    """Live SLA contract: two slow primary calls, then quality fallback.
 
-    Раніше цей тест перевіряв послідовний перебір: рівно дві спроби 3.7 і
-    кожен наступний timeout менший за попередній. Обидві властивості були
-    наслідком того, що бюджет ділився послідовно — і саме через них production
-    стрибав на слабшу модель, не спитавши чотири ключі найкращої.
-
-    Тепер перевіряється те, що справді має бути істиною:
-    * усі доступні ключі найкращої моделі пробуються;
-    * fallback-модель усе одно отримує свій резерв і відповідає;
-    * гарячий шлях не спить;
-    * жоден виклик не отримує timeout, який виходить за бюджет ходу.
+    All six projects remain visible in the immutable candidate graph, but a
+    slow provider must not receive six sequential full-timeout calls.  The
+    executable policy spends at most ``CHAT_PRIMARY_ATTEMPT_LIMIT`` slow calls,
+    records the rest as ``not_attempted``, preserves fallback budget, and never
+    sleeps on the customer-facing path.
     """
 
     def setUp(self):
@@ -422,24 +431,44 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
         runner = getattr(ai, "_run_chat_with_pool", None)
         self.assertTrue(callable(runner), "missing adaptive _run_chat_with_pool")
         self.assertEqual(getattr(ai, constant_name, None), budget)
+        self.assertEqual(ai.CHAT_PRIMARY_ATTEMPT_LIMIT, 2)
         aliases = {value: name for name, value in ENV6.items()}
         calls = []
-        # ЭБ.4: первая и резервная модель зависят от ТИРА задачи, а не заданы
-        # константой. Проверяемое свойство прежнее: инцидент на первой модели
-        # разрешается внутри бюджета хода, перебрав все ключи, без sleep.
+        # Первая и резервная модели зависят от тира задачи. Все шесть проектов
+        # планируются, но slow-call SLA разрешает вызвать только первые два.
         chain = gk.task_model_chain("chat", reasoning_task)
         primary_model, fallback_model = chain[0], chain[1]
 
-        def fake_once(model, payload, key, *, parse=True, timeout=None):
+        def fake_once(
+            model,
+            payload,
+            key,
+            *,
+            parse=True,
+            timeout=None,
+            attempt_boundary=None,
+        ):
             calls.append((model, aliases[key], timeout))
+            if attempt_boundary is not None:
+                self.assertTrue(attempt_boundary.before_provider(
+                    serialized_bytes=128,
+                    inline_count=0,
+                ))
             if model == primary_model:
-                raise ai._GeminiTransient("timeout: simulated incident")
+                error = ai._GeminiTransient("timeout: simulated incident")
+                if attempt_boundary is not None:
+                    attempt_boundary.failed(error)
+                raise error
             if aliases[key] != "GEMINI_API4":
-                raise ai._GeminiFatal("HTTP 401: API_KEY_INVALID")
+                error = ai._GeminiFatal("HTTP 401: API_KEY_INVALID")
+                if attempt_boundary is not None:
+                    attempt_boundary.failed(error)
+                raise error
+            if attempt_boundary is not None:
+                attempt_boundary.succeeded({})
             return ("fallback/API4 recovered", {})
 
         with patch.dict("os.environ", ENV6, clear=False), \
-             patch.object(ai.gemini_hedge, "HEDGE_STAGGER_SECONDS", 0.01), \
              patch.object(ai.time, "sleep") as sleep, \
              patch.object(ai, "_gemini_call_once", side_effect=fake_once):
             out = runner({"contents": []}, reasoning_task=reasoning_task)
@@ -448,14 +477,40 @@ class AdaptiveChatIncidentRegressionTests(TestCase):
         self.assertEqual(out["parsed"], "fallback/API4 recovered")
         self.assertEqual(calls[-1][0], fallback_model)
         self.assertEqual(calls[-1][1], "GEMINI_API4")
-        self.assertGreater(
-            len(primary), 2,
-            "усі ключі найкращої моделі мусять бути спробовані, а не два",
+        self.assertEqual(
+            len(primary),
+            ai.CHAT_PRIMARY_ATTEMPT_LIMIT,
+            "slow primary calls must stop at the executable SLA limit",
+        )
+        graph = GeminiRequest.objects.get()
+        primary_plan = [
+            item
+            for item in graph.candidate_plan
+            if item.get("model") == primary_model
+            and item.get("identity_status") == "known"
+        ]
+        self.assertEqual(
+            {item["project_identity"] for item in primary_plan},
+            {f"gemini-project-{index}" for index in range(1, 7)},
+        )
+        primary_indexes = {
+            int(item["candidate_index"])
+            for item in primary_plan
+        }
+        primary_attempts = GeminiRequestAttempt.objects.filter(
+            request_graph=graph,
+            candidate_index__in=primary_indexes,
         )
         self.assertEqual(
-            {alias for _model, alias, _timeout in primary},
-            set(ENV6),
-            "кожен налаштований ключ мусить отримати спробу на першій моделі",
+            primary_attempts.filter(provider_started_at__isnull=False).count(),
+            ai.CHAT_PRIMARY_ATTEMPT_LIMIT,
+        )
+        self.assertEqual(
+            primary_attempts.filter(
+                outcome="not_attempted",
+                not_attempted_reason="sla_model_budget",
+            ).count(),
+            len(ENV6) - ai.CHAT_PRIMARY_ATTEMPT_LIMIT,
         )
         for model, _alias, timeout in calls:
             self.assertGreater(timeout[0], 0)
