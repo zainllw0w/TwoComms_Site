@@ -7,8 +7,11 @@ import secrets
 from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import Max
+from django.utils.crypto import salted_hmac
+from django.utils.dateparse import parse_datetime
 from django.utils import timezone
 
 from management.services.ig_checkout_payment import (
@@ -299,11 +302,73 @@ _TRUSTED_PROVIDER_TERMINAL_SOURCES = frozenset({
     "return",
     "ig_reconcile",
 })
+_PROVIDER_TERMINAL_PROOF_SCHEMA = 1
+_PROVIDER_TERMINAL_PROOF_KEY_ID = "django-secret-key-v1"
+_PROVIDER_TERMINAL_PROOF_SALT = "management.ig_checkout.provider_terminal.v1"
+_PROVIDER_TERMINAL_PROOF_FIELDS = frozenset({
+    "schema_version",
+    "hmac_key_id",
+    "state",
+    "provider_status",
+    "source",
+    "generation_id",
+    "provider_call_token_digest",
+    "provider_invoice_id_digest",
+    "attempt_reference",
+    "currency",
+    "evidence_digest",
+    "observed_at",
+    "proof_hmac",
+})
 
 
 def _canonical_provider_terminal_status(value) -> str:
     normalized = str(value or "").strip().casefold()
     return "cancelled" if normalized == "canceled" else normalized
+
+
+def _provider_terminal_evidence(
+    *, status, invoice_id, reference, currency, source
+) -> dict:
+    return {
+        "status": str(status),
+        "invoice_id": str(invoice_id),
+        "reference": str(reference),
+        "currency": str(currency),
+        "source": str(source),
+    }
+
+
+def _canonical_json_digest(value) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+
+
+def _provider_terminal_proof_hmac(proof) -> str:
+    if not getattr(settings, "SECRET_KEY", ""):
+        return ""
+    signed = {
+        key: proof[key]
+        for key in sorted(_PROVIDER_TERMINAL_PROOF_FIELDS - {"proof_hmac"})
+    }
+    payload = json.dumps(
+        signed,
+        ensure_ascii=True,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return salted_hmac(
+        _PROVIDER_TERMINAL_PROOF_SALT,
+        payload,
+        secret=settings.SECRET_KEY,
+        algorithm="sha256",
+    ).hexdigest()
 
 
 def _build_provider_terminal_proof(
@@ -344,6 +409,7 @@ def _build_provider_terminal_proof(
     observed_currency = str(
         envelope.get("ccy") or envelope.get("currencyCode") or ""
     )
+    canonical_currency = "980" if observed_currency == "UAH" else observed_currency
     if (
         observed_status != normalized
         or not observed_invoice_id
@@ -353,25 +419,19 @@ def _build_provider_terminal_proof(
         )
         or not observed_reference
         or not secrets.compare_digest(observed_reference, str(attempt.reference))
-        or observed_currency not in {"980", "UAH"}
+        or canonical_currency != "980"
     ):
         return None
-    evidence = {
-        "status": normalized,
-        "invoice_id": observed_invoice_id,
-        "reference": observed_reference,
-        "currency": observed_currency,
-        "source": source,
-    }
-    evidence_digest = hashlib.sha256(
-        json.dumps(
-            evidence,
-            ensure_ascii=True,
-            sort_keys=True,
-            separators=(",", ":"),
-        ).encode()
-    ).hexdigest()
-    return {
+    evidence = _provider_terminal_evidence(
+        status=normalized,
+        invoice_id=observed_invoice_id,
+        reference=observed_reference,
+        currency=canonical_currency,
+        source=source,
+    )
+    proof = {
+        "schema_version": _PROVIDER_TERMINAL_PROOF_SCHEMA,
+        "hmac_key_id": _PROVIDER_TERMINAL_PROOF_KEY_ID,
         "state": "provider_terminal",
         "provider_status": normalized,
         "source": source,
@@ -382,9 +442,13 @@ def _build_provider_terminal_proof(
         "provider_invoice_id_digest": hashlib.sha256(
             observed_invoice_id.encode()
         ).hexdigest(),
-        "evidence_digest": evidence_digest,
+        "attempt_reference": observed_reference,
+        "currency": canonical_currency,
+        "evidence_digest": _canonical_json_digest(evidence),
         "observed_at": now.isoformat(),
     }
+    proof["proof_hmac"] = _provider_terminal_proof_hmac(proof)
+    return proof
 
 
 def _provider_terminal_proof_matches(generation, attempt, allowed_statuses) -> bool:
@@ -395,7 +459,12 @@ def _provider_terminal_proof_matches(generation, attempt, allowed_statuses) -> b
     ):
         return False
     proof = (attempt.event_state or {}).get("provider_terminal")
-    if not isinstance(proof, dict):
+    if (
+        not isinstance(proof, dict)
+        or set(proof) != _PROVIDER_TERMINAL_PROOF_FIELDS
+        or proof.get("schema_version") != _PROVIDER_TERMINAL_PROOF_SCHEMA
+        or proof.get("hmac_key_id") != _PROVIDER_TERMINAL_PROOF_KEY_ID
+    ):
         return False
     try:
         proof_generation_id = int(proof.get("generation_id") or 0)
@@ -408,13 +477,48 @@ def _provider_terminal_proof_matches(generation, attempt, allowed_statuses) -> b
         str(generation.provider_invoice_id or "").encode()
     ).hexdigest()
     status = _canonical_provider_terminal_status(proof.get("provider_status"))
+    source = str(proof.get("source") or "")
+    reference = str(proof.get("attempt_reference") or "")
+    currency = str(proof.get("currency") or "")
+    observed_at_raw = str(proof.get("observed_at") or "")
+    observed_at = parse_datetime(observed_at_raw)
+    if (
+        observed_at is None
+        or timezone.is_naive(observed_at)
+        or observed_at > timezone.now()
+    ):
+        return False
+    proposal_expires_at = generation.proposal.expires_at
+    upper_bound = max(generation.expires_at, proposal_expires_at) + timedelta(
+        seconds=AMBIGUITY_GRACE_SECONDS
+    )
+    if observed_at < generation.created_at or observed_at > upper_bound:
+        return False
+    if (
+        not reference
+        or not secrets.compare_digest(reference, str(attempt.reference))
+        or currency != "980"
+    ):
+        return False
+    expected_evidence_digest = _canonical_json_digest(
+        _provider_terminal_evidence(
+            status=status,
+            invoice_id=str(generation.provider_invoice_id or ""),
+            reference=str(attempt.reference),
+            currency=currency,
+            source=source,
+        )
+    )
+    expected_proof_hmac = _provider_terminal_proof_hmac(proof)
     return bool(
         proof.get("state") == "provider_terminal"
         and status in set(allowed_statuses)
-        and proof.get("source") in _TRUSTED_PROVIDER_TERMINAL_SOURCES
+        and source in _TRUSTED_PROVIDER_TERMINAL_SOURCES
         and proof_generation_id == int(generation.pk)
-        and bool(str(proof.get("observed_at") or ""))
-        and len(str(proof.get("evidence_digest") or "")) == 64
+        and secrets.compare_digest(
+            str(proof.get("evidence_digest") or ""),
+            expected_evidence_digest,
+        )
         and secrets.compare_digest(
             str(proof.get("provider_call_token_digest") or ""),
             expected_token_digest,
@@ -422,6 +526,11 @@ def _provider_terminal_proof_matches(generation, attempt, allowed_statuses) -> b
         and secrets.compare_digest(
             str(proof.get("provider_invoice_id_digest") or ""),
             expected_identity_digest,
+        )
+        and bool(expected_proof_hmac)
+        and secrets.compare_digest(
+            str(proof.get("proof_hmac") or ""),
+            expected_proof_hmac,
         )
     )
 

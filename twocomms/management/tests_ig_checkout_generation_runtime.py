@@ -1,3 +1,4 @@
+import copy
 import hashlib
 from datetime import timedelta
 from decimal import Decimal
@@ -938,6 +939,121 @@ class CheckoutGenerationRuntimeTests(TestCase):
             IgCheckoutInvoiceGeneration.objects.filter(proposal=proposal).count(),
             1,
         )
+
+    def test_provider_terminal_proof_tampering_fails_closed(self):
+        from management.services.ig_checkout_generation import (
+            _retry_source_is_safe,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        generation = self._create_invoice(
+            proposal,
+            invoice_id="v2-proof-integrity",
+        )
+        attempt = generation.payment_attempt
+        self._apply_exact_provider_terminal(generation, status="cancelled")
+        generation.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertTrue(_retry_source_is_safe(generation, attempt))
+        original_event_state = copy.deepcopy(attempt.event_state)
+        original_proof = copy.deepcopy(
+            original_event_state["provider_terminal"]
+        )
+        tampered_proofs = {
+            "arbitrary_evidence": {
+                **original_proof,
+                "evidence_digest": "X" * 64,
+            },
+            "missing_timestamp": {
+                key: value
+                for key, value in original_proof.items()
+                if key != "observed_at"
+            },
+            "invalid_timestamp": {
+                **original_proof,
+                "observed_at": "not-a-timestamp",
+            },
+            "future_timestamp": {
+                **original_proof,
+                "observed_at": (
+                    timezone.now() + timedelta(minutes=1)
+                ).isoformat(),
+            },
+            "wrong_reference": {
+                **original_proof,
+                "attempt_reference": "wrong-reference",
+            },
+            "wrong_currency": {**original_proof, "currency": "840"},
+            "wrong_status": {
+                **original_proof,
+                "provider_status": "failure",
+            },
+            "wrong_source": {**original_proof, "source": "local_forged"},
+            "cross_generation": {
+                **original_proof,
+                "generation_id": generation.pk + 999,
+            },
+            "cross_token": {
+                **original_proof,
+                "provider_call_token_digest": "0" * 64,
+            },
+            "cross_invoice": {
+                **original_proof,
+                "provider_invoice_id_digest": "1" * 64,
+            },
+            "modified_hmac": {**original_proof, "proof_hmac": "2" * 64},
+            "wrong_schema": {**original_proof, "schema_version": 999},
+            "wrong_key_id": {**original_proof, "hmac_key_id": "unknown"},
+            "missing_hmac": {
+                key: value
+                for key, value in original_proof.items()
+                if key != "proof_hmac"
+            },
+            "unknown_field": {**original_proof, "unexpected": "value"},
+        }
+        for name, proof in tampered_proofs.items():
+            with self.subTest(name=name):
+                attempt.event_state = {
+                    **copy.deepcopy(original_event_state),
+                    "provider_terminal": proof,
+                }
+                self.assertFalse(_retry_source_is_safe(generation, attempt))
+
+        attempt.event_state = copy.deepcopy(original_event_state)
+        self.assertTrue(_retry_source_is_safe(generation, attempt))
+        persisted = copy.deepcopy(original_event_state)
+        persisted["provider_terminal"]["proof_hmac"] = "3" * 64
+        PaymentAttempt.objects.filter(pk=attempt.pk).update(
+            event_state=persisted
+        )
+        url = reverse(
+            "ig_checkout_proposal",
+            kwargs={"proposal_id": proposal.public_id},
+        )
+        with patch(
+            "storefront.views.monobank._monobank_api_request"
+        ) as provider:
+            page = self.client.get(url)
+            status = self.client.get(
+                reverse(
+                    "ig_checkout_status",
+                    kwargs={"proposal_id": proposal.public_id},
+                )
+            )
+            posted = self.client.post(
+                url,
+                {"reissue_generation": str(generation.generation)},
+                HTTP_ACCEPT="application/json",
+            )
+        provider.assert_not_called()
+        self.assertEqual(page.context["checkout_state"], "cancellation_ambiguous")
+        self.assertEqual(status.json()["state"], "cancellation_ambiguous")
+        self.assertEqual(posted.status_code, 400)
+        self.assertEqual(posted.json()["error"], "provider_ambiguous")
 
     def test_retry_identity_matrix_requires_exact_match_or_predispatch_proof(self):
         from management.services.ig_checkout_terminalization import (
