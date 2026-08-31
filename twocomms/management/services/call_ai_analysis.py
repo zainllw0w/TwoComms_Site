@@ -771,9 +771,22 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     if single_boundary_rotation:
         n_attempts = 1
         rounds = 1
-    frozen_execution_candidates = (
-        list(gemini_keys.iter_attempts(role, model_chain_override=models))
+    frozen_candidate_rows = (
+        list(gemini_keys.iter_attempts(
+            role,
+            model_chain_override=models,
+            include_skipped=True,
+        ))
         if single_boundary_rotation
+        else None
+    )
+    frozen_execution_candidates = (
+        [
+            tuple(row[:3])
+            for row in frozen_candidate_rows
+            if len(row) < 4 or not row[3]
+        ]
+        if frozen_candidate_rows is not None
         else None
     )
 
@@ -787,11 +800,12 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
         if gemini_accounting_runtime.shadow_runtime_active():
             unsafe_shadow_retry_configuration = not single_boundary_rotation
             planning_candidates = list(
-                frozen_execution_candidates
-                if frozen_execution_candidates is not None
+                frozen_candidate_rows
+                if frozen_candidate_rows is not None
                 else gemini_keys.iter_attempts(
                     role,
                     model_chain_override=models,
+                    include_skipped=True,
                 )
             )
             if not unsafe_shadow_retry_configuration:

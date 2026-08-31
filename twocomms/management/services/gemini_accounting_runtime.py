@@ -24,13 +24,14 @@ from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import IntegrityError, OperationalError, transaction
+from django.db import DatabaseError, IntegrityError, OperationalError, transaction
 from django.db.models import (
     Case,
     Count,
     F,
     IntegerField,
     Min,
+    Q,
     Sum,
     When,
 )
@@ -39,7 +40,13 @@ from django.utils import timezone
 
 PT = ZoneInfo("America/Los_Angeles")
 ACCOUNTING_POLICY_VERSION = "gemini-accounting-shadow-v1"
+# Keep the original name as a compatibility fixture for the S3b shadow tests
+# and historical request graphs.  Runtime ranking deliberately names the
+# calibrated version separately so a deploy cannot reinterpret old profiles.
 OWNER_PROFILE_VERSION = "owner-observed-2026-08-29.v1"
+ACTIVE_QUOTA_PROFILE_VERSION = "production-observed-2026-08-31.v2"
+ACTIVE_ESTIMATOR_VERSION = "json_bytes_div4_v1"
+RANKING_EVIDENCE_FRESH_SECONDS = 24 * 60 * 60
 ATTEMPT_PERMIT_SECONDS = 180
 DB_RETRY_DELAYS = (0.0, 0.01, 0.03)
 OWNERSHIP_RETRY_DELAYS = (0.0, 0.005, 0.02, 0.05, 0.1)
@@ -95,6 +102,393 @@ def shadow_runtime_active(*, now=None) -> bool:
         return False
     current = now or timezone.now()
     return current >= effective
+
+
+def project_ranking_enabled() -> bool:
+    """Return the explicit reversible ranking policy state."""
+    return str(
+        getattr(settings, "GEMINI_V2_PROJECT_RANKING_MODE", "enforce")
+        or "enforce"
+    ).strip().casefold() == "enforce"
+
+
+def project_ranking_snapshot(*, project_identities, models, now=None) -> dict:
+    """Read one provider-free V2 capacity snapshot for project ordering.
+
+    The snapshot is advisory: it never creates a state row and never rejects a
+    candidate.  Only explicit identities with the active immutable profile are
+    returned. A missing state row is virtual zero local usage, matching the 4x6
+    read model. RPD/RPM/in-flight/latency can rank every profiled model; input
+    TPM participates only for models whose exact estimator version has
+    production samples. An UNKNOWN state falls back to legacy order. Degraded
+    real-traffic evidence remains visible with a ranking penalty; a timeout is
+    not promoted to a hard quota block.
+
+    At most three SELECTs are issued: calibrated profiles, pair states and one
+    grouped rolling-60-second attempt aggregate.
+    """
+    if not project_ranking_enabled() or not shadow_runtime_active(now=now):
+        return {}
+    now = now or timezone.now()
+    identities = tuple(dict.fromkeys(
+        _safe_token(value, limit=80)
+        for value in project_identities or ()
+        if _safe_token(value, limit=80)
+    ))
+    model_names = tuple(dict.fromkeys(
+        _safe_token(value, limit=80)
+        for value in models or ()
+        if _safe_token(value, limit=80)
+    ))
+    if not identities or not model_names:
+        return {}
+
+    try:
+        from management.models import (
+            GeminiQuotaProfile,
+            GeminiQuotaState,
+            GeminiRequestAttempt,
+        )
+        from management.services.gemini_quota import pacific_day
+
+        profiles = {
+            row.model: row
+            for row in GeminiQuotaProfile.objects.filter(
+                profile_version=ACTIVE_QUOTA_PROFILE_VERSION,
+                model__in=model_names,
+                effective_from__lte=now,
+            ).filter(models_Q_effective(now))
+        }
+        if not profiles:
+            return {}
+
+        states = {
+            (row.project_identity, row.model): row
+            for row in GeminiQuotaState.objects.filter(
+                project_identity__in=identities,
+                model__in=tuple(profiles),
+            )
+        }
+        rolling_cutoff = now - dt.timedelta(seconds=60)
+        rolling_rows = GeminiRequestAttempt.objects.filter(
+            project_identity__in=identities,
+            model__in=tuple(profiles),
+        ).filter(
+            Q(
+                provider_started_at__gte=rolling_cutoff,
+                provider_started_at__lte=now,
+            )
+            | Q(
+                fsm_state__in=(
+                    GeminiRequestAttempt.FsmState.RESERVED,
+                    GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                ),
+                permit_expires_at__gt=now,
+            )
+        ).values("project_identity", "model").annotate(
+            requests_60=Count(
+                "id",
+                filter=Q(
+                    provider_started_at__gte=rolling_cutoff,
+                    provider_started_at__lte=now,
+                ),
+            ),
+            prompt_tokens_60=Sum(
+                Case(
+                    When(
+                        provider_started_at__gte=rolling_cutoff,
+                        provider_started_at__lte=now,
+                        prompt_tokens__gt=0,
+                        then=F("prompt_tokens"),
+                    ),
+                    When(
+                        provider_started_at__gte=rolling_cutoff,
+                        provider_started_at__lte=now,
+                        then=F("reserved_prompt_tokens"),
+                    ),
+                    default=0,
+                    output_field=IntegerField(),
+                )
+            ),
+            active_permits=Count(
+                "id",
+                filter=Q(
+                    fsm_state__in=(
+                        GeminiRequestAttempt.FsmState.RESERVED,
+                        GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                    ),
+                    permit_expires_at__gt=now,
+                ),
+            ),
+        )
+        rolling = {
+            (row["project_identity"], row["model"]): row
+            for row in rolling_rows
+        }
+        today = pacific_day(now)
+        snapshot = {}
+        for identity in identities:
+            for model, profile in profiles.items():
+                pair = (identity, model)
+                state = states.get(pair)
+                # An explicit project/profile pair with no state row means no
+                # V2 traffic has been observed locally. This is the same
+                # virtual-zero left join used by the 4x6 read API and prevents
+                # an untouched project from ranking behind a used project.
+                if state is None:
+                    state_status = "virtual_zero"
+                else:
+                    state_status = state.accounting_status
+                # UNKNOWN has no real traffic evidence. DEGRADED still
+                # contains a useful recent latency/outcome signal, but the
+                # pure ordering helper ranks it behind healthy projects.
+                if state_status not in {
+                    "virtual_zero", "available", "blocked", "degraded",
+                }:
+                    continue
+                minute = rolling.get(pair, {})
+                requests_60 = max(0, int(minute.get("requests_60") or 0))
+                prompt_tokens_60 = max(
+                    0, int(minute.get("prompt_tokens_60") or 0)
+                )
+                tpm_rankable = (
+                    profile.estimator_version == ACTIVE_ESTIMATOR_VERSION
+                )
+                dispatched = (
+                    max(0, int(state.rpd_dispatched or 0))
+                    if state is not None and state.pacific_day == today
+                    else 0
+                )
+                provider_blocked = bool(
+                    state is not None
+                    and RequestObserver._active_provider_block(
+                        state.provider_blocks,
+                        now,
+                    )
+                )
+                remaining_rpd = max(
+                    0, int(profile.rpd_limit) - dispatched
+                )
+                remaining_rpm = max(
+                    0, int(profile.rpm_limit) - requests_60
+                )
+                remaining_input_tpm = (
+                    max(0, int(profile.input_tpm_limit) - prompt_tokens_60)
+                    if tpm_rankable
+                    else None
+                )
+                # Persisted in_flight_count is conservative crash evidence and
+                # may outlive its permit. Ranking uses only unexpired attempt
+                # permits so a crashed provider_started row cannot create a
+                # permanent skip; the next admitted boundary atomically
+                # reconciles the stale state counter.
+                in_flight = max(0, int(minute.get("active_permits") or 0))
+                evidence_candidates = (
+                    [
+                        value
+                        for value in (
+                            state.last_success_at,
+                            state.last_failure_at,
+                        )
+                        if value is not None
+                    ]
+                    if state is not None
+                    else []
+                )
+                last_evidence_at = max(evidence_candidates, default=None)
+                evidence_age_seconds = (
+                    max(0, int((now - last_evidence_at).total_seconds()))
+                    if last_evidence_at is not None
+                    else None
+                )
+                block_reason = ""
+                if provider_blocked:
+                    block_reason = "provider_block"
+                elif remaining_rpd <= 0:
+                    block_reason = "rpd_exhausted"
+                elif remaining_rpm <= 0:
+                    block_reason = "rpm_exhausted"
+                elif (
+                    isinstance(remaining_input_tpm, int)
+                    and remaining_input_tpm <= 0
+                ):
+                    block_reason = "tpm_exhausted"
+                elif in_flight >= int(profile.permit_limit):
+                    block_reason = "permit_exhausted"
+                snapshot[pair] = {
+                    "profile_version": profile.profile_version,
+                    "estimator_version": profile.estimator_version,
+                    "remaining_rpd": remaining_rpd,
+                    "remaining_rpm": remaining_rpm,
+                    "remaining_input_tpm": remaining_input_tpm,
+                    "input_tpm_rankable": tpm_rankable,
+                    "provider_blocked": provider_blocked,
+                    "state_degraded": bool(
+                        state_status == "degraded"
+                        and evidence_age_seconds is not None
+                        and evidence_age_seconds
+                        <= RANKING_EVIDENCE_FRESH_SECONDS
+                    ),
+                    "state_present": state is not None,
+                    "evidence_age_seconds": evidence_age_seconds,
+                    "evidence_fresh": bool(
+                        evidence_age_seconds is not None
+                        and evidence_age_seconds <= RANKING_EVIDENCE_FRESH_SECONDS
+                    ),
+                    "external_usage_suspected": bool(
+                        state is not None and state.external_usage_suspected
+                    ),
+                    "permit_limit": int(profile.permit_limit),
+                    "in_flight": in_flight,
+                    "eligible": not bool(block_reason),
+                    "block_reason": block_reason,
+                    "latency_ms": max(
+                        0,
+                        int(
+                            state.latency_ewma_ms
+                            or state.last_latency_ms
+                            or 0
+                        ),
+                    ) if state is not None else 0,
+                }
+        return snapshot
+    except DatabaseError:
+        return {}
+
+
+def order_project_aliases(
+    key_names,
+    *,
+    model: str,
+    project_identities,
+    snapshot,
+    legacy_snapshot=None,
+) -> list[str]:
+    """Apply advisory V2 project ranking with stable legacy fallbacks."""
+    aliases = list(key_names or ())
+    if not aliases or not isinstance(snapshot, dict) or not snapshot:
+        return aliases
+    identities = project_identities if isinstance(project_identities, dict) else {}
+
+    def score(item):
+        original_index, alias = item
+        identity = str(identities.get(alias) or "")
+        decision = project_candidate_decision(
+            alias,
+            model=model,
+            project_identity=identity,
+            snapshot=snapshot,
+            legacy_snapshot=legacy_snapshot,
+        )
+        if not decision["ranked"]:
+            # Unknown evidence stays in original order between known usable
+            # projects and projects with an authoritative local block.
+            return (1, 0, 0, 0, 0, 0, original_index)
+        remaining = (
+            int(decision["remaining_rpd"] or 0),
+            int(decision["remaining_rpm"] or 0),
+        )
+        remaining_tpm = decision["remaining_input_tpm"]
+        category = (
+            3
+            if not decision["eligible"]
+            else 2
+            if decision["state_degraded"]
+            else 0
+        )
+        latency = int(decision["latency_ms"] or 0)
+        return (
+            category,
+            max(0, int(decision["in_flight"] or 0)),
+            -remaining[0],
+            -remaining[1],
+            -int(remaining_tpm) if isinstance(remaining_tpm, int) else 0,
+            latency if latency > 0 else 2**31 - 1,
+            original_index,
+        )
+
+    return [alias for _index, alias in sorted(enumerate(aliases), key=score)]
+
+
+def project_candidate_decision(
+    key_name: str,
+    *,
+    model: str,
+    project_identity: str,
+    snapshot,
+    legacy_snapshot=None,
+) -> dict:
+    """Combine V2 and legacy headroom without inventing extra capacity."""
+    row = (
+        snapshot.get((str(project_identity or ""), str(model or "")))
+        if isinstance(snapshot, dict) and project_identity
+        else None
+    )
+    if not isinstance(row, dict):
+        return {
+            "ranked": False,
+            "eligible": True,
+            "block_reason": "",
+            "remaining_rpd": None,
+            "remaining_rpm": None,
+            "remaining_input_tpm": None,
+            "state_degraded": False,
+            "in_flight": 0,
+            "latency_ms": 0,
+            "evidence_age_seconds": None,
+            "evidence_fresh": False,
+            "external_usage_suspected": False,
+        }
+
+    legacy = (
+        legacy_snapshot.get((str(key_name), str(model or "")), {})
+        if isinstance(legacy_snapshot, dict)
+        else {}
+    )
+
+    def conservative(v2_value, legacy_name):
+        legacy_value = legacy.get(legacy_name)
+        values = [
+            int(value)
+            for value in (v2_value, legacy_value)
+            if value is not None
+        ]
+        return min(values) if values else None
+
+    remaining_rpd = conservative(row.get("remaining_rpd"), "rpd")
+    remaining_rpm = conservative(row.get("remaining_rpm"), "rpm")
+    remaining_input_tpm = (
+        conservative(row.get("remaining_input_tpm"), "tpm")
+        if row.get("input_tpm_rankable")
+        else None
+    )
+    block_reason = _safe_reason(row.get("block_reason"))
+    if not block_reason and remaining_rpd is not None and remaining_rpd <= 0:
+        block_reason = "rpd_exhausted"
+    elif not block_reason and remaining_rpm is not None and remaining_rpm <= 0:
+        block_reason = "rpm_exhausted"
+    elif (
+        not block_reason
+        and remaining_input_tpm is not None
+        and remaining_input_tpm <= 0
+    ):
+        block_reason = "tpm_exhausted"
+    return {
+        "ranked": True,
+        "eligible": not bool(block_reason),
+        "block_reason": block_reason,
+        "remaining_rpd": remaining_rpd,
+        "remaining_rpm": remaining_rpm,
+        "remaining_input_tpm": remaining_input_tpm,
+        "state_degraded": bool(row.get("state_degraded")),
+        "in_flight": max(0, int(row.get("in_flight") or 0)),
+        "latency_ms": max(0, int(row.get("latency_ms") or 0)),
+        "evidence_age_seconds": row.get("evidence_age_seconds"),
+        "evidence_fresh": bool(row.get("evidence_fresh")),
+        "external_usage_suspected": bool(
+            row.get("external_usage_suspected")
+        ),
+    }
 
 
 def _safe_token(value, *, limit: int) -> str:
@@ -249,13 +643,18 @@ def generic_candidate_plan(
     executable_pairs: list[tuple[str, str]] = []
     for raw in execution_candidates or ():
         try:
-            key_name, _key_value, model = raw
+            key_name, _key_value, model, *metadata = raw
         except (TypeError, ValueError):
             continue
         pair = (str(key_name), str(model))
         if pair not in executable_pairs:
             executable_pairs.append(pair)
-            append_candidate(*pair)
+            append_candidate(
+                *pair,
+                skip_reason=(
+                    _safe_reason(metadata[0])[:24] if metadata else ""
+                ),
+            )
 
     remaining_pairs = [
         (str(alias), str(model))

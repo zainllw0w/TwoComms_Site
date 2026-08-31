@@ -239,6 +239,16 @@ GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY = os.environ.get(
     '',
 ).strip()
 
+# Advisory V2 project ordering is independently reversible. ``enforce`` may
+# reorder/skip only when accounting shadow, an active profile and a complete
+# local snapshot are available; every missing/error/off path keeps the legacy
+# order. Owner-authorized release default is enabled. Operational rollback:
+# set GEMINI_V2_PROJECT_RANKING_MODE=off and restart the bot runtime.
+GEMINI_V2_PROJECT_RANKING_MODE = os.environ.get(
+    'GEMINI_V2_PROJECT_RANKING_MODE',
+    'enforce',
+).strip().casefold()
+
 # Durable/background Gemini work rotates to the next project after one
 # provider boundary per candidate.  This is an explicit resilience policy,
 # independent from accounting shadow: both ``off`` and ``shadow`` execute the

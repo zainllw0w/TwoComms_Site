@@ -60,7 +60,14 @@ class GeminiAccountingMariaDbSchemaTests(TestCase):
         self.assertEqual(set(engines.values()), {"INNODB"})
 
     def test_seed_is_profiles_only(self):
-        self.assertEqual(GeminiQuotaProfile.objects.count(), 4)
+        self.assertEqual(GeminiQuotaProfile.objects.count(), 8)
+        self.assertEqual(
+            set(GeminiQuotaProfile.objects.values_list("profile_version", flat=True)),
+            {
+                "owner-observed-2026-08-29.v1",
+                "production-observed-2026-08-31.v2",
+            },
+        )
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
         self.assertEqual(GeminiRequest.objects.count(), 0)
         self.assertEqual(GeminiRequestAttempt.objects.count(), 0)

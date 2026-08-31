@@ -2431,6 +2431,7 @@ class GeminiShadowAnalysisGraphRegressionTests(TestCase):
         iterator.assert_called_once_with(
             "management",
             model_chain_override=["gemini-3.6-flash"],
+            include_skipped=True,
         )
         self.assertEqual(provider_keys, ["analysis-key-1", "analysis-key-2"])
         graph = GeminiRequest.objects.get()

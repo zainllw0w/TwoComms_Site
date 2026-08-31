@@ -35,6 +35,10 @@ from management.services.ig_engine_health import IG_RUNTIME_TABLES
 
 
 PROFILE_VERSION = "owner-observed-2026-08-29.v1"
+CALIBRATED_PROFILE_VERSION = "production-observed-2026-08-31.v2"
+CALIBRATED_AT = datetime.datetime(
+    2026, 8, 31, 17, 0, 14, tzinfo=datetime.timezone.utc
+)
 EXPECTED_PROFILES = {
     "gemini-3.7-flash": (5, 250_000, 20, 1),
     "gemini-3.6-flash": (5, 250_000, 20, 1),
@@ -144,7 +148,7 @@ class GeminiAccountingSchemaTests(TestCase):
 
     def test_profile_seed_creates_zero_usage_state_or_request_rows(self):
         """S3a seeds policy only; it cannot claim that any project used quota."""
-        self.assertEqual(GeminiQuotaProfile.objects.count(), 4)
+        self.assertEqual(GeminiQuotaProfile.objects.count(), 8)
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
         self.assertEqual(GeminiRequest.objects.count(), 0)
         self.assertEqual(GeminiRequestAttempt.objects.count(), 0)
@@ -823,6 +827,73 @@ class GeminiAccountingMigrationContractTests(TestCase):
 
         with self.assertRaisesMessage(RuntimeError, "profile drift"):
             migration.seed_owner_observed_profiles(historical_apps, None)
+
+    def test_calibrated_profile_seed_is_partial_evidence_and_idempotent(self):
+        migration = importlib.import_module(
+            "management.migrations.0186_calibrated_gemini_quota_profiles"
+        )
+        self.assertEqual(
+            migration.Migration.dependencies,
+            [("management", "0185_typed_memory_v2")],
+        )
+        self.assertEqual(migration.PROFILE_VERSION, CALIBRATED_PROFILE_VERSION)
+        self.assertEqual(migration.ESTIMATOR_VERSION, "json_bytes_div4_v1")
+
+        rows = {
+            row.model: row
+            for row in GeminiQuotaProfile.objects.filter(
+                profile_version=CALIBRATED_PROFILE_VERSION
+            )
+        }
+        self.assertEqual(set(rows), set(EXPECTED_PROFILES))
+        self.assertEqual(rows["gemini-3.6-flash"].estimator_version, "json_bytes_div4_v1")
+        self.assertEqual(rows["gemini-3.5-flash-lite"].estimator_version, "json_bytes_div4_v1")
+        self.assertEqual(
+            rows["gemini-3.7-flash"].estimator_version,
+            "shadow-calibration-required",
+        )
+        self.assertEqual(
+            rows["gemini-3.5-flash"].estimator_version,
+            "shadow-calibration-required",
+        )
+        for row in rows.values():
+            self.assertEqual(row.source, GeminiQuotaProfile.Source.ADMIN)
+            self.assertEqual(row.observed_at, CALIBRATED_AT)
+            self.assertEqual(row.effective_from, CALIBRATED_AT)
+        self.assertIn("n15:min1.710", rows["gemini-3.6-flash"].source_reference)
+        self.assertIn("n2:min2.531", rows["gemini-3.5-flash-lite"].source_reference)
+        self.assertIn("owner_limits_2026_08_29", rows["gemini-3.6-flash"].source_reference)
+        self.assertIn("under0", rows["gemini-3.6-flash"].source_reference)
+        self.assertIn(
+            "calibration_pending",
+            rows["gemini-3.7-flash"].source_reference,
+        )
+
+        before = GeminiQuotaProfile.objects.count()
+        migration.seed_calibrated_profiles(django_apps, None)
+        self.assertEqual(GeminiQuotaProfile.objects.count(), before)
+
+        drifted = SimpleNamespace(
+            rpm_limit=99,
+            input_tpm_limit=250_000,
+            rpd_limit=20,
+            permit_limit=1,
+            estimator_version="json_bytes_div4_v1",
+            source="admin",
+            source_reference=(
+                "owner_limits_2026_08_29;prod_ratio_2026_08_31:"
+                "n15:min1.710:med1.823:max2.376:under0"
+            ),
+            observed_at=CALIBRATED_AT,
+            effective_from=CALIBRATED_AT,
+            effective_until=None,
+        )
+        historical_model = Mock()
+        historical_model.objects.get_or_create.return_value = (drifted, False)
+        historical_apps = Mock()
+        historical_apps.get_model.return_value = historical_model
+        with self.assertRaisesMessage(RuntimeError, "profile drift"):
+            migration.seed_calibrated_profiles(historical_apps, None)
 
     def test_engine_migration_is_separate_non_atomic_and_complete(self):
         migration = importlib.import_module(

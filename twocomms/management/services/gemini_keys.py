@@ -1044,7 +1044,12 @@ def _ordered_role_keys(
     return own + shared + last + remaining
 
 
-def iter_attempts(role: str, model_chain_override: list[str] | None = None):
+def iter_attempts(
+    role: str,
+    model_chain_override: list[str] | None = None,
+    *,
+    include_skipped: bool = False,
+):
     """Генерує (key_name, key_value, model) у порядку пріоритету.
 
     MODEL-MAJOR: зовнішній цикл — МОДЕЛІ цепочки, внутрішній — КЛЮЧІ. Тобто
@@ -1065,34 +1070,116 @@ def iter_attempts(role: str, model_chain_override: list[str] | None = None):
     models = list(
         model_chain_override if model_chain_override is not None else model_chain(role)
     )
-    ordered_keys = _ordered_role_keys(role)
+    now = timezone.now()
+    pool = role_key_pools().get(role, {"own": [], "borrow": []})
+    role_aliases = list(dict.fromkeys(
+        [*pool.get("own", ()), *pool.get("borrow", ())]
+    ))
+    key_states = {
+        state.key_name: state
+        for state in GeminiKeyState.objects.filter(key_name__in=role_aliases)
+    }
+    ordered_keys = _ordered_role_keys(role, states=key_states)
     present = [(kn, _key_value(kn)) for kn in ordered_keys]
     present = [(kn, kv) for kn, kv in present if kv]
-    overloaded_at_start = {m for m in models if is_model_overloaded(m, timezone.now())}
+    overloaded_at_start = {m for m in models if is_model_overloaded(m, now)}
     from management.services import gemini_quota
 
+    aliases = [key_name for key_name, _value in present]
+    legacy_quota_snapshot = gemini_quota.capacity_snapshot(
+        aliases,
+        models,
+        now=now,
+    )
+    explicit_identities = explicit_project_groups()
+    ranking_identities = {
+        alias: explicit_identities.get(alias, "") for alias in aliases
+    }
+    v2_ranking_snapshot = {}
+    try:
+        from management.services import gemini_accounting_runtime
+
+        v2_ranking_snapshot = gemini_accounting_runtime.project_ranking_snapshot(
+            project_identities=ranking_identities.values(),
+            models=models,
+            now=now,
+        )
+    except Exception:
+        # Ranking is advisory. Legacy health/quota order remains the rollback
+        # path for mode=off, missing profiles and accounting read failures.
+        v2_ranking_snapshot = {}
+
+    values = dict(present)
     for model in models:
         if model in overloaded_at_start:
+            if include_skipped:
+                for key_name in aliases:
+                    yield (key_name, values[key_name], model, "model_overload")
             continue
         if is_model_unavailable(model, timezone.now()):
+            if include_skipped:
+                for key_name in aliases:
+                    yield (key_name, values[key_name], model, "model_unavailable")
             continue  # платна/недоступна модель — пропускаємо повністю
         # ЭБ.4: у пари (ключ, модель) є денний ліміт (20 на старших моделях), тому
         # ключі беремо в порядку ЗАЛИШКУ квоти — інакше перший ключ вичерпується
         # до нуля, а решта проєктів стоїть невикористаною.
         by_remaining = gemini_quota.order_keys_by_remaining(
-            [kn for kn, _kv in present], model
+            aliases,
+            model,
+            now=now,
+            snapshot=legacy_quota_snapshot,
         )
-        values = dict(present)
+        if v2_ranking_snapshot:
+            by_remaining = gemini_accounting_runtime.order_project_aliases(
+                by_remaining,
+                model=model,
+                project_identities=ranking_identities,
+                snapshot=v2_ranking_snapshot,
+                legacy_snapshot=legacy_quota_snapshot,
+            )
         for key_name in by_remaining:
             # Платну модель, виявлену ПІД ЧАС цього проходу (на попередньому ключі),
             # одразу припиняємо пробувати на решті ключів — економимо час/квоту.
             if is_model_unavailable(model, timezone.now()):
                 break
-            if not is_available(key_name, timezone.now(), model=model):
-                continue  # пара (ключ, модель) у кулдауні → пропускаємо
-            if not gemini_quota.has_capacity(key_name, model):
-                continue  # локальний облік каже: денна/хвилинна квота пари вичерпана
-            yield (key_name, values[key_name], model)
+            skip_reason = ""
+            state = key_states.get(key_name)
+            if state is not None and (
+                (state.cooldown_until and state.cooldown_until > now)
+                or (
+                    (model_until := _model_cooldown_until(state, model))
+                    and model_until > now
+                )
+            ):
+                skip_reason = "quota_cooldown"
+            decision = gemini_accounting_runtime.project_candidate_decision(
+                key_name,
+                model=model,
+                project_identity=ranking_identities.get(key_name, ""),
+                snapshot=v2_ranking_snapshot,
+                legacy_snapshot=legacy_quota_snapshot,
+            ) if v2_ranking_snapshot else {"eligible": True}
+            if not skip_reason and not decision["eligible"]:
+                skip_reason = str(
+                    decision.get("block_reason") or "quota_exhausted"
+                )[:24]
+            if not skip_reason and not gemini_quota.has_capacity(
+                key_name,
+                model,
+                now=now,
+                snapshot=legacy_quota_snapshot,
+            ):
+                skip_reason = "quota_exhausted"
+            if skip_reason:
+                if include_skipped:
+                    yield (key_name, values[key_name], model, skip_reason)
+                continue
+            yield (
+                (key_name, values[key_name], model, "")
+                if include_skipped
+                else (key_name, values[key_name], model)
+            )
 
 
 def iter_live_chat_attempts(model_chain_override: list[str] | None = None):
@@ -1135,6 +1222,20 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
         models,
         now=now,
     )
+    ranking_identities = {
+        alias: explicit_identities.get(alias, "") for alias in ordered_aliases
+    }
+    v2_ranking_snapshot = {}
+    try:
+        from management.services import gemini_accounting_runtime
+
+        v2_ranking_snapshot = gemini_accounting_runtime.project_ranking_snapshot(
+            project_identities=ranking_identities.values(),
+            models=models,
+            now=now,
+        )
+    except Exception:
+        v2_ranking_snapshot = {}
     model_states = {
         state.model_name: state
         for state in GeminiModelState.objects.filter(model_name__in=models)
@@ -1158,6 +1259,14 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
             now=now,
             snapshot=quota_snapshot,
         )
+        if v2_ranking_snapshot:
+            ordered = gemini_accounting_runtime.order_project_aliases(
+                ordered,
+                model=model,
+                project_identities=ranking_identities,
+                snapshot=v2_ranking_snapshot,
+                legacy_snapshot=quota_snapshot,
+            )
         seen_projects: set[str] = set()
         seen_credentials: list[bytes] = []
         model_skip = ""
@@ -1188,7 +1297,19 @@ def live_chat_candidate_plan(model_chain_override: list[str] | None = None) -> l
                 skip_reason = "duplicate_project"
             elif not skip_reason and not pair_available(key_name, model):
                 skip_reason = "quota_cooldown"
-            elif not skip_reason and not gemini_quota.has_capacity(
+            elif not skip_reason and v2_ranking_snapshot:
+                decision = gemini_accounting_runtime.project_candidate_decision(
+                    key_name,
+                    model=model,
+                    project_identity=ranking_identities.get(key_name, ""),
+                    snapshot=v2_ranking_snapshot,
+                    legacy_snapshot=quota_snapshot,
+                )
+                if not decision["eligible"]:
+                    skip_reason = (
+                        str(decision.get("block_reason") or "quota_exhausted")[:24]
+                    )
+            if not skip_reason and not gemini_quota.has_capacity(
                 key_name,
                 model,
                 now=now,

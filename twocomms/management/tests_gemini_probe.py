@@ -1,11 +1,12 @@
 import json
-from unittest.mock import patch
+import os
+from unittest.mock import Mock, patch
 
 import requests
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
-from management.models import GeminiKeyState
+from management.models import GeminiKeyState, GeminiRequest, GeminiRequestAttempt
 from management.services import call_ai_analysis as caa
 from management.services import gemini_probe
 
@@ -142,6 +143,150 @@ class GeminiProbeClassificationTests(TestCase):
 
         self.assertEqual(status["status"], "quota")
         self.assertNotIn("secret-key-value", json.dumps(status))
+
+
+class GeminiProbeAdmissionTests(TestCase):
+    @staticmethod
+    def _success_response():
+        payload = {
+            "candidates": [{
+                "finishReason": "STOP",
+                "content": {"parts": [{"text": "OK"}]},
+            }],
+            "usageMetadata": {"promptTokenCount": 4, "totalTokenCount": 5},
+        }
+        response = Mock(status_code=200, text=json.dumps(payload))
+        response.json.return_value = payload
+        return response
+
+    @patch("management.services.gemini_probe.requests.post")
+    @patch("management.services.gemini_accounting_runtime.begin_request")
+    def test_false_admission_is_cancelled_without_provider_post(
+        self,
+        begin_request,
+        post,
+    ):
+        boundary = Mock()
+        boundary.before_provider.return_value = False
+        observer = Mock()
+        observer.attempt.return_value = boundary
+        begin_request.return_value = observer
+
+        result = gemini_probe.probe_key(
+            "gemini-3.6-flash",
+            "private-probe-key",
+        )
+
+        post.assert_not_called()
+        boundary.cancelled_pre_dispatch.assert_called_once()
+        observer.resolve_failure.assert_called_once_with("admission_rejected")
+        self.assertEqual(result["status"], "cancelled_pre_dispatch")
+        self.assertEqual(result["http_code"], 0)
+        self.assertEqual(result["evidence_kind"], "local_admission")
+        self.assertNotIn("private-probe-key", json.dumps(result))
+
+    @override_settings(
+        GEMINI_ACCOUNTING_V2_MODE="shadow",
+        GEMINI_ACCOUNTING_V2_EFFECTIVE_FROM="2026-08-29T00:00:00-07:00",
+        GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY="probe-boundary-test-hmac",
+        GEMINI_KEY_PROJECT_GROUPS={"GEMINI_API": "gemini-project-1"},
+    )
+    @patch.dict(os.environ, {
+        "GEMINI_API": "private-probe-key",
+        "GEMINI_API2": "",
+        "GEMINI_API3": "",
+        "GEMINI_API4": "",
+        "GEMINI_API5": "",
+        "GEMINI_API6": "",
+    }, clear=False)
+    @patch("management.services.gemini_probe.requests.post")
+    @patch(
+        "management.services.gemini_accounting_runtime."
+        "AttemptBoundary.before_provider",
+        return_value=False,
+    )
+    def test_false_admission_persists_only_sanitized_local_outcome(
+        self,
+        _before_provider,
+        post,
+    ):
+        result = gemini_probe.probe_key(
+            "gemini-3.6-flash",
+            "private-probe-key",
+        )
+
+        post.assert_not_called()
+        graph = GeminiRequest.objects.get()
+        attempt = GeminiRequestAttempt.objects.get(request_graph=graph)
+        self.assertEqual(graph.terminal_resolution, "failed")
+        self.assertEqual(graph.terminal_reason, "admission_rejected")
+        self.assertEqual(attempt.outcome, "cancelled_pre_dispatch")
+        self.assertEqual(
+            attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+        )
+        self.assertEqual(attempt.failure_kind, "stale_provider_boundary")
+        self.assertIsNone(attempt.provider_started_at)
+        persisted = json.dumps({
+            "graph": graph.candidate_plan,
+            "outcomes": graph.candidate_outcomes,
+            "attempt": {
+                "failure_kind": attempt.failure_kind,
+                "provider_reason": attempt.provider_reason,
+                "error_detail": attempt.error_detail,
+            },
+            "result": result,
+        })
+        self.assertNotIn("private-probe-key", persisted)
+
+    @patch("management.services.gemini_probe.requests.post")
+    @patch("management.services.gemini_accounting_runtime.begin_request")
+    def test_true_admission_preserves_success_and_settles_boundary(
+        self,
+        begin_request,
+        post,
+    ):
+        boundary = Mock()
+        boundary.before_provider.return_value = True
+        observer = Mock()
+        observer.attempt.return_value = boundary
+        begin_request.return_value = observer
+        post.return_value = self._success_response()
+
+        result = gemini_probe.probe_key(
+            "gemini-3.6-flash",
+            "private-probe-key",
+        )
+
+        post.assert_called_once()
+        boundary.manual_result.assert_called_once_with(
+            succeeded=True,
+            http_code=200,
+            failure_kind="",
+            usage={"promptTokenCount": 4, "totalTokenCount": 5},
+        )
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["http_code"], 200)
+
+    @patch("management.services.gemini_probe.requests.post")
+    @patch("management.services.gemini_accounting_runtime.begin_request")
+    def test_observer_failure_before_decision_preserves_explicit_probe(
+        self,
+        begin_request,
+        post,
+    ):
+        begin_request.side_effect = RuntimeError("observer unavailable")
+        post.return_value = self._success_response()
+
+        result = gemini_probe.probe_key(
+            "gemini-3.6-flash",
+            "private-probe-key",
+        )
+
+        post.assert_called_once()
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["http_code"], 200)
+        self.assertNotIn("observer unavailable", json.dumps(result))
 
 
 class GeminiProviderErrorTests(TestCase):

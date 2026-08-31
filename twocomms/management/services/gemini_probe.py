@@ -7,7 +7,11 @@ import uuid
 
 import requests
 
-from management.services.call_ai_analysis import GENAI_BASE, _payload_for_model
+from management.services.call_ai_analysis import (
+    GENAI_BASE,
+    _GeminiAdmissionRejected,
+    _payload_for_model,
+)
 
 PROBE_TIMEOUT = (5, 20)
 PROBE_OUTPUT_TOKENS = 128
@@ -101,6 +105,7 @@ def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
     started = time.monotonic()
     body = json.dumps(build_probe_payload(model))
     boundary = None
+    observer = None
     try:
         from management.services import gemini_accounting_runtime, gemini_keys
 
@@ -127,11 +132,42 @@ def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
         boundary = observer.attempt(
             key_name=alias or "(manual)", model=model, candidate_index=1
         )
-        boundary.before_provider(
+        admitted = boundary.before_provider(
             serialized_bytes=len(body.encode("utf-8")),
             inline_count=0,
         )
+        if admitted is not True:
+            # An explicit ``False`` is an admission decision, not an
+            # accounting outage.  Crossing the provider boundary after that
+            # decision would spend quota without canonical attempt ownership.
+            # Persist only the bounded local classification; neither the key,
+            # payload nor an exception detail is included in the result.
+            try:
+                boundary.cancelled_pre_dispatch(
+                    _GeminiAdmissionRejected("diagnostic admission rejected")
+                )
+            except Exception:
+                pass
+            try:
+                observer.resolve_failure("admission_rejected")
+            except Exception:
+                pass
+            return {
+                "status": "cancelled_pre_dispatch",
+                "http_code": 0,
+                "finish_reason": "",
+                "thoughts_tokens": 0,
+                "candidates_tokens": 0,
+                "latency_ms": max(
+                    0, int((time.monotonic() - started) * 1000)
+                ),
+                "model": model,
+                "evidence_kind": "local_admission",
+            }
     except Exception:
+        # This command is an explicit, quota-consuming diagnostic.  Preserve
+        # its established off/shadow behavior when the observational writer
+        # itself is unavailable and no admission decision was returned.
         boundary = None
     try:
         response = requests.post(

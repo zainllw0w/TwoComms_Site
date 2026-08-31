@@ -143,6 +143,26 @@ def gemini_accounting_shadow_check(app_configs=None, **_kwargs):
 
 
 @register(Tags.compatibility)
+def gemini_v2_project_ranking_check(app_configs=None, **_kwargs):
+    """Validate the independently reversible V2 project-ranking switch."""
+    del app_configs
+    mode = str(
+        getattr(settings, "GEMINI_V2_PROJECT_RANKING_MODE", "enforce")
+        or "enforce"
+    ).strip().casefold()
+    if mode not in {"off", "enforce"}:
+        return [Error(
+            "GEMINI_V2_PROJECT_RANKING_MODE must be 'off' or 'enforce'.",
+            hint=(
+                "Use enforce for the owner-authorized quota-aware ordering, "
+                "or off for immediate rollback to legacy project order."
+            ),
+            id="management.E918",
+        )]
+    return []
+
+
+@register(Tags.compatibility)
 def typed_memory_shadow_check(app_configs=None, **_kwargs):
     """Fail closed when shadow memory is requested without its evidence/HMAC gates."""
     del app_configs
