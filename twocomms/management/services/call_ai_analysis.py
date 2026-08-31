@@ -81,11 +81,11 @@ MANAGEMENT_TEXT_DEADLINE_SECONDS = 75.0
 CHAT_ORDINARY_DEADLINE_SECONDS = 35.0
 CHAT_COMPLEX_DEADLINE_SECONDS = 45.0
 CHAT_MIN_CALL_SECONDS = 2.0
-# Э-HEDGE: більше НЕ обмежує число ключів найкращої моделі. Раніше значення 2
-# виводило хід на слабшу модель після двох повільних спроб, і чотири ключі 3.7
-# не пробувались взагалі. Константа залишена для fallback-фази (моделі нижче
-# первинної), де паралелізм недоречний: там кожен зайвий виклик — це витрата
-# квоти на гіршу відповідь.
+# Live SLA permits at most two slow calls on the primary model before preserving
+# the remaining deadline for the next model tier.  All six projects remain in
+# the immutable candidate plan; uncalled primary candidates are recorded as
+# ``sla_model_budget`` rather than silently disappearing.  The fallback tier is
+# bounded separately for the same deadline/quota reason.
 CHAT_PRIMARY_ATTEMPT_LIMIT = 2
 CHAT_FALLBACK_ATTEMPT_LIMIT = 2
 # The old hedge pre-leased an entire model pool and could classify already
