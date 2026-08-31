@@ -13581,6 +13581,17 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
         reclaim_stale_processing()
     except Exception as exc:
         log("warning", "reclaim", repr(exc))
+    # Э2.2B prerequisite: lease-aware реконсиляція ходів, що лишились `CLAIMED`
+    # після вбитого демона. Класифікує причину і НЕ ретраїть невідому доставку;
+    # масовий слепий перехід заборонений — див. `stale_claimed_turns()`.
+    try:
+        from management.services import ig_customer_turns as _turns
+
+        outcome = _turns.reconcile_stale_claimed_turns(limit=50, apply=True)
+        if outcome.get("scanned"):
+            log("info", "turn_reconcile", repr(outcome.get("counts")))
+    except Exception as exc:
+        log("warning", "turn_reconcile", repr(exc))
     handled = 0
     for _ in range(max_items):
         # Finish the in-flight row, then cooperatively drain before claiming
@@ -13592,6 +13603,9 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
             break
         try:
             processed = _process_one(s, row)
+            # Э2.2B prerequisite: терміналізувати ХІД, а не тільки рядок. Одна
+            # точка виклику покриває всі внутрішні гілки `_process_one`.
+            _finalize_turn_lifecycle(row)
             if processed:
                 handled += 1
             elif InstagramBotMessage.objects.filter(
@@ -13617,8 +13631,22 @@ def process_pending(s: InstagramBotSettings | None = None, max_items: int = 15) 
                     status=InstagramBotMessage.Status.PENDING,
                     processing_started_at=None,
                 )
+            _finalize_turn_lifecycle(row)
             break
     return handled
+
+
+def _finalize_turn_lifecycle(row: InstagramBotMessage) -> None:
+    """Перевести хід рядка в термінал з класифікованою причиною (Э2.2B).
+
+    Ніколи не кидає: помилка телеметрії ходу не має права зупинити чергу.
+    """
+    try:
+        from management.services import ig_customer_turns
+
+        ig_customer_turns.finalize_turn_for_row(row)
+    except Exception as exc:  # pragma: no cover - defensive
+        log("warning", "turn_finalize", repr(exc))
 
 
 def pending_count() -> int:

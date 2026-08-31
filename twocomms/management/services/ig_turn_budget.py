@@ -72,10 +72,23 @@ def turn_phases() -> tuple:
 
 
 def _turn_debounce_seconds() -> float:
-    try:
-        from management.services.ig_customer_turns import MAX_TURN_WAIT
+    """Фаза очікування = ФАКТИЧНИЙ максимум склейки, а не оголошена межа.
 
-        return float(MAX_TURN_WAIT.total_seconds())
+    Э2.2B prerequisite. Раніше тут читався `MAX_TURN_WAIT` (20 с), тоді як
+    `window_deadline` завжди дорівнює `min(now + TURN_DEBOUNCE, now +
+    MAX_TURN_WAIT)` і не продовжується при attach — тобто реальне очікування 6 с,
+    а `MAX_TURN_WAIT` мертвий. Розходження було не косметичним: воно завищувало
+    `customer_notice_threshold_seconds()` на ті самі 14 с і настільно ж знижувало
+    чутливість вікна живості демона.
+
+    Тепер джерело істини одне — `ig_customer_turns.effective_max_wait_seconds()`.
+    Фіксується зв'язок, а не число: коли з'явиться typed wait policy, значення
+    поїде разом з нею без правки цього модуля.
+    """
+    try:
+        from management.services.ig_customer_turns import effective_max_wait_seconds
+
+        return float(effective_max_wait_seconds())
     except Exception:
         return 0.0
 

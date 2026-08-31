@@ -45,6 +45,30 @@ TURN_DEBOUNCE = timedelta(seconds=6)
 MAX_TURN_WAIT = timedelta(seconds=20)
 
 
+def effective_max_wait_seconds() -> float:
+    """Фактичний максимум очікування склейки — джерело істини для бюджету ходу.
+
+    Э2.2B, prerequisite. `ig_turn_budget.turn_phases()` раніше оголошував фазу
+    очікування як `MAX_TURN_WAIT` (20 с), тоді як реальний дедлайн завжди
+    дорівнює `min(now + TURN_DEBOUNCE, now + MAX_TURN_WAIT)` і не продовжується
+    при attach. Тобто оголошений бюджет був на 14 с більший за реальний.
+
+    Наслідок був не косметичний: `customer_notice_threshold_seconds()` =
+    очікування + генерація, тому технічний текст клієнту стримувався на 14 с
+    довше за фактичний дедлайн, а вікно живості демона було настільно ж менш
+    чутливим.
+
+    Функція повертає **зв'язок**, а не число: якщо `TURN_DEBOUNCE` зміниться або
+    буде піднятий вище `MAX_TURN_WAIT`, бюджет поїде разом з ним. Коли з'явиться
+    typed wait policy (Э2.2B Phase 3), тут стане `max(silent hard cap)` увімкнених
+    класів, обмежений глобальною межею.
+    """
+    if not _flag("IG_TURN_DEBOUNCE", True):
+        # Флаг вимкнений — хід не збирається, воркер бере рядок одразу.
+        return 0.0
+    return float(min(TURN_DEBOUNCE, MAX_TURN_WAIT).total_seconds())
+
+
 @dataclass(frozen=True)
 class TurnAttachment:
     """Результат прив'язки вхідного до ходу."""
@@ -250,16 +274,19 @@ def claim_turn(turn_id: int, *, now=None) -> tuple[IgCustomerTurn | None, str]:
     return turn, (token if claimed == 1 else "")
 
 
-def mark_turn_processed(turn_id: int, *, now=None) -> None:
+def mark_turn_processed(turn_id: int, *, reason: str = "", now=None) -> None:
     now = now or timezone.now()
+    fields = {
+        "claim_state": IgCustomerTurn.ClaimState.PROCESSED,
+        "processed_at": now,
+        "claim_token": "",
+        "updated_at": now,
+    }
+    if reason:
+        fields["terminal_reason"] = str(reason)[:20]
     transitioned = IgCustomerTurn.objects.filter(pk=turn_id).exclude(
         claim_state=IgCustomerTurn.ClaimState.PROCESSED
-    ).update(
-        claim_state=IgCustomerTurn.ClaimState.PROCESSED,
-        processed_at=now,
-        claim_token="",
-        updated_at=now,
-    )
+    ).update(**fields)
     if transitioned:
         try:
             from management.services.ig_analysis_materiality import (
@@ -270,6 +297,166 @@ def mark_turn_processed(turn_id: int, *, now=None) -> None:
         except Exception:
             # Shadow telemetry must never change reply/turn behavior.
             pass
+
+
+def turn_id_for_message(message_id) -> int:
+    """Хід, якому належить рядок, або 0. Один індексований запит по unique-ключу."""
+    try:
+        message_id = int(getattr(message_id, "pk", message_id) or 0)
+    except (TypeError, ValueError):
+        return 0
+    if not message_id:
+        return 0
+    return int(
+        IgTurnMessage.objects.filter(message_id=message_id)
+        .values_list("turn_id", flat=True)
+        .first()
+        or 0
+    )
+
+
+# Статуси рядка, після яких хід уже не отримає ще однієї спроби виконання.
+_TERMINAL_ROW_STATUSES = (
+    InstagramBotMessage.Status.DONE,
+    InstagramBotMessage.Status.FAILED,
+)
+
+
+def _reason_for_terminal_row(row: InstagramBotMessage) -> str:
+    """Класифікувати причину терміналізації ходу по стану рядка."""
+    reasons = IgCustomerTurn.TerminalReason
+    send_state = str(getattr(row, "send_state", "") or "")
+    if send_state in ("unknown", "ambiguous"):
+        # Доставка невідома: терміналізуємо з причиною, але НЕ ретраїмо.
+        return reasons.SEND_UNKNOWN
+    if row.status == InstagramBotMessage.Status.DONE:
+        if send_state == "sent":
+            return reasons.REPLIED
+        # Рядок опрацьовано без customer-visible відправки: поглинутий у ході,
+        # службовий, або відповідь свідомо не потрібна.
+        return reasons.NO_REPLY_NEEDED
+    return reasons.FAILED
+
+
+def finalize_turn_for_row(row_or_id, *, now=None) -> str:
+    """Терміналізувати хід рядка, якщо сам рядок уже терміналом (Э2.2B).
+
+    Раніше `mark_turn_processed()` викликався ЛИШЕ у деградаційній гілці
+    `_claim_next()` (рядок ходу зник). На нормальному шляху хід назавжди лишався
+    `CLAIMED`: 7/7 автоматично виконаних production-ходів після міграції `0173`
+    саме такі. Побічний ефект був живий, а не косметичний —
+    `record_completed_customer_turn()` не спрацьовував ні для одного реального
+    ходу, тому телеметрія матеріальності аналізу була порожньою.
+
+    Точка виклику одна (після виконання рядка), тому всі внутрішні гілки
+    `_process_one` покриті без правки кожної з них окремо. Повертає застосовану
+    причину або "" якщо нічого не змінено.
+    """
+    message_id = int(getattr(row_or_id, "pk", row_or_id) or 0)
+    if not message_id:
+        return ""
+    turn_id = turn_id_for_message(message_id)
+    if not turn_id:
+        return ""
+    # Читаємо статус з БД: виконання могло змінити його після claim.
+    row = (
+        InstagramBotMessage.objects.filter(pk=message_id)
+        .only("id", "status", "send_state")
+        .first()
+    )
+    if row is None:
+        mark_turn_processed(
+            turn_id, reason=IgCustomerTurn.TerminalReason.ROW_MISSING, now=now
+        )
+        return IgCustomerTurn.TerminalReason.ROW_MISSING
+    if row.status not in _TERMINAL_ROW_STATUSES:
+        # Рядок повернувся в pending (провайдерський backoff) — хід ще живий.
+        return ""
+    reason = _reason_for_terminal_row(row)
+    mark_turn_processed(turn_id, reason=reason, now=now)
+    return reason
+
+
+def turn_lease_seconds() -> float:
+    """Скільки хід має право лишатись `CLAIMED` до реконсиляції.
+
+    Виводиться з оголошеного бюджету ходу (Э2.10), а не задається окремо:
+    незалежне число розійшлося б з бюджетом при першій же правці таймауту.
+    """
+    try:
+        from management.services.ig_turn_budget import declared_turn_budget_seconds
+
+        declared = float(declared_turn_budget_seconds())
+    except Exception:
+        declared = 120.0
+    # Запас на квантування тіка демона і на реанімацію рядка в `processing`.
+    return max(60.0, declared * 2.0)
+
+
+def stale_claimed_turns(*, now=None, limit: int = 200) -> list:
+    """Класифікувати застарілі `CLAIMED` ходи БЕЗ запису (dry-run).
+
+    Масовий слепий `CLAIMED → PROCESSED` заборонений: він приховав би саме ті
+    випадки, які треба побачити — перетнуту межу відправки і невідому доставку.
+    Тому інвентаризація і застосування — різні кроки.
+    """
+    now = now or timezone.now()
+    cutoff = now - timedelta(seconds=turn_lease_seconds())
+    turns = list(
+        IgCustomerTurn.objects.filter(
+            claim_state=IgCustomerTurn.ClaimState.CLAIMED,
+        )
+        .filter(claimed_at__lt=cutoff)
+        .order_by("claimed_at", "id")[: max(1, int(limit))]
+    )
+    reasons = IgCustomerTurn.TerminalReason
+    report = []
+    for turn in turns:
+        rows = list(
+            InstagramBotMessage.objects.filter(
+                pk__in=turn_message_ids(turn) or [turn.primary_source_message_id]
+            ).only("id", "status", "send_state")
+        )
+        if not rows:
+            report.append({"turn_id": turn.pk, "reason": reasons.ROW_MISSING, "rows": []})
+            continue
+        states = {str(r.send_state or "") for r in rows}
+        statuses = {r.status for r in rows}
+        if states & {"unknown", "ambiguous"}:
+            reason = reasons.SEND_UNKNOWN
+        elif states & {"sending"}:
+            # Межа провайдера перетнута, receipt невідомий: не ретраїти.
+            reason = reasons.SEND_UNKNOWN
+        elif statuses <= set(_TERMINAL_ROW_STATUSES):
+            reason = (
+                reasons.REPLIED if states & {"sent"} else reasons.NO_REPLY_NEEDED
+            )
+        else:
+            reason = reasons.LEASE_EXPIRED
+        report.append(
+            {
+                "turn_id": turn.pk,
+                "client_id": turn.client_id,
+                "claimed_at": turn.claimed_at,
+                "reason": reason,
+                "rows": [
+                    {"id": r.pk, "status": r.status, "send_state": r.send_state}
+                    for r in rows
+                ],
+            }
+        )
+    return report
+
+
+def reconcile_stale_claimed_turns(*, now=None, limit: int = 200, apply: bool = False) -> dict:
+    """Lease-aware реконсиляція `CLAIMED`; `apply=False` нічого не пише."""
+    report = stale_claimed_turns(now=now, limit=limit)
+    counts: dict = {}
+    for entry in report:
+        counts[entry["reason"]] = counts.get(entry["reason"], 0) + 1
+        if apply:
+            mark_turn_processed(entry["turn_id"], reason=entry["reason"], now=now)
+    return {"scanned": len(report), "counts": counts, "applied": bool(apply), "entries": report}
 
 
 def turn_message_ids(turn: IgCustomerTurn) -> list:

@@ -3946,16 +3946,30 @@ Production client `#336` отправил фото сертификата, за�
 `window_deadline` равен `min(now + 6 с, now + 20 с)` и не продлевается при
 attach, то есть `MAX_TURN_WAIT` — мёртвая константа.
 
-- [ ] Терминальный обычный execution переводит turn `CLAIMED → PROCESSED` с
-      typed reason; сейчас 7/7 автоматически исполненных production-turns после
-      миграции остались `CLAIMED`
-- [ ] Добавить lease-aware reconciliation `CLAIMED`, не массовое слепое обновление
-- [ ] `resolve_logical_turn_key()` использует `IgTurnMessage.turn_id`
-- [ ] `turn_phases()` выводит фазу ожидания из **фактической** wait policy
-      (сегодня `TURN_DEBOUNCE`), а не из мёртвого `MAX_TURN_WAIT`; тест
-      согласованности падает при расхождении объявленного и реального максимума.
-      Правка формулируется как связь, а не как новое число: после Phase 3
-      значением станет `max(silent hard cap)` включённых классов
+- [x] Терминальный обычный execution переводит turn `CLAIMED → PROCESSED` с
+      typed reason (`IgCustomerTurn.TerminalReason`, миграция `0187`). Точка
+      вызова одна — `_finalize_turn_lifecycle(row)` после `_process_one()`, поэтому
+      покрыты все внутренние ветки без правки каждой. `replied` требует
+      `send_state="sent"`; `unknown` даёт `send_unknown` и никогда не выглядит
+      доставленным
+- [x] Добавить lease-aware reconciliation `CLAIMED`, не массовое слепое
+      обновление: `reconcile_stale_claimed_turns()` классифицирует по факту
+      (`sending`/`unknown` → `send_unknown` без retry; живой рядок →
+      `lease_expired`), lease выводится из объявленного бюджета хода (Э2.10).
+      Операторская команда `manage.py ig_turn_lifecycle` **read-only** по
+      умолчанию, запись только по `--apply`
+- [x] `resolve_logical_turn_key()` берёт ход из `IgTurnMessage`. **Формат ключа
+      сознательно НЕ изменён** на `turn:{id}`: якорем стало первое сообщение
+      хода, поэтому строка `t{client}:{msg}` совпадает с прежней для in-flight
+      данных. Смена формата разорвала бы `IgClientDegradationEpisode.
+      logical_turn_id` открытого инцидента и дала бы клиенту ВТОРОЙ holding в том
+      же ходе — ровно тот спам, который снимает ЭА.3
+- [x] `turn_phases()` выводит фазу ожидания из **фактической** wait policy через
+      `ig_customer_turns.effective_max_wait_seconds()`. Эффект не косметический:
+      `customer_notice_threshold_seconds()` был завышен на 14 с (65 → 51 с), то
+      есть технический текст клиенту сдерживался дольше реального дедлайна, а
+      окно живости демона было на те же 14 с менее чувствительным (136 → 122 с
+      при бюджете 102 с)
 - [ ] Канонический порядок блокировок `client → turn` в ingress и worker
 - [ ] Зафиксировать production replay `media + greeting + continuation` как RED
       fixture с provider/local clocks

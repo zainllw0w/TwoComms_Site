@@ -7892,6 +7892,24 @@ class IgCustomerTurn(models.Model):
         PROCESSED = "processed", _("Опрацьований")
         SUPERSEDED = "superseded", _("Витіснений")
 
+    class TerminalReason(models.TextChoices):
+        """Чому хід став терміналом (Э2.2B Phase 1).
+
+        Без причини `PROCESSED` неможливо відрізнити «відповіли клієнту» від
+        «рядок зник» і від «lease застарів». Приймальний критерій ЭА/Э2.2B
+        сформульований саме так: немає жодного застарілого `CLAIMED` **без
+        класифікованої причини**, тому причина мусить бути durable полем, а не
+        рядком у лозі.
+        """
+
+        REPLIED = "replied", _("Відповідь доставлена")
+        NO_REPLY_NEEDED = "no_reply_needed", _("Відповідь не потрібна")
+        SEND_UNKNOWN = "send_unknown", _("Відправка невідома")
+        FAILED = "failed", _("Виконання не вдалося")
+        ROW_MISSING = "row_missing", _("Рядок ходу зник")
+        LEASE_EXPIRED = "lease_expired", _("Lease застарів")
+        SUPERSEDED = "superseded", _("Витіснений новішим ходом")
+
     client = models.ForeignKey(
         "management.IgClient",
         on_delete=models.CASCADE,
@@ -7931,6 +7949,15 @@ class IgCustomerTurn(models.Model):
     # частина набору тексту. Це поле, а не комментар у коді.
     bypass_debounce = models.BooleanField(default=False)
     processed_at = models.DateTimeField(null=True, blank=True)
+    # Класифікована причина терміналізації. Порожньо тільки для ходів, які ще
+    # не завершені, і для історичних рядків до цієї міграції.
+    terminal_reason = models.CharField(
+        max_length=20,
+        choices=TerminalReason.choices,
+        blank=True,
+        default="",
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 

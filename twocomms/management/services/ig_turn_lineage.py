@@ -42,8 +42,10 @@ def logical_turn_key(client_id, source_message_id) -> str:
     Тимчасове мінімальне визначення: хід — це найраніше вхідне без відповіді.
     Усі вхідні, що прийшли поки бот ще не відповів, належать одному ходу, тому
     сума вибачень у ході рахується коректно навіть при burst-і повідомлень.
-    Коли з'явиться `CustomerTurn` (Э0.6), цей ключ треба замінити на його id —
-    саме тому він ізольований в одній функції.
+    `CustomerTurn` (Э0.6) вже існує, і `resolve_logical_turn_key()` бере анкер
+    саме з членства в ході. Формат рядка свідомо НЕ змінено на `turn:{id}`: ключ
+    уже записаний у живих епізодах деградації, і зміна формату розірвала б
+    coalescing holding-ів посеред відкритого інциденту.
     """
     try:
         client_id = int(client_id or 0)
@@ -56,13 +58,43 @@ def logical_turn_key(client_id, source_message_id) -> str:
 
 
 def resolve_logical_turn_key(row) -> str:
-    """Ключ ходу для вхідного рядка: найраніше вхідне без відповіді бота."""
+    """Ключ ходу для вхідного рядка.
+
+    Канонічне джерело — членство в `IgCustomerTurn` (Э0.6). Row-anchor лишається
+    ЛИШЕ для історичних рядків, записаних до появи членства.
+
+    **Чому анкер — перше повідомлення ходу, а не `turn_id`.** Ключ уже записаний
+    у живих даних (`IgClientDegradationEpisode.logical_turn_id`, спроби
+    провайдера). Якщо змінити формат на `turn:{id}`, епізод деградації, відкритий
+    за старим ключем, перестане співпадати з новим — і клієнт отримає ДРУГИЙ
+    holding у тому самому ході, тобто рівно той спам, який знімає ЭА.3. Анкер
+    «перше повідомлення ходу» дає той самий рядок `t{client}:{msg}`, що й
+    row-anchor у типовому випадку, і виправляє його саме там, де евристика
+    розходилась: коли між повідомленнями клієнта встряв вихідний рядок, який не
+    закриває смисловий хід.
+    """
     client_id = getattr(row, "client_id", None)
     row_id = getattr(row, "pk", None)
     if not client_id or not row_id:
         return ""
-    from management.models import InstagramBotMessage
+    from management.models import InstagramBotMessage, IgTurnMessage
 
+    turn_id = (
+        IgTurnMessage.objects.filter(message_id=row_id)
+        .values_list("turn_id", flat=True)
+        .first()
+    )
+    if turn_id:
+        anchor = (
+            IgTurnMessage.objects.filter(turn_id=turn_id)
+            .order_by("ordinal", "id")
+            .values_list("message_id", flat=True)
+            .first()
+        )
+        if anchor:
+            return logical_turn_key(client_id, anchor)
+
+    # Legacy fallback: історичний рядок без членства в ході.
     last_outgoing = (
         InstagramBotMessage.objects.filter(
             client_id=client_id,

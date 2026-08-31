@@ -1327,10 +1327,17 @@ IG_DM_NATIVE_REPLY_ENABLED = false
 
 ### Phase 1 — Один канонический turn и исправный lifecycle
 
-- [ ] После каждого terminal path переводить turn в `PROCESSED` с reason.
-- [ ] Добавить lease/reconciliation для stale `CLAIMED`.
-- [ ] Перевести `resolve_logical_turn_key()` на `IgTurnMessage.turn_id`.
-- [ ] Legacy fallback оставить только для historical row без membership.
+- [x] После каждого terminal path переводить turn в `PROCESSED` с reason.
+- [x] Добавить lease/reconciliation для stale `CLAIMED`.
+- [x] Перевести `resolve_logical_turn_key()` на членство в `IgCustomerTurn`.
+      **Поправка к исходной формулировке:** ключом стал не `turn:{id}`, а
+      `logical_turn_key(client, первое сообщение хода)`. Формат `t{client}:{msg}`
+      уже записан в живых `IgClientDegradationEpisode.logical_turn_id`; смена
+      формата посреди открытого инцидента разорвала бы coalescing holding-ов и
+      дала бы клиенту второй holding в том же ходе. Новый якорь даёт ту же строку
+      в типовом случае и исправляет эвристику там, где она расходилась — когда
+      между сообщениями клиента встрял исходящий ряд, не закрывающий смысл хода.
+- [x] Legacy fallback оставить только для historical row без membership.
 - [ ] `turn_phases()` выводит фазу ожидания из фактической wait policy
       (сегодня `TURN_DEBOUNCE`), а тест согласованности падает при расхождении
       объявленного и реального максимума ожидания.
