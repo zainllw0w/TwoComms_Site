@@ -312,11 +312,11 @@ policy-решения владельца, юридической проверк�
 только про порядок выполнения, чтобы не потерять приоритет владельца и
 одновременно не выпустить карточку в сломанный путь.
 
-### Completion dashboard для следующего агента (scope-сверка 2026-08-31, code `10b3829e6`)
+### Completion dashboard для следующего агента (2026-08-31, code `b062c69c0`)
 
 ```text
-done 338   open 853   partial 31   blocked 18   declined 10
-raw done ratio: 338 / (338 + 853 + 31 + 18) = 27.3%
+done 368   open 823   partial 31   blocked 18   declined 10
+raw done ratio: 368 / (368 + 823 + 31 + 18) = 29.7%
 ```
 
 Счёт пересчитан скриптом по фактическим checkbox-ам файла после scope-сверки и
@@ -336,7 +336,10 @@ Raw ratio специально консервативен и не равен pro
 | Visual transport | deployed/preview proven | Э1.2 и `10` |
 | Visual orchestration | open priority | Э1.13 и `10` |
 | Resolver/media revision | deployed | Э3.7 |
-| Semantic message bundle | plan ready; Phase 0/1 в работе | Э2.2B и `11_MESSAGE_SERIES_COALESCING_IMPLEMENTATION.md` |
+| Semantic message bundle | Phase 0/1 deployed; Phase 2–7 open | Э2.2B и `11_MESSAGE_SERIES_COALESCING_IMPLEMENTATION.md` |
+| Daemon supervision / lanes | ЭА.14+ЭА.15 deployed; reclaim selector open | ЭА.14, ЭА.15 и `08` B12/B13 |
+| Meta send idempotency | ЭА.21 deployed; manager report ждёт ЭА.16 | ЭА.21 и `08` B11 |
+| Alert flow limit | атомарный, не fail-open; инверсия контракта заблокирована | ЭА.16 |
 | Funnel registry | blocked NO-GO | Э4 + visual action contract `10` |
 | Typed Memory | schema deployed, consumer off | Э3.12 + Э5 |
 | Last-100 analytics | open | Э8.6/Э8.7 |
@@ -2149,6 +2152,15 @@ lifecycle заказов и follow-интеллект. Часть вынесен
 lifecycle-событий не растёт). Стоп-условие: рост отставания обслуживающих задач.
 
 **Откат:** флаг на новый порядок цикла.
+
+> **Production acceptance ЭА.14 + ЭА.15 (2026-08-31, SHA `b062c69c0`).** Демон
+> перезапустился на новом коде (owner `1787249`), пульс свежий (age 0.3 с),
+> поля прогресса заполняются: `progress_at == last_completed_cycle_at`, то есть
+> циклы завершаются. Вердикт надзора: `process_alive_and_progressing`,
+> action `none`, reason `progress_observed`. Пороги выведены, не заданы:
+> `alive_window=122`, `no_progress_after=244`, `operational_lease=360`,
+> `reclaim_age=420`. Baseline для сравнения — ЭА.0 (≥101 `daemon_start` и 3
+> `daemon_lock_stale` за сутки); следующее суточное окно и есть проверка.
 
 > **Ограничение разрешения, найденное при реализации.** Клиентская полоса бьёт
 > pulse между под-шагами (pending / poll / followups), поэтому один
