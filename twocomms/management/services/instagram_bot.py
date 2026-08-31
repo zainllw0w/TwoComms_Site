@@ -11162,7 +11162,7 @@ def _claim_next() -> InstagramBotMessage | None:
             # Рядок ходу вже опрацьований або зник — хід не має блокувати чергу.
             ig_customer_turns.mark_turn_processed(turn.pk)
 
-    row = (
+    claimable = (
         InstagramBotMessage.objects.filter(
             role=InstagramBotMessage.Role.USER,
             status=InstagramBotMessage.Status.PENDING,
@@ -11178,17 +11178,51 @@ def _claim_next() -> InstagramBotMessage | None:
                 "client__last_message_at",
                 "provider_created_at",
                 "created_at",
-            )
+            ),
+            queued_at=Coalesce("provider_created_at", "created_at"),
         )
-        .order_by("-conversation_priority_at", "sender_id", "id")
-        .first()
     )
+    # Э2.8: спочатку голодуючий рядок, потім звичайний свіжий порядок. Свіжість
+    # лишається основним критерієм — вона правильна для інтерактивності, — але
+    # тепер має верхню межу: рядок, який чекає довше потолка віку, не може бути
+    # обійдений свіжим. Потолок виведений з бюджету ходу, а не задано окремо.
+    row = _starving_pending_row(claimable, now=claimable_at)
+    if row is None:
+        row = claimable.order_by(
+            "-conversation_priority_at", "sender_id", "id"
+        ).first()
     if not row:
         return None
     if ig_customer_turns.has_open_undue_turn(row, now=claimable_at):
         # Клієнт ще друкує: хід збирає повідомлення і буде взятий цілком.
         return None
     return _claim_exact_row(row)
+
+
+def _starving_pending_row(claimable, *, now):
+    """Найстаріший pending-рядок за потолком віку; при рівному віці — вища стадія.
+
+    Э2.8. Порядок `-conversation_priority_at` віддає перевагу свіжим діалогам, і
+    без верхньої межі очікування безперервний потік нових повідомлень тримав
+    старий рядок нижче голови черги необмежено довго. Голодували саме дорогі
+    діалоги: той, хто чекає давно, з більшою ймовірністю вже обрав товар і чекає
+    розмір або посилання на оплату, тоді як свіжий потік — перші дотики.
+
+    Ця функція НЕ обходить приховування, erasure, аренду клієнта і межу Meta:
+    вона впорядковує лише тих кандидатів, які вже пройшли ці фільтри.
+    """
+    from management.services import ig_queue_priority
+
+    if not ig_queue_priority.starvation_enabled():
+        return None
+    ceiling = ig_queue_priority.age_ceiling_seconds()
+    cutoff = now - timedelta(seconds=ceiling)
+    return (
+        claimable.filter(queued_at__lt=cutoff)
+        .annotate(stage_rank=ig_queue_priority.stage_rank_cases())
+        .order_by("queued_at", "-stage_rank", "id")
+        .first()
+    )
 
 
 def _claim_exact_row(row: InstagramBotMessage) -> InstagramBotMessage | None:

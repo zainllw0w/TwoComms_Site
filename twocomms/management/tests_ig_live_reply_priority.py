@@ -842,10 +842,25 @@ class LiveReplyLanguageTests(TestCase):
 
 class LiveReplyKeyPriorityTests(TestCase):
     def test_reply_worker_prioritizes_the_most_recent_active_conversation(self):
+        """Свіжість перемагає — але тепер у межах потолка віку (Э2.8).
+
+        Раніше тут стояла різниця в одну годину, і тест утверджував, що свіжий
+        рядок обходить старий **безумовно**. Саме це Э2.8 і виправляє: без
+        верхньої межі очікування безперервний потік нових повідомлень тримав
+        старий рядок нижче голови черги необмежено довго, і голодували дорогі
+        діалоги. Первісний зміст тесту — інтерактивність — лишається, тому
+        різниця віку зведена в межі потолка. Поведінка за потолком перевіряється
+        в `tests_ig_queue_starvation`.
+        """
+        from management.services import ig_queue_priority
+
         now = timezone.now()
+        within_ceiling = timedelta(
+            seconds=max(1.0, ig_queue_priority.age_ceiling_seconds() / 4)
+        )
         older_client = IgClient.get_or_create_for_sender("older-live-conversation")
         newer_client = IgClient.get_or_create_for_sender("newer-live-conversation")
-        older_client.last_message_at = now - timedelta(hours=1)
+        older_client.last_message_at = now - within_ceiling
         newer_client.last_message_at = now
         older_client.save(update_fields=["last_message_at", "updated_at"])
         newer_client.save(update_fields=["last_message_at", "updated_at"])
@@ -855,7 +870,7 @@ class LiveReplyKeyPriorityTests(TestCase):
             role=InstagramBotMessage.Role.USER,
             text="older pending",
             status=InstagramBotMessage.Status.PENDING,
-            provider_created_at=now - timedelta(hours=1),
+            provider_created_at=now - within_ceiling,
         )
         newer = InstagramBotMessage.objects.create(
             sender_id=newer_client.igsid,

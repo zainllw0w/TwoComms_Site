@@ -515,7 +515,7 @@ def due_turn_for_claim(*, now=None):
     now = now or timezone.now()
     from django.db.models import Q
 
-    turn = (
+    due = (
         IgCustomerTurn.objects.filter(
             claim_state=IgCustomerTurn.ClaimState.OPEN,
             client__hidden_at__isnull=True,
@@ -525,12 +525,40 @@ def due_turn_for_claim(*, now=None):
             client__automation_lease_token__gt="",
             client__automation_lease_until__gt=now,
         )
-        .order_by("-window_started_at", "-id")
-        .first()
     )
+    turn = _starving_turn(due, now=now)
+    if turn is None:
+        turn = due.order_by("-window_started_at", "-id").first()
     if turn is None:
         return None, 0
     return turn, claimable_row_id(turn)
+
+
+def _starving_turn(due, *, now):
+    """Хід, який чекає довше потолка віку, — його не має обходити свіжий (Э2.8).
+
+    Порядок «найсвіжіше першим» правильний для інтерактивності, але без верхньої
+    межі очікування він дозволяє безперервному потоку нових повідомлень тримати
+    старий хід нижче голови черги необмежено довго. Голодують саме дорогі
+    діалоги: клієнт, який чекає давно, з більшою ймовірністю в середині воронки.
+
+    Тому вибір двофазний. Спочатку — найстаріший хід за потолком віку (при
+    рівному віці перемагає вища стадія воронки), і лише якщо голодуючих немає,
+    працює звичайний свіжий порядок. Потолок виведений з бюджету ходу — див.
+    `ig_queue_priority.age_ceiling_seconds()`.
+    """
+    from management.services import ig_queue_priority
+
+    if not ig_queue_priority.starvation_enabled():
+        return None
+    ceiling = ig_queue_priority.age_ceiling_seconds()
+    cutoff = now - timedelta(seconds=ceiling)
+    return (
+        due.filter(window_started_at__lt=cutoff)
+        .annotate(stage_rank=ig_queue_priority.stage_rank_cases())
+        .order_by("window_started_at", "-stage_rank", "id")
+        .first()
+    )
 
 
 def has_open_undue_turn(row: InstagramBotMessage, *, now=None) -> bool:
