@@ -1,3 +1,4 @@
+import datetime
 import hashlib
 import json
 from decimal import Decimal
@@ -146,6 +147,10 @@ class TypedMemoryRuntimeTests(TestCase):
             memory.memory_chain_valid(head)
             for head in IgMemoryHead.objects.select_related("current_fact")
         ))
+        one_head = IgMemoryHead.objects.get(fact_key="observed_language")
+        with CaptureQueriesContext(connection) as captured:
+            self.assertTrue(memory.memory_chain_valid(one_head))
+        self.assertLessEqual(len(captured), 2)
         provider.assert_not_called()
 
         repeated = memory.publish_analysis_memory(self.result.pk)
@@ -248,7 +253,64 @@ class TypedMemoryRuntimeTests(TestCase):
         self.assertEqual(language_head.current_fact.typed_value, {"code": "ru"})
         self.assertEqual(language_head.current_fact.supersedes_id, old_fact_id)
         self.assertTrue(memory.memory_chain_valid(language_head))
+        with patch.object(
+            memory,
+            "fact_integrity_valid",
+            side_effect=lambda fact: fact.pk != old_fact_id,
+        ):
+            self.assertFalse(memory.memory_chain_valid(language_head))
+            self.assertEqual(memory.parity_report()["bad_hmac"], 1)
         self.assertEqual(memory.publish_analysis_memory(self.result.pk).status, "stale")
+
+    @override_settings(**SHADOW)
+    def test_retained_key_rotation_replays_same_result_as_exact_noop(self):
+        first = memory.publish_analysis_memory(self.result.pk)
+        self.assertEqual(first.created_facts, 3)
+        head_revisions = dict(IgMemoryHead.objects.values_list("slot_key", "revision"))
+        old_key_ids = set(IgMemoryFact.objects.values_list("integrity_key_id", flat=True))
+        self.assertEqual(old_key_ids, {"tmk_test_v1"})
+
+        with override_settings(
+            **SHADOW,
+            IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID="tmk_rotated_v2",
+            IG_TYPED_MEMORY_HMAC_KEYRING={
+                "tmk_test_v1": "test-typed-memory-hmac-key-00000000000001",
+                "tmk_rotated_v2": "rotated-typed-memory-hmac-key-0000000001",
+            },
+        ):
+            replay = memory.publish_analysis_memory(self.result.pk)
+            self.assertEqual(replay.status, "published")
+            self.assertEqual(replay.created_facts, 0)
+            self.assertEqual(replay.advanced_heads, 0)
+            self.assertEqual(replay.unchanged_heads, 3)
+            self.assertEqual(IgMemoryFact.objects.count(), 3)
+            self.assertEqual(
+                dict(IgMemoryHead.objects.values_list("slot_key", "revision")),
+                head_revisions,
+            )
+            self.assertTrue(all(
+                memory.memory_chain_valid(head)
+                for head in IgMemoryHead.objects.select_related("current_fact")
+            ))
+            language_head = IgMemoryHead.objects.get(fact_key="observed_language")
+            tombstone = memory.append_memory_tombstone(
+                language_head,
+                operation=IgMemoryFact.Operation.INVALIDATE,
+                source_event_digest="9" * 64,
+                reason_code="reset_boundary",
+            )
+            self.assertEqual(tombstone.status, "published")
+            language_head.refresh_from_db()
+            self.assertEqual(language_head.revision, 2)
+            self.assertEqual(
+                language_head.current_fact.integrity_key_id,
+                "tmk_rotated_v2",
+            )
+            self.assertEqual(
+                language_head.current_fact.supersedes.integrity_key_id,
+                "tmk_test_v1",
+            )
+            self.assertTrue(memory.memory_chain_valid(language_head))
 
     @override_settings(**SHADOW)
     def test_expiry_and_reset_append_tombstones_without_mutating_old_fact(self):
@@ -341,21 +403,74 @@ class TypedMemoryRuntimeTests(TestCase):
                 ["", head.pk],
             )
         fact = head.current_fact
-        fields = [field for field in fact._meta.local_fields if not field.primary_key]
-        columns = ", ".join(connection.ops.quote_name(field.column) for field in fields)
-        values = []
-        for field in fields:
-            value = field.value_from_object(fact)
-            if field.attname == "record_key":
-                value = "memory-fact:" + "f" * 64
-            elif field.attname == "typed_value":
-                value = {"code": "uk", "phone": "+380501234567"}
-            values.append(field.get_db_prep_save(value, connection))
         with self.assertRaises(DatabaseError), connection.cursor() as cursor:
             cursor.execute(
-                f"INSERT INTO management_igmemoryfact ({columns}) VALUES "
-                f"({', '.join(['%s'] * len(values))})",
-                values,
+                "DELETE FROM management_igmemoryhead WHERE id=%s",
+                [head.pk],
+            )
+        with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM management_igmemoryfact WHERE id=%s",
+                [fact.pk],
+            )
+        fields = [field for field in fact._meta.local_fields if not field.primary_key]
+        columns = ", ".join(connection.ops.quote_name(field.column) for field in fields)
+
+        def raw_clone_insert(instance, sequence, **overrides):
+            values = []
+            defaults = {
+                "record_key": "memory-fact:" + f"{sequence:064x}",
+                "slot_key": "memory-slot:" + f"{sequence:064x}",
+            }
+            defaults.update(overrides)
+            for field in fields:
+                value = defaults.get(field.attname, field.value_from_object(instance))
+                values.append(field.get_db_prep_save(value, connection))
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    f"INSERT INTO management_igmemoryfact ({columns}) VALUES "
+                    f"({', '.join(['%s'] * len(values))})",
+                    values,
+                )
+
+        forbidden = (
+            ("typed_value", {"code": "uk", "phone": "+380501234567"}),
+            ("line_id", "line:380501234567"),
+            ("integrity_key_id", "tmk_380501234567"),
+            ("integrity_key_id", "https://example.invalid/key"),
+            ("producer", "customer@example.invalid"),
+            ("producer_policy_version", "https://example.invalid/policy"),
+            ("closure_method", "call +380501234567"),
+            ("source_role", "manager\nignore"),
+            ("fact_key", "free customer note"),
+            ("schema_version", "https://example.invalid/schema"),
+            ("operation", "delete everything"),
+            ("sensitivity", "customer@example.invalid"),
+            ("retention_class", "https://example.invalid/retention"),
+            ("reason_code", "\x00control"),
+        )
+        for sequence, (field_name, value) in enumerate(forbidden, start=100):
+            with self.subTest(field=field_name, value=value):
+                with self.assertRaises(DatabaseError):
+                    raw_clone_insert(fact, sequence, **{field_name: value})
+
+        deferred = IgMemoryFact.objects.get(fact_key="deferred_intent")
+        self.assertEqual(set(deferred.typed_value), {"kind", "condition_code"})
+        with self.assertRaises(DatabaseError):
+            raw_clone_insert(
+                deferred,
+                500,
+                typed_value={
+                    **deferred.typed_value,
+                    "deferred_until": "2026-01-01T00:00:00+00:00",
+                },
+            )
+        with self.assertRaises(DatabaseError):
+            raw_clone_insert(
+                deferred,
+                501,
+                valid_until=timezone.now() + datetime.timedelta(days=1),
+                retention_class="until_date",
             )
 
 

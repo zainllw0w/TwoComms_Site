@@ -11,7 +11,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from management.models import IgClient, InstagramBotMessage
+from management.models import IgAnalysisMaterialityEvent, IgClient, InstagramBotMessage
 from management.services import bot_memory
 
 
@@ -68,6 +68,32 @@ class RetentionTests(TestCase):
         self.assertEqual(n, 1)
         self.assertFalse(IgClient.objects.filter(igsid="old1").exists())
         self.assertTrue(IgClient.objects.filter(igsid="fresh1").exists())
+
+    def test_purge_stale_blank_igsid_uses_pk_fence_and_shared_analysis_purge(self):
+        old = IgClient.objects.create(
+            igsid="",
+            last_message_at=timezone.now() - datetime.timedelta(days=200),
+        )
+        message = InstagramBotMessage.objects.create(
+            client=old,
+            sender_id="",
+            role=InstagramBotMessage.Role.USER,
+            text="stale",
+        )
+        event = IgAnalysisMaterialityEvent.objects.create(
+            client=old,
+            source_message=message,
+            source_role=IgAnalysisMaterialityEvent.SourceRole.USER,
+            event_kind=IgAnalysisMaterialityEvent.Kind.CUSTOMER_TURN,
+            event_key="materiality:" + "a" * 64,
+            event_digest="b" * 64,
+            relevant_at=timezone.now() - datetime.timedelta(days=200),
+        )
+
+        self.assertEqual(bot_memory.purge_stale_clients(days=180), 1)
+        self.assertFalse(IgClient.objects.filter(pk=old.pk).exists())
+        self.assertFalse(InstagramBotMessage.objects.filter(pk=message.pk).exists())
+        self.assertFalse(IgAnalysisMaterialityEvent.objects.filter(pk=event.pk).exists())
 
 
 class MemoryNoteInjectionTests(TestCase):

@@ -150,6 +150,10 @@ STATE_OPERATIONS = [
             constraint=models.CheckConstraint(condition=models.Q(models.Q(('closure_method', 'analysis_assertion'), ('expected_evidence_count__gte', 1), ('expected_evidence_count__lte', 40), ('operation', 'assert'), ('producer', 'analysis_v2'), ('producer_policy_version', 'typed-memory-projector.v1'), ('reason_code', ''), ('source_event_digest', ''), ('source_result__isnull', False), ('source_role', 'user')), models.Q(('closure_method', 'deterministic_invalidation'), ('expected_evidence_count', 0), ('operation', 'invalidate'), ('producer', 'deterministic_projector'), ('producer_policy_version', 'typed-memory-projector.v1'), ('reason_code__in', ('episode_closed', 'explicit_retraction', 'line_replaced', 'reset_boundary', 'superseded_by_new_assertion')), ('source_materiality_digest', ''), ('source_result__isnull', True), ('source_result_digest', ''), ('source_role__in', ('system', 'authority')), ('source_state_correlation', ''), ('source_watermark_message_id', 0)), models.Q(('closure_method', 'ttl_expiry'), ('expected_evidence_count', 0), ('operation', 'expire'), ('producer', 'deterministic_projector'), ('producer_policy_version', 'typed-memory-projector.v1'), ('reason_code', 'valid_until_elapsed'), ('source_materiality_digest', ''), ('source_result__isnull', True), ('source_result_digest', ''), ('source_role__in', ('system', 'authority')), ('source_state_correlation', ''), ('source_watermark_message_id', 0)), _connector='OR'), name='ig_memfact_source_shape'),
         ),
         migrations.AddConstraint(
+            model_name='igmemoryfact',
+            constraint=models.CheckConstraint(condition=models.Q(models.Q(('fact_key', 'observed_language'), ('retention_class', 'client'), ('scope', 'client'), ('sensitivity', 'low'), ('valid_until__isnull', True)), models.Q(('fact_key', 'objection_observed'), ('retention_class', 'episode'), ('scope__in', ('episode', 'line')), ('sensitivity', 'personal_preference'), ('valid_until__isnull', True)), models.Q(('fact_key', 'deferred_intent'), ('retention_class__in', ('episode', 'until_date')), ('scope', 'episode'), ('sensitivity', 'personal_preference')), _connector='OR'), name='ig_memfact_policy_shape'),
+        ),
+        migrations.AddConstraint(
             model_name='igmemoryfactevidence',
             constraint=models.UniqueConstraint(fields=('fact', 'ordinal'), name='ig_memev_fact_ord_uniq'),
         ),
@@ -256,6 +260,7 @@ CHECK_SPECS = (
     ("management", "IgMemoryFact", "ig_memfact_expiry_order"),
     ("management", "IgMemoryFact", "ig_memfact_scope_shape"),
     ("management", "IgMemoryFact", "ig_memfact_source_shape"),
+    ("management", "IgMemoryFact", "ig_memfact_policy_shape"),
     ("management", "IgMemoryFactEvidence", "ig_memev_ordinal_positive"),
     ("management", "IgMemoryFactEvidence", "ig_memev_message_positive"),
     ("management", "IgMemoryHead", "ig_memhead_revision_positive"),
@@ -286,6 +291,9 @@ CHECK_COLUMNS = {
         "source_watermark_message_id",
         "source_event_digest", "reason_code", "expected_evidence_count",
     },
+    "ig_memfact_policy_shape": {
+        "fact_key", "scope", "sensitivity", "retention_class", "valid_until",
+    },
     "ig_memev_ordinal_positive": {"ordinal"},
     "ig_memev_message_positive": {"message_id"},
     "ig_memhead_revision_positive": {"revision"},
@@ -293,31 +301,6 @@ CHECK_COLUMNS = {
         "scope", "commercial_episode_id", "line_id", "order_id",
         "post_sale_case_id",
     },
-}
-CHECK_FRAGMENTS = {
-    "ig_memfact_conf_range": ("confidenceisnull", "confidence>=0", "confidence<=1"),
-    "ig_memfact_expiry_order": ("valid_untilisnull", "valid_until>observed_at"),
-    "ig_memfact_scope_shape": (
-        "scope='client'", "scope='episode'", "scope='line'",
-        "scope='order'", "scope='case'", "commercial_episode_id",
-        "post_sale_case_id",
-    ),
-    "ig_memfact_source_shape": (
-        "operation='assert'", "producer='analysis_v2'",
-        "producer_policy_version='typed-memory-projector.v1'",
-        "closure_method='analysis_assertion'", "source_role='user'",
-        "expected_evidence_count<=40",
-        "operation='invalidate'", "closure_method='deterministic_invalidation'",
-        "operation='expire'", "closure_method='ttl_expiry'",
-    ),
-    "ig_memev_ordinal_positive": ("ordinal>=1",),
-    "ig_memev_message_positive": ("message_id>=1",),
-    "ig_memhead_revision_positive": ("revision>=1",),
-    "ig_memhead_scope_shape": (
-        "scope='client'", "scope='episode'", "scope='line'",
-        "scope='order'", "scope='case'", "commercial_episode_id",
-        "post_sale_case_id",
-    ),
 }
 _SCOPE_CASES = (
     ({"scope": "client", "commercial_episode_id": None, "line_id": "", "order_id": None, "post_sale_case_id": None}, True),
@@ -350,6 +333,13 @@ CHECK_TRUTH_TABLES = {
         ({"operation": "expire", "producer": "deterministic_projector", "producer_policy_version": "typed-memory-projector.v1", "closure_method": "ttl_expiry", "source_role": "authority", "source_result_id": None, "source_result_digest": "", "source_materiality_digest": "", "source_state_correlation": "", "source_watermark_message_id": 0, "source_event_digest": "b" * 64, "reason_code": "valid_until_elapsed", "expected_evidence_count": 0}, True),
         ({"operation": "assert", "producer": "analysis_v2", "producer_policy_version": "typed-memory-projector.v1", "closure_method": "analysis_assertion", "source_role": "manager", "source_result_id": 1, "source_result_digest": "a"*64, "source_materiality_digest": "b"*64, "source_state_correlation": "c"*64, "source_watermark_message_id": 1, "source_event_digest": "", "reason_code": "", "expected_evidence_count": 1}, False),
         ({"operation": "invalidate", "producer": "analysis_v2", "producer_policy_version": "typed-memory-projector.v1", "closure_method": "deterministic_invalidation", "source_role": "system", "source_result_id": None, "source_result_digest": "", "source_materiality_digest": "", "source_state_correlation": "", "source_watermark_message_id": 0, "source_event_digest": "a" * 64, "reason_code": "reset_boundary", "expected_evidence_count": 0}, False),
+    ),
+    "ig_memfact_policy_shape": (
+        ({"fact_key": "observed_language", "scope": "client", "sensitivity": "low", "retention_class": "client", "valid_until": None}, True),
+        ({"fact_key": "observed_language", "scope": "client", "sensitivity": "personal_preference", "retention_class": "client", "valid_until": None}, False),
+        ({"fact_key": "objection_observed", "scope": "line", "sensitivity": "personal_preference", "retention_class": "episode", "valid_until": None}, True),
+        ({"fact_key": "deferred_intent", "scope": "episode", "sensitivity": "personal_preference", "retention_class": "until_date", "valid_until": "2026-01-03T00:00:00+00:00"}, True),
+        ({"fact_key": "deferred_intent", "scope": "client", "sensitivity": "personal_preference", "retention_class": "episode", "valid_until": None}, False),
     ),
     "ig_memev_ordinal_positive": (({"ordinal": 0}, False), ({"ordinal": 1}, True)),
     "ig_memev_message_positive": (({"message_id": 0}, False), ({"message_id": 1}, True)),
@@ -387,6 +377,113 @@ def _constraints(schema_editor, table_name):
         return schema_editor.connection.introspection.get_constraints(cursor, table_name)
 
 
+def _sqlite_table_sql(schema_editor, table_name):
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name=%s",
+            [table_name],
+        )
+        row = cursor.fetchone()
+    return str(row[0] if row else "")
+
+
+def _extract_parenthesized(source, opening_index):
+    depth = 0
+    quote = ""
+    index = opening_index
+    while index < len(source):
+        char = source[index]
+        if quote:
+            if char == quote:
+                if index + 1 < len(source) and source[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = ""
+        elif char in {"'", '"', "`"}:
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                return source[opening_index + 1:index]
+        index += 1
+    return ""
+
+
+def _sqlite_named_unique_columns(schema_editor, table_name, name):
+    create_sql = _sqlite_table_sql(schema_editor, table_name)
+    match = re.search(
+        rf"CONSTRAINT\s+['\"`]?{re.escape(name)}['\"`]?\s+UNIQUE\s*\(",
+        create_sql,
+        re.IGNORECASE,
+    )
+    if match is None:
+        return ()
+    body = _extract_parenthesized(create_sql, match.end() - 1)
+    if not body:
+        return ()
+    columns = []
+    for token in body.split(","):
+        token = token.strip()
+        plain = re.fullmatch(r"['\"`]?([A-Za-z_][A-Za-z0-9_]*)['\"`]?", token)
+        if plain is None:
+            return ()
+        columns.append(plain.group(1))
+    return tuple(columns)
+
+
+def _validate_physical_unique(schema_editor, table_name, name, expected):
+    vendor = schema_editor.connection.vendor
+    if vendor == "mysql":
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT COLUMN_NAME, SEQ_IN_INDEX, NON_UNIQUE, SUB_PART "
+                "FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() "
+                "AND TABLE_NAME=%s AND INDEX_NAME=%s ORDER BY SEQ_IN_INDEX",
+                [table_name, name],
+            )
+            rows = cursor.fetchall()
+        columns = tuple(str(row[0] or "") for row in rows)
+        if (
+            columns != expected
+            or [int(row[1]) for row in rows] != list(range(1, len(expected) + 1))
+            or any(int(row[2] or 0) != 0 or row[3] is not None for row in rows)
+        ):
+            raise RuntimeError(f"{name} has incompatible physical unique index")
+        return
+    if vendor != "sqlite":
+        raise RuntimeError("typed-memory UNIQUE validation supports MariaDB/SQLite")
+    if _sqlite_named_unique_columns(schema_editor, table_name, name) != expected:
+        raise RuntimeError(f"{name} named table UNIQUE is missing or incompatible")
+    with schema_editor.connection.cursor() as cursor:
+        cursor.execute(f"PRAGMA index_list({schema_editor.quote_name(table_name)})")
+        indexes = cursor.fetchall()
+    matching = []
+    for row in indexes:
+        # seq, name, unique, origin, partial
+        index_name = str(row[1])
+        unique = bool(row[2])
+        origin = str(row[3] or "") if len(row) > 3 else ""
+        partial = bool(row[4]) if len(row) > 4 else False
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(f"PRAGMA index_xinfo({schema_editor.quote_name(index_name)})")
+            xrows = cursor.fetchall()
+        key_rows = [item for item in xrows if len(item) < 6 or bool(item[5])]
+        key_columns = tuple(str(item[2] or "") for item in key_rows)
+        plain = all(int(item[1]) >= 0 and bool(item[2]) for item in key_rows)
+        exact = (
+            unique and not partial and origin == "u" and plain
+            and key_columns == expected
+        )
+        if index_name == name and not exact:
+            raise RuntimeError(f"{name} same-name SQLite index is not canonical")
+        if exact:
+            matching.append(index_name)
+    if len(matching) != 1:
+        raise RuntimeError(f"{name} does not have one exact physical backing index")
+
+
 def _ensure_unique_shape(apps, schema_editor, spec):
     app_label, model_name, name, field_names = spec
     model = apps.get_model(app_label, model_name)
@@ -398,21 +495,23 @@ def _ensure_unique_shape(apps, schema_editor, spec):
     if named is not None:
         if not named.get("unique") or tuple(named.get("columns") or ()) != expected:
             raise RuntimeError(f"{name} has incompatible unique shape")
-        return
-    schema_editor.add_constraint(
-        model,
-        models.UniqueConstraint(fields=field_names, name=name),
-    )
+    else:
+        schema_editor.add_constraint(
+            model,
+            models.UniqueConstraint(fields=field_names, name=name),
+        )
+    actual = _constraints(schema_editor, model._meta.db_table).get(name)
+    if (
+        actual is None or not actual.get("unique")
+        or tuple(actual.get("columns") or ()) != expected
+        or actual.get("check") or actual.get("foreign_key")
+    ):
+        raise RuntimeError(f"{name} canonical unique shape is missing")
+    _validate_physical_unique(schema_editor, model._meta.db_table, name, expected)
 
 
 def _sqlite_check_clause(schema_editor, table_name, check_name):
-    with schema_editor.connection.cursor() as cursor:
-        cursor.execute(
-            "SELECT sql FROM sqlite_master WHERE type='table' AND name=%s",
-            [table_name],
-        )
-        row = cursor.fetchone()
-    create_sql = str(row[0] if row else "")
+    create_sql = _sqlite_table_sql(schema_editor, table_name)
     match = re.search(
         rf"CONSTRAINT\s+['\"`]?{re.escape(check_name)}['\"`]?\s+CHECK\s*\(",
         create_sql,
@@ -420,24 +519,7 @@ def _sqlite_check_clause(schema_editor, table_name, check_name):
     )
     if match is None:
         return ""
-    start = match.end() - 1
-    depth = 0
-    quote = ""
-    for index in range(start, len(create_sql)):
-        char = create_sql[index]
-        if quote:
-            if char == quote:
-                quote = ""
-            continue
-        if char in {"'", '"'}:
-            quote = char
-        elif char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth == 0:
-                return create_sql[start + 1:index]
-    return ""
+    return _extract_parenthesized(create_sql, match.end() - 1)
 
 
 def _physical_check_clause(schema_editor, table_name, check_name):
@@ -459,18 +541,138 @@ def _physical_check_clause(schema_editor, table_name, check_name):
     raise RuntimeError("typed-memory CHECK validation supports MariaDB/SQLite")
 
 
+def _outer_parentheses_enclose_all(value):
+    if not value.startswith("(") or not value.endswith(")"):
+        return False
+    depth = 0
+    quote = ""
+    index = 0
+    while index < len(value):
+        char = value[index]
+        if quote:
+            if char == quote:
+                if index + 1 < len(value) and value[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = ""
+        elif char in {"'", '"', "`"}:
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0 and index != len(value) - 1:
+                return False
+        if depth < 0:
+            return False
+        index += 1
+    return depth == 0 and not quote
+
+
+def _parenthesis_pairs(value):
+    stack = []
+    pairs = []
+    quote = ""
+    index = 0
+    while index < len(value):
+        char = value[index]
+        if quote:
+            if char == quote:
+                if index + 1 < len(value) and value[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = ""
+        elif char == "'":
+            quote = char
+        elif char == "(":
+            stack.append(index)
+        elif char == ")" and stack:
+            pairs.append((stack.pop(), index))
+        index += 1
+    return pairs
+
+
+def _contains_top_level_or(value):
+    depth = 0
+    quote = ""
+    index = 0
+    visible = []
+    while index < len(value):
+        char = value[index]
+        if quote:
+            if char == quote:
+                if index + 1 < len(value) and value[index + 1] == quote:
+                    index += 2
+                    continue
+                quote = ""
+        elif char == "'":
+            quote = char
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif depth == 0:
+            visible.append(char)
+        index += 1
+    return bool(re.search(r"\bor\b", "".join(visible)))
+
+
 def _normalize_clause(value):
     value = str(value or "").replace("`", "").replace('"', "").casefold()
     value = value.replace("0x00", "0").replace("0x01", "1")
     value = re.sub(r"\bfalse\b", "0", value)
     value = re.sub(r"\btrue\b", "1", value)
-    value = re.sub(r"\s+", "", value)
     value = re.sub(
-        r"(?P<operator><>|!=|>=|<=|=|>|<)'(?P<number>-?[0-9]+(?:[.][0-9]+)?)'",
+        r"(?P<operator><>|!=|>=|<=|=|>|<)\s*'(?P<number>-?[0-9]+(?:[.][0-9]+)?)'",
         lambda match: match.group("operator") + match.group("number"),
         value,
     )
-    value = re.sub(r"\(([^()]+)\)", r"\1", value)
+    # MariaDB's CHECK_CONSTRAINTS removes parentheses around pure conjunctions
+    # while preserving the same boolean AST. Canonicalize only innermost groups
+    # that contain no OR, no list separator and are not a function/IN argument.
+    while True:
+        changed = False
+        for match in tuple(re.finditer(r"\(([^()]*)\)", value)):
+            inner = match.group(1)
+            prefix = value[:match.start()]
+            previous = re.search(r"([a-z_][a-z0-9_]*)\s*$", prefix)
+            previous_token = previous.group(1) if previous else ""
+            if (
+                "," in inner
+                or re.search(r"\bor\b", inner)
+                or previous_token not in {"", "and", "or", "not"}
+            ):
+                continue
+            value = value[:match.start()] + inner + value[match.end():]
+            changed = True
+            break
+        if not changed:
+            break
+    while True:
+        removable = None
+        for start, end in sorted(
+            _parenthesis_pairs(value), key=lambda pair: pair[1] - pair[0]
+        ):
+            prefix = value[:start]
+            previous = re.search(r"([a-z_][a-z0-9_]*)\s*$", prefix)
+            previous_token = previous.group(1) if previous else ""
+            if previous_token not in {"", "and", "or", "not"}:
+                continue
+            if not _contains_top_level_or(value[start + 1:end]):
+                removable = (start, end)
+                break
+        if removable is None:
+            break
+        start, end = removable
+        value = value[:start] + value[start + 1:end] + value[end + 1:]
+    value = re.sub(
+        r"\bnot\s+([a-z_][a-z0-9_]*)\s*=\s*('[^']*'|-?[0-9]+(?:[.][0-9]+)?)",
+        lambda match: f"{match.group(1)} <> {match.group(2)}",
+        value,
+    )
+    value = re.sub(r"\s+", "", value)
+    while _outer_parentheses_enclose_all(value):
+        value = value[1:-1]
     return value
 
 
@@ -495,11 +697,16 @@ def _validate_check(apps, schema_editor, spec):
         raise RuntimeError(f"{check_name} has incompatible CHECK shape")
     clause = _physical_check_clause(schema_editor, model._meta.db_table, check_name)
     normalized = _normalize_clause(clause)
-    if not clause or any(
-        fragment not in normalized for fragment in CHECK_FRAGMENTS[check_name]
-    ):
+    constraint = next(
+        row for row in model._meta.constraints if row.name == check_name
+    )
+    expected_clause = constraint._get_check_sql(model, schema_editor)
+    expected_normalized = _normalize_clause(expected_clause)
+    if not clause or normalized != expected_normalized:
         raise RuntimeError(
-            f"{check_name} has incompatible physical predicate: {normalized}"
+            f"{check_name} has incompatible physical predicate: "
+            f"{hashlib.sha256(normalized.encode()).hexdigest()} != "
+            f"{hashlib.sha256(expected_normalized.encode()).hexdigest()}"
         )
     quote = schema_editor.quote_name
     for values, expected_result in CHECK_TRUTH_TABLES[check_name]:
@@ -654,6 +861,83 @@ def _trigger_exists(schema_editor, name):
         return bool(cursor.fetchone()[0])
 
 
+def _normalize_trigger_source(source):
+    value = str(source or "").replace("`", "").replace('"', "").casefold()
+    value = re.sub(r"\s+", "", value)
+    return value.rstrip(";")
+
+
+def _expected_trigger_source(schema_editor, create_sql):
+    if schema_editor.connection.vendor != "mysql":
+        return create_sql
+    match = re.search(r"\bFOR\s+EACH\s+ROW\s+(.*)\Z", create_sql, re.I | re.S)
+    return match.group(1) if match else ""
+
+
+def _validate_exact_trigger(
+    schema_editor, *, name, table_name, timing, event, create_sql,
+):
+    source = _trigger_sql(schema_editor, name)
+    if not source:
+        raise RuntimeError(f"typed-memory trigger missing: {name}")
+    vendor = schema_editor.connection.vendor
+    if vendor == "mysql":
+        with schema_editor.connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT EVENT_OBJECT_TABLE, ACTION_TIMING, EVENT_MANIPULATION "
+                "FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() "
+                "AND TRIGGER_NAME=%s",
+                [name],
+            )
+            metadata = cursor.fetchall()
+        if tuple(metadata) != ((table_name, timing, event),):
+            raise RuntimeError(f"typed-memory trigger metadata mismatch: {name}")
+    elif vendor == "sqlite":
+        normalized_header = re.sub(r"\s+", " ", source).upper()
+        expected_header = (
+            f"CREATE TRIGGER {name} {timing} {event} ON {table_name}"
+        ).upper()
+        if not normalized_header.startswith(expected_header):
+            raise RuntimeError(f"typed-memory trigger metadata mismatch: {name}")
+    else:
+        raise RuntimeError("typed-memory trigger validation supports MariaDB/SQLite")
+    actual_normalized = _normalize_trigger_source(source)
+    expected_normalized = _normalize_trigger_source(
+        _expected_trigger_source(schema_editor, create_sql)
+    )
+    actual_hash = hashlib.sha256(actual_normalized.encode()).hexdigest()
+    expected_hash = hashlib.sha256(expected_normalized.encode()).hexdigest()
+    if not expected_normalized or actual_hash != expected_hash:
+        raise RuntimeError(
+            f"typed-memory trigger body mismatch: {name}: "
+            f"{actual_hash} != {expected_hash}"
+        )
+
+
+def _ensure_exact_trigger(
+    schema_editor, *, name, table_name, event, create_sql,
+):
+    if _trigger_exists(schema_editor, name):
+        _validate_exact_trigger(
+            schema_editor,
+            name=name,
+            table_name=table_name,
+            timing="BEFORE",
+            event=event,
+            create_sql=create_sql,
+        )
+        return
+    schema_editor.execute(create_sql)
+    _validate_exact_trigger(
+        schema_editor,
+        name=name,
+        table_name=table_name,
+        timing="BEFORE",
+        event=event,
+        create_sql=create_sql,
+    )
+
+
 def reinstall_analysis_v22_insert_guard(apps, schema_editor):
     """Stage a v2.2 guard before retiring the immutable v2.1 guard."""
     del apps
@@ -711,12 +995,15 @@ def reinstall_analysis_v22_insert_guard(apps, schema_editor):
             "WHERE c.id=NEW.client_id AND c.privacy_erasure_started_at IS NULL))"
         )
         staged = "ig_anres_v22_insert_guard"
-        if not _trigger_exists(schema_editor, staged):
-            schema_editor.execute(
-                f"CREATE TRIGGER {staged} BEFORE INSERT ON {RESULT_TABLE} "
-                f"FOR EACH ROW BEGIN IF {body} THEN SIGNAL SQLSTATE '45000' "
-                "SET MESSAGE_TEXT='IgConversationAnalysisResult v2.2 insert guard'; END IF; END"
-            )
+        create_sql = (
+            f"CREATE TRIGGER {staged} BEFORE INSERT ON {RESULT_TABLE} "
+            f"FOR EACH ROW BEGIN IF {body} THEN SIGNAL SQLSTATE '45000' "
+            "SET MESSAGE_TEXT='IgConversationAnalysisResult v2.2 insert guard'; END IF; END"
+        )
+        _ensure_exact_trigger(
+            schema_editor, name=staged, table_name=RESULT_TABLE,
+            event="INSERT", create_sql=create_sql,
+        )
         schema_editor.execute("DROP TRIGGER IF EXISTS ig_anres_insert_guard")
     else:
         language_invalid = """(
@@ -747,12 +1034,15 @@ def reinstall_analysis_v22_insert_guard(apps, schema_editor):
             "WHERE c.id=NEW.client_id AND c.privacy_erasure_started_at IS NULL))"
         )
         staged = "ig_anres_v22_insert_guard"
-        if not _trigger_exists(schema_editor, staged):
-            schema_editor.execute(
-                f"CREATE TRIGGER {staged} BEFORE INSERT ON {RESULT_TABLE} "
-                f"WHEN {body} BEGIN SELECT RAISE(ABORT, "
-                "'IgConversationAnalysisResult v2.2 insert guard'); END"
-            )
+        create_sql = (
+            f"CREATE TRIGGER {staged} BEFORE INSERT ON {RESULT_TABLE} "
+            f"WHEN {body} BEGIN SELECT RAISE(ABORT, "
+            "'IgConversationAnalysisResult v2.2 insert guard'); END"
+        )
+        _ensure_exact_trigger(
+            schema_editor, name=staged, table_name=RESULT_TABLE,
+            event="INSERT", create_sql=create_sql,
+        )
         schema_editor.execute("DROP TRIGGER IF EXISTS ig_anres_insert_guard")
 
 
@@ -783,23 +1073,19 @@ def _mysql_fact_invalid():
             )
             OR (
                 NEW.operation = 'assert' AND NEW.fact_key = 'deferred_intent'
-                AND JSON_LENGTH(NEW.typed_value) = 3
+                AND JSON_LENGTH(NEW.typed_value) = 2
                 AND JSON_CONTAINS_PATH(
-                    NEW.typed_value, 'all', '$.kind', '$.condition_code', '$.deferred_until'
+                    NEW.typed_value, 'all', '$.kind', '$.condition_code'
                 ) = 1
                 AND (
                     (JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind'))='date'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='customer_date'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until')) REGEXP '^[0-9]{4}-[0-9]{2}-[0-9]{2}T')
+                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='customer_date')
                     OR (JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind'))='event'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='after_event'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until'))='')
+                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='after_event')
                     OR (JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind'))='payday'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='payday'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until'))='')
+                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='payday')
                     OR (JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.kind'))='indefinite'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='indefinite'
-                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.deferred_until'))='')
+                     AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value, '$.condition_code'))='indefinite')
                 )
             )
         )
@@ -811,9 +1097,24 @@ def _mysql_fact_invalid():
         OR NEW.schema_version <> 'typed-memory.v1'
         OR NEW.operation NOT IN ('assert','invalidate','expire')
         OR BINARY NEW.integrity_hmac NOT REGEXP '^[0-9a-f]{{64}}$'
-        OR BINARY NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{{1,32}}$'
-        OR BINARY NEW.line_id NOT REGEXP '^[a-z0-9_.:+-]{{0,96}}$'
+        OR BINARY NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{{0,27}}$'
+        OR BINARY NEW.integrity_key_id REGEXP '[0-9]{{7}}'
+        OR (NEW.line_id<>'' AND (
+            BINARY NEW.line_id NOT REGEXP '^line:[a-z0-9][a-z0-9_.-]{{0,79}}$'
+            OR BINARY NEW.line_id REGEXP '[0-9]{{7}}'
+        ))
         OR {typed}
+        OR NOT (
+            (NEW.fact_key='observed_language' AND NEW.scope='client'
+             AND NEW.sensitivity='low' AND NEW.retention_class='client'
+             AND NEW.valid_until IS NULL)
+            OR (NEW.fact_key='objection_observed' AND NEW.scope IN ('episode','line')
+             AND NEW.sensitivity='personal_preference' AND NEW.retention_class='episode'
+             AND NEW.valid_until IS NULL)
+            OR (NEW.fact_key='deferred_intent' AND NEW.scope='episode'
+             AND NEW.sensitivity='personal_preference'
+             AND NEW.retention_class IN ('episode','until_date'))
+        )
         OR (NEW.operation='assert' AND NOT (
             NEW.producer='analysis_v2'
             AND NEW.producer_policy_version='typed-memory-projector.v1'
@@ -875,7 +1176,11 @@ def _mysql_fact_invalid():
                  AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value,'$.kind'))=r.deferred_kind
                  AND JSON_UNQUOTE(JSON_EXTRACT(NEW.typed_value,'$.condition_code'))=r.deferred_condition_code
                  AND NEW.commercial_episode_id=r.commercial_episode_id AND NEW.line_id=''
-                 AND NEW.confidence IS NULL AND NEW.valid_until <=> r.deferred_until)
+                 AND NEW.confidence IS NULL AND NEW.valid_until <=> r.deferred_until
+                 AND ((r.deferred_kind='date' AND NEW.valid_until IS NOT NULL
+                       AND NEW.retention_class='until_date')
+                      OR (r.deferred_kind<>'date' AND NEW.valid_until IS NULL
+                       AND NEW.retention_class='episode')))
               )
         ))
         OR (NEW.operation IN ('invalidate','expire') AND
@@ -905,8 +1210,12 @@ def _sqlite_fact_invalid():
         OR NEW.schema_version <> 'typed-memory.v1'
         OR NEW.operation NOT IN ('assert','invalidate','expire')
         OR NEW.integrity_hmac NOT REGEXP '^[0-9a-f]{64}$'
-        OR NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{1,32}$'
-        OR NEW.line_id NOT REGEXP '^[a-z0-9_.:+-]{0,96}$'
+        OR NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$'
+        OR NEW.integrity_key_id REGEXP '[0-9]{7}'
+        OR (NEW.line_id<>'' AND (
+            NEW.line_id NOT REGEXP '^line:[a-z0-9][a-z0-9_.-]{0,79}$'
+            OR NEW.line_id REGEXP '[0-9]{7}'
+        ))
         OR NOT json_valid(NEW.typed_value)
         OR COALESCE(json_type(NEW.typed_value), '') <> 'object'
         OR NOT (
@@ -923,19 +1232,26 @@ def _sqlite_fact_invalid():
                     'delivery_time','cheaper_elsewhere','print_quality','out_of_stock',
                     'payday','compare_brand','ask_partner'))
             OR (NEW.operation='assert' AND NEW.fact_key='deferred_intent'
-                AND (SELECT COUNT(*) FROM json_each(NEW.typed_value))=3
+                AND (SELECT COUNT(*) FROM json_each(NEW.typed_value))=2
                 AND ((json_extract(NEW.typed_value,'$.kind')='date'
-                      AND json_extract(NEW.typed_value,'$.condition_code')='customer_date'
-                      AND json_extract(NEW.typed_value,'$.deferred_until') REGEXP '^[0-9]{4}-[0-9]{2}-[0-9]{2}T')
+                      AND json_extract(NEW.typed_value,'$.condition_code')='customer_date')
                   OR (json_extract(NEW.typed_value,'$.kind')='event'
-                      AND json_extract(NEW.typed_value,'$.condition_code')='after_event'
-                      AND json_extract(NEW.typed_value,'$.deferred_until')='')
+                      AND json_extract(NEW.typed_value,'$.condition_code')='after_event')
                   OR (json_extract(NEW.typed_value,'$.kind')='payday'
-                      AND json_extract(NEW.typed_value,'$.condition_code')='payday'
-                      AND json_extract(NEW.typed_value,'$.deferred_until')='')
+                      AND json_extract(NEW.typed_value,'$.condition_code')='payday')
                   OR (json_extract(NEW.typed_value,'$.kind')='indefinite'
-                      AND json_extract(NEW.typed_value,'$.condition_code')='indefinite'
-                      AND json_extract(NEW.typed_value,'$.deferred_until')='')))
+                      AND json_extract(NEW.typed_value,'$.condition_code')='indefinite')))
+        )
+        OR NOT (
+            (NEW.fact_key='observed_language' AND NEW.scope='client'
+             AND NEW.sensitivity='low' AND NEW.retention_class='client'
+             AND NEW.valid_until IS NULL)
+            OR (NEW.fact_key='objection_observed' AND NEW.scope IN ('episode','line')
+             AND NEW.sensitivity='personal_preference' AND NEW.retention_class='episode'
+             AND NEW.valid_until IS NULL)
+            OR (NEW.fact_key='deferred_intent' AND NEW.scope='episode'
+             AND NEW.sensitivity='personal_preference'
+             AND NEW.retention_class IN ('episode','until_date'))
         )
         OR (NEW.operation='assert' AND NOT (
             NEW.producer='analysis_v2'
@@ -998,7 +1314,11 @@ def _sqlite_fact_invalid():
                  AND json_extract(NEW.typed_value,'$.kind')=r.deferred_kind
                  AND json_extract(NEW.typed_value,'$.condition_code')=r.deferred_condition_code
                  AND NEW.commercial_episode_id=r.commercial_episode_id AND NEW.line_id=''
-                 AND NEW.confidence IS NULL AND NEW.valid_until IS r.deferred_until)
+                 AND NEW.confidence IS NULL AND NEW.valid_until IS r.deferred_until
+                 AND ((r.deferred_kind='date' AND NEW.valid_until IS NOT NULL
+                       AND NEW.retention_class='until_date')
+                      OR (r.deferred_kind<>'date' AND NEW.valid_until IS NULL
+                       AND NEW.retention_class='episode')))
               )
         ))
         OR (NEW.operation IN ('invalidate','expire') AND
@@ -1032,27 +1352,31 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
         "ig_anprop_priv_insert", "ig_mat_priv_insert", "ig_anevt_priv_insert",
     )
     if vendor == "mysql":
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memfact_insert_guard BEFORE INSERT ON {FACT_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memfact_insert_guard BEFORE INSERT ON {FACT_TABLE} "
             f"FOR EACH ROW BEGIN IF {_mysql_fact_invalid()} THEN SIGNAL SQLSTATE '45000' "
             "SET MESSAGE_TEXT='IgMemoryFact insert guard'; END IF; END"
         )
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memfact_no_update BEFORE UPDATE ON {FACT_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memfact_insert_guard", table_name=FACT_TABLE, event="INSERT", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memfact_no_update BEFORE UPDATE ON {FACT_TABLE} "
             "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='IgMemoryFact is append-only'"
         )
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memfact_priv_delete BEFORE DELETE ON {FACT_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memfact_no_update", table_name=FACT_TABLE, event="UPDATE", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memfact_priv_delete BEFORE DELETE ON {FACT_TABLE} "
             f"FOR EACH ROW BEGIN IF NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c "
             "WHERE c.id=OLD.client_id AND c.privacy_erasure_started_at IS NOT NULL) "
             "THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='IgMemoryFact delete requires privacy fence'; END IF; END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memfact_priv_delete", table_name=FACT_TABLE, event="DELETE", create_sql=create_sql)
         evidence_invalid = f"""(
             NEW.ordinal NOT BETWEEN 1 AND 40 OR NEW.message_id <= 0
             OR NEW.source_role <> 'user'
             OR NEW.claim_code NOT IN ('language','objection','deferred_intent')
             OR BINARY NEW.evidence_hmac NOT REGEXP '^[0-9a-f]{{64}}$'
-            OR BINARY NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{{1,32}}$'
+            OR BINARY NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{{0,27}}$'
+            OR BINARY NEW.integrity_key_id REGEXP '[0-9]{{7}}'
             OR NOT EXISTS (
                 SELECT 1 FROM {FACT_TABLE} f JOIN {RESULT_TABLE} r
                   ON r.id=f.source_result_id JOIN {CLIENT_TABLE} c ON c.id=f.client_id
@@ -1085,21 +1409,24 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
                   )
             )
         )"""
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memev_insert_guard BEFORE INSERT ON {EVIDENCE_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memev_insert_guard BEFORE INSERT ON {EVIDENCE_TABLE} "
             f"FOR EACH ROW BEGIN IF {evidence_invalid} THEN SIGNAL SQLSTATE '45000' "
             "SET MESSAGE_TEXT='IgMemoryFactEvidence insert guard'; END IF; END"
         )
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memev_no_update BEFORE UPDATE ON {EVIDENCE_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memev_insert_guard", table_name=EVIDENCE_TABLE, event="INSERT", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memev_no_update BEFORE UPDATE ON {EVIDENCE_TABLE} "
             "FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='IgMemoryFactEvidence is append-only'"
         )
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memev_priv_delete BEFORE DELETE ON {EVIDENCE_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memev_no_update", table_name=EVIDENCE_TABLE, event="UPDATE", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memev_priv_delete BEFORE DELETE ON {EVIDENCE_TABLE} "
             f"FOR EACH ROW BEGIN IF NOT EXISTS (SELECT 1 FROM {FACT_TABLE} f JOIN {CLIENT_TABLE} c "
             "ON c.id=f.client_id WHERE f.id=OLD.fact_id AND c.privacy_erasure_started_at IS NOT NULL) "
             "THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='IgMemoryFactEvidence delete requires privacy fence'; END IF; END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memev_priv_delete", table_name=EVIDENCE_TABLE, event="DELETE", create_sql=create_sql)
         head_match = f"""EXISTS (
             SELECT 1 FROM {FACT_TABLE} f JOIN {CLIENT_TABLE} c ON c.id=f.client_id
               LEFT JOIN {RESULT_TABLE} r ON r.id=f.source_result_id
@@ -1139,85 +1466,96 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
                 ))
               )
         )"""
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memhead_insert_guard BEFORE INSERT ON {HEAD_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memhead_insert_guard BEFORE INSERT ON {HEAD_TABLE} "
             f"FOR EACH ROW BEGIN IF NEW.revision<>1 OR NEW.state<>'active' OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR BINARY NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
-            "OR BINARY NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{1,32}$' "
+            "OR BINARY NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "
+            "OR BINARY NEW.integrity_key_id REGEXP '[0-9]{7}' "
             f"OR NOT {head_match} OR EXISTS (SELECT 1 FROM {FACT_TABLE} f WHERE f.id=NEW.current_fact_id AND f.supersedes_id IS NOT NULL) "
             "THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='IgMemoryHead insert guard'; END IF; END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memhead_insert_guard", table_name=HEAD_TABLE, event="INSERT", create_sql=create_sql)
         identity_unchanged = " AND ".join(
             f"OLD.{field} <=> NEW.{field}" for field in (
                 "slot_key", "client_id", "scope", "commercial_episode_id", "line_id",
                 "order_id", "post_sale_case_id", "fact_key", "schema_version", "created_at",
             )
         )
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memhead_transition BEFORE UPDATE ON {HEAD_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memhead_transition BEFORE UPDATE ON {HEAD_TABLE} "
             f"FOR EACH ROW BEGIN IF NOT ({identity_unchanged}) OR NEW.revision<>OLD.revision+1 "
             "OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR BINARY NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
-            "OR BINARY NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{1,32}$' "
+            "OR BINARY NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "
+            "OR BINARY NEW.integrity_key_id REGEXP '[0-9]{7}' "
             "OR NEW.projected_at < OLD.projected_at "
             f"OR NOT {head_match} OR NOT EXISTS (SELECT 1 FROM {FACT_TABLE} f "
             "WHERE f.id=NEW.current_fact_id AND f.supersedes_id=OLD.current_fact_id) "
             "THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='IgMemoryHead invalid transition'; END IF; END"
         )
-        schema_editor.execute(
-            f"CREATE OR REPLACE TRIGGER ig_memhead_priv_delete BEFORE DELETE ON {HEAD_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memhead_transition", table_name=HEAD_TABLE, event="UPDATE", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memhead_priv_delete BEFORE DELETE ON {HEAD_TABLE} "
             f"FOR EACH ROW BEGIN IF NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c "
             "WHERE c.id=OLD.client_id AND c.privacy_erasure_started_at IS NOT NULL) "
             "THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='IgMemoryHead delete requires privacy fence'; END IF; END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memhead_priv_delete", table_name=HEAD_TABLE, event="DELETE", create_sql=create_sql)
         for name, table in (
             ("ig_anres_priv_delete", RESULT_TABLE),
             ("ig_anprop_priv_delete", PROPOSAL_TABLE),
             ("ig_mat_priv_delete", MATERIALITY_TABLE),
             ("ig_anevt_priv_delete", ANALYSIS_EVENT_TABLE),
         ):
-            schema_editor.execute(
-                f"CREATE OR REPLACE TRIGGER {name} BEFORE DELETE ON {table} FOR EACH ROW "
+            create_sql = (
+                f"CREATE TRIGGER {name} BEFORE DELETE ON {table} FOR EACH ROW "
                 f"BEGIN IF NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c WHERE c.id=OLD.client_id "
                 "AND c.privacy_erasure_started_at IS NOT NULL) THEN SIGNAL SQLSTATE '45000' "
                 "SET MESSAGE_TEXT='analysis delete requires privacy fence'; END IF; END"
             )
+            _ensure_exact_trigger(schema_editor, name=name, table_name=table, event="DELETE", create_sql=create_sql)
         for name, table in (
             ("ig_anprop_priv_insert", PROPOSAL_TABLE),
             ("ig_mat_priv_insert", MATERIALITY_TABLE),
             ("ig_anevt_priv_insert", ANALYSIS_EVENT_TABLE),
         ):
-            schema_editor.execute(
-                f"CREATE OR REPLACE TRIGGER {name} BEFORE INSERT ON {table} FOR EACH ROW "
+            create_sql = (
+                f"CREATE TRIGGER {name} BEFORE INSERT ON {table} FOR EACH ROW "
                 f"BEGIN IF NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c WHERE c.id=NEW.client_id "
                 "AND c.privacy_erasure_started_at IS NULL) THEN SIGNAL SQLSTATE '45000' "
                 "SET MESSAGE_TEXT='analysis insert blocked by privacy fence'; END IF; END"
             )
+            _ensure_exact_trigger(schema_editor, name=name, table_name=table, event="INSERT", create_sql=create_sql)
         # Old unconditional guards remain active until all replacement guards
         # exist. A hard kill is fail-closed; resume retires them afterwards.
         for old_name in ("ig_anres_no_delete", "ig_anprop_no_delete", "ig_mat_no_delete"):
             schema_editor.execute(f"DROP TRIGGER IF EXISTS {old_name}")
     elif vendor == "sqlite":
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memfact_insert_guard BEFORE INSERT ON {FACT_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memfact_insert_guard BEFORE INSERT ON {FACT_TABLE} "
             f"WHEN {_sqlite_fact_invalid()} BEGIN SELECT RAISE(ABORT, 'IgMemoryFact insert guard'); END"
         )
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memfact_no_update BEFORE UPDATE ON {FACT_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memfact_insert_guard", table_name=FACT_TABLE, event="INSERT", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memfact_no_update BEFORE UPDATE ON {FACT_TABLE} "
             "BEGIN SELECT RAISE(ABORT, 'IgMemoryFact is append-only'); END"
         )
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memfact_priv_delete BEFORE DELETE ON {FACT_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memfact_no_update", table_name=FACT_TABLE, event="UPDATE", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memfact_priv_delete BEFORE DELETE ON {FACT_TABLE} "
             f"WHEN NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c WHERE c.id=OLD.client_id "
             "AND c.privacy_erasure_started_at IS NOT NULL) BEGIN SELECT RAISE(ABORT, "
             "'IgMemoryFact delete requires privacy fence'); END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memfact_priv_delete", table_name=FACT_TABLE, event="DELETE", create_sql=create_sql)
         sqlite_evidence_invalid = f"""(
             NEW.ordinal NOT BETWEEN 1 AND 40 OR NEW.message_id<=0
             OR NEW.source_role<>'user'
             OR NEW.claim_code NOT IN ('language','objection','deferred_intent')
             OR NEW.evidence_hmac NOT REGEXP '^[0-9a-f]{{64}}$'
-            OR NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{{1,32}}$'
+            OR NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{{0,27}}$'
+            OR NEW.integrity_key_id REGEXP '[0-9]{{7}}'
             OR NOT EXISTS (
                 SELECT 1 FROM {FACT_TABLE} f JOIN {RESULT_TABLE} r ON r.id=f.source_result_id
                      JOIN {CLIENT_TABLE} c ON c.id=f.client_id
@@ -1245,20 +1583,23 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
                   )
             )
         )"""
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memev_insert_guard BEFORE INSERT ON {EVIDENCE_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memev_insert_guard BEFORE INSERT ON {EVIDENCE_TABLE} "
             f"WHEN {sqlite_evidence_invalid} BEGIN SELECT RAISE(ABORT, 'IgMemoryFactEvidence insert guard'); END"
         )
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memev_no_update BEFORE UPDATE ON {EVIDENCE_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memev_insert_guard", table_name=EVIDENCE_TABLE, event="INSERT", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memev_no_update BEFORE UPDATE ON {EVIDENCE_TABLE} "
             "BEGIN SELECT RAISE(ABORT, 'IgMemoryFactEvidence is append-only'); END"
         )
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memev_priv_delete BEFORE DELETE ON {EVIDENCE_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memev_no_update", table_name=EVIDENCE_TABLE, event="UPDATE", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memev_priv_delete BEFORE DELETE ON {EVIDENCE_TABLE} "
             f"WHEN NOT EXISTS (SELECT 1 FROM {FACT_TABLE} f JOIN {CLIENT_TABLE} c ON c.id=f.client_id "
             "WHERE f.id=OLD.fact_id AND c.privacy_erasure_started_at IS NOT NULL) "
             "BEGIN SELECT RAISE(ABORT, 'IgMemoryFactEvidence delete requires privacy fence'); END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memev_priv_delete", table_name=EVIDENCE_TABLE, event="DELETE", create_sql=create_sql)
         sqlite_head_match = f"""EXISTS (
             SELECT 1 FROM {FACT_TABLE} f JOIN {CLIENT_TABLE} c ON c.id=f.client_id
               LEFT JOIN {RESULT_TABLE} r ON r.id=f.source_result_id
@@ -1294,61 +1635,68 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
                 ))
               )
         )"""
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memhead_insert_guard BEFORE INSERT ON {HEAD_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memhead_insert_guard BEFORE INSERT ON {HEAD_TABLE} "
             f"WHEN NEW.revision<>1 OR NEW.state<>'active' OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
-            "OR NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{1,32}$' "
+            "OR NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "
+            "OR NEW.integrity_key_id REGEXP '[0-9]{7}' "
             f"OR NOT {sqlite_head_match} OR EXISTS (SELECT 1 FROM {FACT_TABLE} f "
             "WHERE f.id=NEW.current_fact_id AND f.supersedes_id IS NOT NULL) "
             "BEGIN SELECT RAISE(ABORT, 'IgMemoryHead insert guard'); END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memhead_insert_guard", table_name=HEAD_TABLE, event="INSERT", create_sql=create_sql)
         changed = " OR ".join(
             f"OLD.{field} IS NOT NEW.{field}" for field in (
                 "slot_key", "client_id", "scope", "commercial_episode_id", "line_id",
                 "order_id", "post_sale_case_id", "fact_key", "schema_version", "created_at",
             )
         )
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memhead_transition BEFORE UPDATE ON {HEAD_TABLE} "
+        create_sql = (
+            f"CREATE TRIGGER ig_memhead_transition BEFORE UPDATE ON {HEAD_TABLE} "
             f"WHEN ({changed}) OR NEW.revision<>OLD.revision+1 OR NOT {sqlite_head_match} "
             "OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
-            "OR NEW.integrity_key_id NOT REGEXP '^[a-z0-9_.:+-]{1,32}$' "
+            "OR NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "
+            "OR NEW.integrity_key_id REGEXP '[0-9]{7}' "
             "OR NEW.projected_at < OLD.projected_at "
             f"OR NOT EXISTS (SELECT 1 FROM {FACT_TABLE} f WHERE f.id=NEW.current_fact_id "
             "AND f.supersedes_id=OLD.current_fact_id) BEGIN SELECT RAISE(ABORT, "
             "'IgMemoryHead invalid transition'); END"
         )
-        schema_editor.execute(
-            f"CREATE TRIGGER IF NOT EXISTS ig_memhead_priv_delete BEFORE DELETE ON {HEAD_TABLE} "
+        _ensure_exact_trigger(schema_editor, name="ig_memhead_transition", table_name=HEAD_TABLE, event="UPDATE", create_sql=create_sql)
+        create_sql = (
+            f"CREATE TRIGGER ig_memhead_priv_delete BEFORE DELETE ON {HEAD_TABLE} "
             f"WHEN NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c WHERE c.id=OLD.client_id "
             "AND c.privacy_erasure_started_at IS NOT NULL) BEGIN SELECT RAISE(ABORT, "
             "'IgMemoryHead delete requires privacy fence'); END"
         )
+        _ensure_exact_trigger(schema_editor, name="ig_memhead_priv_delete", table_name=HEAD_TABLE, event="DELETE", create_sql=create_sql)
         for name, table in (
             ("ig_anres_priv_delete", RESULT_TABLE),
             ("ig_anprop_priv_delete", PROPOSAL_TABLE),
             ("ig_mat_priv_delete", MATERIALITY_TABLE),
             ("ig_anevt_priv_delete", ANALYSIS_EVENT_TABLE),
         ):
-            schema_editor.execute(
-                f"CREATE TRIGGER IF NOT EXISTS {name} BEFORE DELETE ON {table} "
+            create_sql = (
+                f"CREATE TRIGGER {name} BEFORE DELETE ON {table} "
                 f"WHEN NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c WHERE c.id=OLD.client_id "
                 "AND c.privacy_erasure_started_at IS NOT NULL) BEGIN SELECT RAISE(ABORT, "
                 "'analysis delete requires privacy fence'); END"
             )
+            _ensure_exact_trigger(schema_editor, name=name, table_name=table, event="DELETE", create_sql=create_sql)
         for name, table in (
             ("ig_anprop_priv_insert", PROPOSAL_TABLE),
             ("ig_mat_priv_insert", MATERIALITY_TABLE),
             ("ig_anevt_priv_insert", ANALYSIS_EVENT_TABLE),
         ):
-            schema_editor.execute(
-                f"CREATE TRIGGER IF NOT EXISTS {name} BEFORE INSERT ON {table} "
+            create_sql = (
+                f"CREATE TRIGGER {name} BEFORE INSERT ON {table} "
                 f"WHEN NOT EXISTS (SELECT 1 FROM {CLIENT_TABLE} c WHERE c.id=NEW.client_id "
                 "AND c.privacy_erasure_started_at IS NULL) BEGIN SELECT RAISE(ABORT, "
                 "'analysis insert blocked by privacy fence'); END"
             )
+            _ensure_exact_trigger(schema_editor, name=name, table_name=table, event="INSERT", create_sql=create_sql)
         for old_name in ("ig_anres_no_delete", "ig_anprop_no_delete", "ig_mat_no_delete"):
             schema_editor.execute(f"DROP TRIGGER IF EXISTS {old_name}")
     else:

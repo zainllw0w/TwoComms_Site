@@ -154,13 +154,13 @@ def typed_memory_shadow_check(app_configs=None, **_kwargs):
             ),
             id="management.E920",
         ))
-    active, ring = ig_typed_memory._keyring()
-    if not active or not ring:
+    active, ring, keyring_errors = ig_typed_memory._keyring_configuration()
+    if not active or not ring or keyring_errors:
         errors.append(Error(
-            "Typed-memory shadow requires an active retained HMAC keyring.",
+            "Typed-memory shadow requires an exact, fully valid retained HMAC keyring.",
             hint=(
-                "Configure IG_TYPED_MEMORY_HMAC_KEYRING with a random >=32-byte "
-                "secret and set IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID."
+                "Use tmk_* key ids, string secrets of 32..512 UTF-8 bytes, retain "
+                "every historical key, and select an active id present in the ring."
             ),
             id="management.E921",
         ))

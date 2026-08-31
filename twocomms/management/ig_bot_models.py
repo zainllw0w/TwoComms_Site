@@ -6097,6 +6097,8 @@ class IgAnalysisProposal(models.Model):
 
 
 _MEMORY_CODE_RE = re.compile(r"^[a-z0-9_.:+-]{1,96}$")
+_MEMORY_LINE_RE = re.compile(r"^line:(?!.*[0-9]{7})[a-z0-9][a-z0-9_.-]{0,79}$")
+_MEMORY_KEY_ID_RE = re.compile(r"^tmk_(?!.*[0-9]{7})[a-z0-9][a-z0-9_.-]{0,27}$")
 _MEMORY_HEX_RE = re.compile(r"^[0-9a-f]{64}$")
 _MEMORY_RECORD_RE = re.compile(r"^memory-fact:[0-9a-f]{64}$")
 _MEMORY_SLOT_RE = re.compile(r"^memory-slot:[0-9a-f]{64}$")
@@ -6153,18 +6155,16 @@ def _validate_memory_typed_value(fact_key, value, *, operation):
             raise ValidationError({"typed_value": "Invalid objection value."})
         return
     if fact_key == "deferred_intent":
-        if set(value) != {"kind", "condition_code", "deferred_until"}:
+        if set(value) != {"kind", "condition_code"}:
             raise ValidationError({"typed_value": "Invalid deferred-intent shape."})
         expected = {
             "date": "customer_date", "event": "after_event",
             "payday": "payday", "indefinite": "indefinite",
         }
         kind = value.get("kind")
-        parsed = parse_datetime(str(value.get("deferred_until") or ""))
         if (
             kind not in expected
             or value.get("condition_code") != expected.get(kind)
-            or ((kind == "date") != bool(parsed))
         ):
             raise ValidationError({"typed_value": "Invalid deferred-intent value."})
         return
@@ -6182,7 +6182,7 @@ def _validate_memory_fact_payload(fact):
         raise ValidationError({"schema_version": "Unsupported typed-memory schema."})
     if not _memory_scope_shape(fact):
         raise ValidationError({"scope": "Typed-memory scope coordinates are inconsistent."})
-    if fact.line_id and not _MEMORY_CODE_RE.fullmatch(str(fact.line_id)):
+    if fact.line_id and not _MEMORY_LINE_RE.fullmatch(str(fact.line_id)):
         raise ValidationError({"line_id": "Invalid line identity."})
     if fact.operation not in {"assert", "invalidate", "expire"}:
         raise ValidationError({"operation": "Unsupported typed-memory operation."})
@@ -6194,7 +6194,7 @@ def _validate_memory_fact_payload(fact):
     _validate_finite_01(fact.confidence, field_name="confidence", optional=True)
     if not _MEMORY_HEX_RE.fullmatch(str(fact.integrity_hmac or "")):
         raise ValidationError({"integrity_hmac": "Invalid typed-memory HMAC."})
-    if not _MEMORY_CODE_RE.fullmatch(str(fact.integrity_key_id or "")):
+    if not _MEMORY_KEY_ID_RE.fullmatch(str(fact.integrity_key_id or "")):
         raise ValidationError({"integrity_key_id": "Invalid typed-memory HMAC key id."})
     if fact.valid_until and fact.valid_until <= fact.observed_at:
         raise ValidationError({"valid_until": "Memory expiry must follow observation."})
@@ -6317,13 +6317,9 @@ def _validate_memory_fact_payload(fact):
         raise ValidationError({"fact_key": "Fact scope/sensitivity/retention policy mismatch."})
     if fact.fact_key == "deferred_intent" and fact.operation == "assert":
         kind = fact.typed_value.get("kind")
-        parsed_until = parse_datetime(str(fact.typed_value.get("deferred_until") or ""))
-        if parsed_until is not None and timezone.is_naive(parsed_until):
-            parsed_until = timezone.make_aware(parsed_until)
         if kind == "date":
             if (
-                parsed_until is None
-                or fact.valid_until != parsed_until
+                fact.valid_until is None
                 or fact.retention_class != "until_date"
             ):
                 raise ValidationError({"valid_until": "Date deferral expiry is inconsistent."})
@@ -6532,6 +6528,27 @@ class IgMemoryFact(models.Model):
                 ),
                 name="ig_memfact_source_shape",
             ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        fact_key="observed_language", scope="client",
+                        sensitivity="low", retention_class="client",
+                        valid_until__isnull=True,
+                    )
+                    | models.Q(
+                        fact_key="objection_observed",
+                        scope__in=("episode", "line"),
+                        sensitivity="personal_preference",
+                        retention_class="episode", valid_until__isnull=True,
+                    )
+                    | models.Q(
+                        fact_key="deferred_intent", scope="episode",
+                        sensitivity="personal_preference",
+                        retention_class__in=("episode", "until_date"),
+                    )
+                ),
+                name="ig_memfact_policy_shape",
+            ),
         ]
         indexes = [
             models.Index(fields=["client", "-observed_at"], name="ig_memfact_client_obs"),
@@ -6580,7 +6597,7 @@ def _validate_memory_evidence_payload(evidence):
             raise ValidationError({"message_id": "Evidence is not owned by the source result."})
     if not _MEMORY_HEX_RE.fullmatch(str(evidence.evidence_hmac or "")):
         raise ValidationError({"evidence_hmac": "Invalid memory evidence HMAC."})
-    if not _MEMORY_CODE_RE.fullmatch(str(evidence.integrity_key_id or "")):
+    if not _MEMORY_KEY_ID_RE.fullmatch(str(evidence.integrity_key_id or "")):
         raise ValidationError({"integrity_key_id": "Invalid memory evidence key id."})
 
 
@@ -6629,13 +6646,17 @@ def _validate_memory_head_payload(head):
         raise ValidationError({"slot_key": "Invalid typed-memory slot identity."})
     if head.schema_version != _MEMORY_SCHEMA_VERSION or not _memory_scope_shape(head):
         raise ValidationError({"scope": "Invalid typed-memory head scope."})
+    if head.fact_key not in _MEMORY_FACT_KEYS or (
+        head.line_id and not _MEMORY_LINE_RE.fullmatch(str(head.line_id))
+    ):
+        raise ValidationError({"fact_key": "Invalid typed-memory head identity."})
     if int(head.revision or 0) < 1:
         raise ValidationError({"revision": "Memory head revision must be positive."})
     if head.projection_policy_version != _MEMORY_POLICY_VERSION:
         raise ValidationError({"projection_policy_version": "Unsupported memory projector."})
     if not _MEMORY_HEX_RE.fullmatch(str(head.projection_hmac or "")):
         raise ValidationError({"projection_hmac": "Invalid memory projection HMAC."})
-    if not _MEMORY_CODE_RE.fullmatch(str(head.integrity_key_id or "")):
+    if not _MEMORY_KEY_ID_RE.fullmatch(str(head.integrity_key_id or "")):
         raise ValidationError({"integrity_key_id": "Invalid memory projection key id."})
     if head.current_fact_id:
         fact = head.current_fact

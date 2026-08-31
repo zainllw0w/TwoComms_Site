@@ -1,9 +1,11 @@
 import hashlib
 from concurrent.futures import ThreadPoolExecutor
+from importlib import import_module
 from threading import Barrier
 from unittest import skipUnless
 
-from django.db import close_old_connections, connection
+from django.apps import apps
+from django.db import DatabaseError, close_old_connections, connection
 from django.test import TransactionTestCase, override_settings
 from django.utils import timezone
 
@@ -28,9 +30,9 @@ from management.services import ig_typed_memory as memory
     IG_ANALYSIS_V2_MODE="shadow",
     IG_ANALYSIS_V2_EXTENDED_PROMPT=True,
     IG_TYPED_MEMORY_MODE="shadow_compare",
-    IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID="maria-v1",
+    IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID="tmk_maria_v1",
     IG_TYPED_MEMORY_HMAC_KEYRING={
-        "maria-v1": "maria-typed-memory-test-key-000000000001",
+        "tmk_maria_v1": "maria-typed-memory-test-key-000000000001",
     },
 )
 class TypedMemoryMariaConcurrencyTests(TransactionTestCase):
@@ -109,6 +111,13 @@ class TypedMemoryMariaConcurrencyTests(TransactionTestCase):
         result.save(force_insert=True)
         self.result_id = result.pk
 
+    def tearDown(self):
+        IgClient.objects.filter(pk=self.client_row.pk).update(
+            privacy_erasure_started_at=timezone.now()
+        )
+        memory.purge_client_analysis_memory([self.client_row.pk])
+        super().tearDown()
+
     def test_database_is_explicitly_disposable(self):
         self.assertRegex(
             str(connection.settings_dict.get("NAME") or ""),
@@ -135,3 +144,73 @@ class TypedMemoryMariaConcurrencyTests(TransactionTestCase):
         self.assertEqual(IgMemoryHead.objects.count(), 1)
         head = IgMemoryHead.objects.select_related("current_fact").get()
         self.assertTrue(memory.memory_chain_valid(head))
+
+    def test_same_name_weak_trigger_and_prefix_unique_fail_closed(self):
+        migration = import_module("management.migrations.0185_typed_memory_v2")
+        with connection.cursor() as cursor:
+            cursor.execute("DROP TRIGGER ig_memfact_no_update")
+            cursor.execute(
+                "CREATE TRIGGER ig_memfact_no_update BEFORE UPDATE ON "
+                "management_igmemoryfact FOR EACH ROW SET @typed_memory_noop=1"
+            )
+        try:
+            with connection.schema_editor() as editor:
+                with self.assertRaisesRegex(RuntimeError, "body mismatch"):
+                    migration.install_typed_memory_and_privacy_triggers(apps, editor)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("DROP TRIGGER IF EXISTS ig_memfact_no_update")
+            with connection.schema_editor() as editor:
+                migration.install_typed_memory_and_privacy_triggers(apps, editor)
+
+        with connection.cursor() as cursor:
+            cursor.execute("DROP TABLE IF EXISTS tm_mem_unique_good")
+            cursor.execute("DROP TABLE IF EXISTS tm_mem_unique_bad")
+            cursor.execute(
+                "CREATE TABLE tm_mem_unique_good (a VARCHAR(32), b INTEGER, "
+                "CONSTRAINT tm_mem_exact UNIQUE (a, b)) ENGINE=InnoDB"
+            )
+            cursor.execute(
+                "CREATE TABLE tm_mem_unique_bad (a VARCHAR(32), b INTEGER, "
+                "UNIQUE KEY tm_mem_exact_bad (a(3), b)) ENGINE=InnoDB"
+            )
+        try:
+            with connection.schema_editor() as editor:
+                migration._validate_physical_unique(
+                    editor, "tm_mem_unique_good", "tm_mem_exact", ("a", "b")
+                )
+                with self.assertRaisesRegex(RuntimeError, "physical unique"):
+                    migration._validate_physical_unique(
+                        editor,
+                        "tm_mem_unique_bad",
+                        "tm_mem_exact_bad",
+                        ("a", "b"),
+                    )
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("DROP TABLE IF EXISTS tm_mem_unique_bad")
+                cursor.execute("DROP TABLE IF EXISTS tm_mem_unique_good")
+
+    def test_raw_phone_like_key_id_is_rejected_by_mariadb_guard(self):
+        self.assertEqual(memory.publish_analysis_memory(self.result_id).status, "published")
+        fact = IgMemoryFact.objects.get()
+        fields = [field for field in fact._meta.local_fields if not field.primary_key]
+        values = []
+        for field in fields:
+            value = field.value_from_object(fact)
+            if field.attname == "record_key":
+                value = "memory-fact:" + "f" * 64
+            elif field.attname == "slot_key":
+                value = "memory-slot:" + "f" * 64
+            elif field.attname == "integrity_key_id":
+                value = "tmk_380501234567"
+            values.append(field.get_db_prep_save(value, connection))
+        columns = ", ".join(
+            connection.ops.quote_name(field.column) for field in fields
+        )
+        with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+            cursor.execute(
+                f"INSERT INTO management_igmemoryfact ({columns}) VALUES "
+                f"({', '.join(['%s'] * len(values))})",
+                values,
+            )

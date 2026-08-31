@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import IntegrityError, OperationalError, connection, transaction
 from django.db.models import F, OuterRef, Subquery
 from django.utils import timezone
@@ -33,6 +33,8 @@ PROJECTOR_VERSION = "typed-memory-projector.v1"
 RESULT_SCHEMA_VERSION = "analysis-v2.2"
 MAX_EVIDENCE = 40
 MAX_RECONCILE = 500
+MAX_CHAIN_DEPTH = 512
+_KEY_ID_RE = re.compile(r"^tmk_(?!.*[0-9]{7})[a-z0-9][a-z0-9_.-]{0,27}$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,20 +67,53 @@ def configured_mode() -> str:
     } else MODE_OFF
 
 
-def _keyring() -> tuple[str, dict[str, bytes]]:
+def _keyring_configuration() -> tuple[str, dict[str, bytes], tuple[str, ...]]:
+    """Return an all-or-nothing signing configuration without exposing secrets.
+
+    A malformed retained key is as dangerous as a malformed active key: historical
+    rows may have been signed by any retained id.  Shadow therefore remains fully
+    disabled until every entry is valid.
+    """
     raw = getattr(settings, "IG_TYPED_MEMORY_HMAC_KEYRING", {})
-    active = str(
-        getattr(settings, "IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID", "") or ""
-    ).strip()
-    if not isinstance(raw, dict) or not active:
-        return "", {}
+    active_raw = getattr(settings, "IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID", "")
+    active = active_raw.strip() if isinstance(active_raw, str) else ""
+    errors: list[str] = []
+    if not isinstance(raw, dict):
+        return "", {}, ("keyring_not_object",)
+    if (
+        not isinstance(active_raw, str)
+        or active_raw != active
+        or not active
+        or not _KEY_ID_RE.fullmatch(active)
+    ):
+        errors.append("active_key_id_invalid")
     ring: dict[str, bytes] = {}
     for key_id, secret in raw.items():
-        normalized_id = str(key_id or "").strip()
-        encoded = str(secret or "").encode("utf-8")
-        if normalized_id and len(encoded) >= 32:
-            ring[normalized_id] = encoded
-    return (active, ring) if active in ring else ("", {})
+        if (
+            not isinstance(key_id, str)
+            or key_id != key_id.strip()
+            or not _KEY_ID_RE.fullmatch(key_id)
+        ):
+            errors.append("retained_key_id_invalid")
+            continue
+        if not isinstance(secret, str):
+            errors.append("retained_secret_invalid")
+            continue
+        encoded = secret.encode("utf-8")
+        if not 32 <= len(encoded) <= 512:
+            errors.append("retained_secret_invalid")
+            continue
+        ring[key_id] = encoded
+    if active not in ring:
+        errors.append("active_key_not_retained")
+    if errors:
+        return "", {}, tuple(sorted(set(errors)))
+    return active, ring, ()
+
+
+def _keyring() -> tuple[str, dict[str, bytes]]:
+    active, ring, errors = _keyring_configuration()
+    return (active, ring) if not errors else ("", {})
 
 
 def shadow_enabled() -> bool:
@@ -184,9 +219,6 @@ def candidates_from_result(result: IgConversationAnalysisResult) -> tuple[Memory
             typed_value={
                 "kind": result.deferred_kind,
                 "condition_code": result.deferred_condition_code,
-                "deferred_until": (
-                    result.deferred_until.isoformat() if result.deferred_until else ""
-                ),
             },
             confidence=None,
             evidence_ids=deferred_ids,
@@ -247,6 +279,7 @@ def _fact_payload(result, candidate, *, slot_key, supersedes_id, key_id) -> dict
     identity = _fact_hmac_payload(values)
     identity.pop("record_key", None)
     identity.pop("supersedes_id", None)
+    identity.pop("integrity_key_id", None)
     identity["source_result_key"] = result.result_key
     identity["evidence_ids"] = candidate.evidence_ids
     values["record_key"] = "memory-fact:" + _sha(identity)
@@ -307,6 +340,55 @@ def evidence_integrity_valid(evidence: IgMemoryFactEvidence) -> bool:
     return hmac.compare_digest(str(evidence.evidence_hmac or ""), expected)
 
 
+def _semantic_record_key(fact: IgMemoryFact, evidence_rows) -> str:
+    """Key one semantic append operation independently from the signing key id."""
+    values = {
+        field: getattr(fact, field)
+        for field in _fact_hmac_payload({}).keys()
+    }
+    identity = _fact_hmac_payload(values)
+    identity.pop("record_key", None)
+    identity.pop("supersedes_id", None)
+    identity.pop("integrity_key_id", None)
+    if fact.operation == IgMemoryFact.Operation.ASSERT:
+        try:
+            source = getattr(fact, "source_result", None)
+        except ObjectDoesNotExist:
+            source = None
+        identity["source_result_key"] = str(getattr(source, "result_key", "") or "")
+        identity["evidence_ids"] = tuple(row.message_id for row in evidence_rows)
+    return "memory-fact:" + _sha(identity)
+
+
+def _evidence_matches_source(fact: IgMemoryFact, evidence: IgMemoryFactEvidence) -> bool:
+    if (
+        fact.operation != IgMemoryFact.Operation.ASSERT
+        or not fact.source_result_id
+        or evidence.fact_id != fact.pk
+        or evidence.source_role != "user"
+        or evidence.claim_code != {
+            IgMemoryFact.FactKey.OBSERVED_LANGUAGE: "language",
+            IgMemoryFact.FactKey.OBJECTION_OBSERVED: "objection",
+            IgMemoryFact.FactKey.DEFERRED_INTENT: "deferred_intent",
+        }.get(fact.fact_key)
+        or evidence.integrity_key_id != fact.integrity_key_id
+    ):
+        return False
+    try:
+        result = fact.source_result
+    except ObjectDoesNotExist:
+        return False
+    if evidence.claim_code == "language":
+        return evidence.message_id in (result.language_evidence_message_ids or ())
+    return any(
+        isinstance(row, dict)
+        and row.get("message_id") == evidence.message_id
+        and row.get("source_role") == "user"
+        and evidence.claim_code in (row.get("claim_codes") or ())
+        for row in result.evidence_manifest or ()
+    )
+
+
 def _head_hmac_payload(head_values: dict) -> dict:
     return {
         key: head_values.get(key)
@@ -337,15 +419,92 @@ def head_integrity_valid(head: IgMemoryHead) -> bool:
 
 
 def memory_chain_valid(head: IgMemoryHead) -> bool:
-    fact = head.current_fact
-    if not fact_integrity_valid(fact) or not head_integrity_valid(head):
+    """Validate the exact current slot and its complete bounded append chain."""
+    if not head_integrity_valid(head):
         return False
-    rows = list(fact.evidence_rows.order_by("ordinal", "id"))
-    if len(rows) != int(fact.expected_evidence_count or 0):
+    try:
+        revision = int(head.revision or 0)
+    except (TypeError, ValueError, OverflowError):
         return False
-    if [row.ordinal for row in rows] != list(range(1, len(rows) + 1)):
+    if not 1 <= revision <= MAX_CHAIN_DEPTH:
         return False
-    return all(evidence_integrity_valid(row) for row in rows)
+    expected_slot = (
+        head.slot_key,
+        head.client_id,
+        head.scope,
+        head.commercial_episode_id,
+        head.line_id,
+        head.order_id,
+        head.post_sale_case_id,
+        head.fact_key,
+        head.schema_version,
+    )
+    facts = list(
+        IgMemoryFact.objects.filter(slot_key=head.slot_key)
+        .select_related("source_result")
+        .prefetch_related("evidence_rows")
+        .order_by("-id")[:MAX_CHAIN_DEPTH + 1]
+    )
+    if len(facts) > MAX_CHAIN_DEPTH:
+        return False
+    by_id = {fact.pk: fact for fact in facts}
+    fact = by_id.get(head.current_fact_id)
+    if fact is None:
+        return False
+    current_operation = fact.operation
+    seen: set[int] = set()
+    depth = 0
+    while fact is not None:
+        if not fact.pk or fact.pk in seen:
+            return False
+        seen.add(fact.pk)
+        depth += 1
+        if depth > MAX_CHAIN_DEPTH:
+            return False
+        fact_slot = (
+            fact.slot_key,
+            fact.client_id,
+            fact.scope,
+            fact.commercial_episode_id,
+            fact.line_id,
+            fact.order_id,
+            fact.post_sale_case_id,
+            fact.fact_key,
+            fact.schema_version,
+        )
+        if fact_slot != expected_slot or not fact_integrity_valid(fact):
+            return False
+        rows = sorted(
+            fact.evidence_rows.all(),
+            key=lambda row: (row.ordinal, row.pk or 0),
+        )
+        if (
+            len(rows) != int(fact.expected_evidence_count or 0)
+            or [row.ordinal for row in rows] != list(range(1, len(rows) + 1))
+            or _semantic_record_key(fact, rows) != fact.record_key
+        ):
+            return False
+        if fact.operation == IgMemoryFact.Operation.ASSERT:
+            if not rows or not all(
+                evidence_integrity_valid(row) and _evidence_matches_source(fact, row)
+                for row in rows
+            ):
+                return False
+        elif rows:
+            return False
+        predecessor_id = fact.supersedes_id
+        if predecessor_id is None:
+            fact = None
+        else:
+            fact = by_id.get(predecessor_id)
+            if fact is None:
+                return False
+    expected_state = {
+        IgMemoryFact.Operation.ASSERT: IgMemoryHead.State.ACTIVE,
+        IgMemoryFact.Operation.INVALIDATE: IgMemoryHead.State.INVALIDATED,
+        IgMemoryFact.Operation.EXPIRE: IgMemoryHead.State.EXPIRED,
+    }.get(current_operation)
+    return depth == revision and head.state == expected_state
 
 
 def _result_is_exact_current(result, client, job) -> bool:
@@ -666,6 +825,7 @@ def _append_memory_tombstone_once(
             record_identity = _fact_hmac_payload(values)
             record_identity.pop("record_key", None)
             record_identity.pop("supersedes_id", None)
+            record_identity.pop("integrity_key_id", None)
             values["record_key"] = "memory-fact:" + _sha(record_identity)
             _kid, signature = _mac(
                 "management.typed-memory.fact.v1",

@@ -478,13 +478,30 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
                     [result.pk],
                 )
         finally:
+            # This test explicitly reinstalls the retired 0183 unconditional
+            # guards. Remove only those test-owned legacy objects first; the
+            # 0185 privacy-fenced production guards remain installed.
             with connection.cursor() as cursor:
                 for name in (
-                    "ig_anres_no_update",
                     "ig_anres_no_delete",
                     "ig_anprop_no_delete",
-                    "ig_anprop_identity_update",
-                    "ig_anres_insert_guard",
-                    "ig_anprop_insert_guard",
                 ):
                     cursor.execute(f"DROP TRIGGER IF EXISTS {name}")
+            typed_memory_migration = import_module(
+                "management.migrations.0185_typed_memory_v2"
+            )
+            with connection.schema_editor() as editor:
+                typed_memory_migration.reinstall_analysis_v22_insert_guard(
+                    None, editor
+                )
+            # Migration-enabled TransactionTestCase cleanup then uses the same
+            # committed fence and shared purge path as runtime erasure before
+            # sqlflush runs.
+            from management.services.ig_typed_memory import (
+                purge_client_analysis_memory,
+            )
+
+            IgClient.objects.filter(pk=client.pk).update(
+                privacy_erasure_started_at=timezone.now()
+            )
+            purge_client_analysis_memory([client.pk])

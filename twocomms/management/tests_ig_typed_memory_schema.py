@@ -1,8 +1,10 @@
 from importlib import import_module
+from unittest.mock import patch
 
+from django.apps import apps
 from django.core.exceptions import ValidationError
-from django.db import migrations
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.db import connection, migrations
+from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 from management.models import IgMemoryFact, IgMemoryFactEvidence, IgMemoryHead
@@ -40,7 +42,7 @@ class TypedMemorySchemaTests(TestCase):
             source_watermark_message_id=1,
             expected_evidence_count=1,
             integrity_hmac="f" * 64,
-            integrity_key_id="test-v1",
+            integrity_key_id="tmk_test_v1",
             observed_at=timezone.now(),
             sensitivity="low",
             retention_class="client",
@@ -63,6 +65,7 @@ class TypedMemorySchemaTests(TestCase):
         self.assertTrue({
             "ig_memfact_record_uniq", "ig_memfact_supersedes_uniq",
             "ig_memfact_scope_shape", "ig_memfact_source_shape",
+            "ig_memfact_policy_shape",
         }.issubset({item.name for item in IgMemoryFact._meta.constraints}))
 
     def test_analysis_digest_is_version_aware_for_historical_v21_rows(self):
@@ -150,3 +153,124 @@ class TypedMemoryMigrationContractTests(SimpleTestCase):
             {item.id for item in typed_memory_shadow_check()},
             {"management.E920", "management.E921"},
         )
+
+    @override_settings(
+        IG_TYPED_MEMORY_MODE="shadow_compare",
+        IG_ANALYSIS_V2_MODE="shadow",
+        IG_ANALYSIS_MATERIALITY_MODE="shadow",
+        IG_ANALYSIS_V2_EXTENDED_PROMPT=True,
+        IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID="tmk_good_v1",
+        IG_TYPED_MEMORY_HMAC_KEYRING={
+            "tmk_good_v1": "a" * 32,
+            "bad retained id": "b" * 32,
+        },
+    )
+    def test_invalid_retained_key_id_disables_shadow_and_fails_system_check(self):
+        from management.checks import typed_memory_shadow_check
+        from management.services import ig_typed_memory
+
+        self.assertFalse(ig_typed_memory.shadow_enabled())
+        self.assertIn("retained_key_id_invalid", ig_typed_memory._keyring_configuration()[2])
+        self.assertEqual(
+            {item.id for item in typed_memory_shadow_check()},
+            {"management.E921"},
+        )
+
+    @override_settings(
+        IG_TYPED_MEMORY_MODE="shadow_compare",
+        IG_ANALYSIS_V2_MODE="shadow",
+        IG_ANALYSIS_MATERIALITY_MODE="shadow",
+        IG_ANALYSIS_V2_EXTENDED_PROMPT=True,
+        IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID="invalid active",
+        IG_TYPED_MEMORY_HMAC_KEYRING={"tmk_good_v1": "a" * 32},
+    )
+    def test_invalid_active_key_id_disables_shadow(self):
+        from management.checks import typed_memory_shadow_check
+        from management.services import ig_typed_memory
+
+        self.assertFalse(ig_typed_memory.shadow_enabled())
+        self.assertIn("active_key_id_invalid", ig_typed_memory._keyring_configuration()[2])
+        self.assertEqual(
+            {item.id for item in typed_memory_shadow_check()},
+            {"management.E921"},
+        )
+
+
+class TypedMemoryPhysicalContractTests(TransactionTestCase):
+    reset_sequences = False
+
+    def _require_migration_profile(self):
+        if connection.vendor != "sqlite":
+            self.skipTest("SQLite adversarial schema proof")
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT COUNT(*) FROM sqlite_master "
+                "WHERE type='trigger' AND name='ig_memfact_insert_guard'"
+            )
+            if not cursor.fetchone()[0]:
+                self.skipTest("requires migration-enabled SQLite profile")
+
+    def test_same_name_noop_trigger_fails_closed_and_exact_trigger_restores(self):
+        self._require_migration_profile()
+        migration = import_module("management.migrations.0185_typed_memory_v2")
+        with connection.cursor() as cursor:
+            cursor.execute("DROP TRIGGER ig_memfact_no_update")
+            cursor.execute(
+                "CREATE TRIGGER ig_memfact_no_update BEFORE UPDATE ON "
+                "management_igmemoryfact BEGIN SELECT 1; END"
+            )
+        try:
+            with connection.schema_editor() as editor:
+                with self.assertRaisesRegex(RuntimeError, "body mismatch"):
+                    migration.install_typed_memory_and_privacy_triggers(apps, editor)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute("DROP TRIGGER IF EXISTS ig_memfact_no_update")
+            with connection.schema_editor() as editor:
+                migration.install_typed_memory_and_privacy_triggers(apps, editor)
+
+    def test_weakened_same_name_check_predicate_fails_exact_comparison(self):
+        self._require_migration_profile()
+        migration = import_module("management.migrations.0185_typed_memory_v2")
+        with connection.schema_editor() as editor, patch.object(
+            migration,
+            "_physical_check_clause",
+            return_value="confidence IS NULL OR confidence >= 0",
+        ):
+            with self.assertRaisesRegex(RuntimeError, "physical predicate"):
+                migration._validate_check(
+                    apps,
+                    editor,
+                    ("management", "IgMemoryFact", "ig_memfact_conf_range"),
+                )
+
+    def test_partial_or_expression_unique_cannot_impersonate_named_constraint(self):
+        self._require_migration_profile()
+        migration = import_module("management.migrations.0185_typed_memory_v2")
+        quote = connection.ops.quote_name
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "CREATE TABLE tm_mem_unique_good (a INTEGER, b INTEGER, "
+                "CONSTRAINT tm_mem_exact UNIQUE (a, b))"
+            )
+            cursor.execute("CREATE TABLE tm_mem_unique_bad (a INTEGER, b INTEGER)")
+            cursor.execute(
+                "CREATE UNIQUE INDEX tm_mem_exact_bad ON tm_mem_unique_bad(a, b) "
+                "WHERE a > 0"
+            )
+        try:
+            with connection.schema_editor() as editor:
+                migration._validate_physical_unique(
+                    editor, "tm_mem_unique_good", "tm_mem_exact", ("a", "b")
+                )
+                with self.assertRaisesRegex(RuntimeError, "named table UNIQUE"):
+                    migration._validate_physical_unique(
+                        editor,
+                        "tm_mem_unique_bad",
+                        "tm_mem_exact_bad",
+                        ("a", "b"),
+                    )
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP TABLE IF EXISTS {quote('tm_mem_unique_bad')}")
+                cursor.execute(f"DROP TABLE IF EXISTS {quote('tm_mem_unique_good')}")

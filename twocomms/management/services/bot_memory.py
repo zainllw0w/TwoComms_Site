@@ -213,19 +213,23 @@ def purge_stale_clients(days: int = RETENTION_DAYS) -> int:
     """Видаляє картки клієнтів, неактивні понад `days` (каскадом — їх повідомлення).
     Повертає к-сть видалених карток."""
     cutoff = timezone.now() - datetime.timedelta(days=days)
-    identities = list(
+    client_ids = list(
         IgClient.objects.filter(
             last_message_at__isnull=False,
             last_message_at__lt=cutoff,
-        ).exclude(igsid="").order_by("pk").values_list("igsid", flat=True)
+        ).order_by("pk").values_list("pk", flat=True)
     )
-    if not identities:
+    if not client_ids:
         return 0
     from management.bot_views import _delete_direct_bot_records
 
     deleted = 0
-    for identity in identities:
-        deleted += int(_delete_direct_bot_records(identity).get("clients") or 0)
+    for client_id in client_ids:
+        deleted += int(
+            _delete_direct_bot_records(
+                exact_client_ids=[client_id], stale_before=cutoff,
+            ).get("clients") or 0
+        )
     return deleted
 
 
