@@ -1,4 +1,5 @@
 """Э1.2–Э1.4 + Э6.2 — карточки, postback как действие FSM, посылка в отделении."""
+import json
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -202,6 +203,39 @@ class TemplateTransportTests(TestCase):
         http.assert_not_called()
         self.assertEqual(delivery.kind, "cancelled")
 
+    def test_send_text_embeds_a_native_quick_reply_in_the_meta_payload(self):
+        from management.services.instagram_bot import send_text
+
+        replies = router.inout_test_quick_replies(7)
+        with patch(
+            "management.services.instagram_bot._provider_account_id", return_value="1"
+        ), patch(
+            "management.services.instagram_bot.get_page_token", return_value="t"
+        ), patch(
+            "management.services.instagram_bot._provider_http",
+            return_value=(200, '{"message_id":"mid-quick-reply"}'),
+        ) as http:
+            receipt = send_text(
+                self.settings,
+                "igsid-1",
+                "Натисніть IN для перевірки.",
+                quick_replies=replies,
+                return_receipt=True,
+            )
+
+        self.assertTrue(receipt.ok)
+        payload = json.loads(http.call_args.kwargs["data"].decode("utf-8"))
+        self.assertEqual(
+            payload["message"]["quick_replies"],
+            [
+                {
+                    "content_type": "text",
+                    "title": "IN ✅",
+                    "payload": "twc:1:diagnostic:inout:7",
+                }
+            ],
+        )
+
 
 class PostbackIngestionTests(TestCase):
     """Э1.4 — нажатие кнопки доходит как ход клиента, а не теряется."""
@@ -256,6 +290,35 @@ class ParcelReminderTests(TestCase):
             self.assertLessEqual(
                 len(reply.title), templates.MAX_QUICK_REPLY_TITLE_CHARS
             )
+
+    def test_inout_diagnostic_button_is_client_bound_and_deterministic(self):
+        replies = router.inout_test_quick_replies(self.ig_client.pk)
+        self.assertEqual(len(replies), 1)
+        self.assertEqual(replies[0].title, "IN ✅")
+        self.assertEqual(
+            replies[0].payload,
+            f"twc:1:diagnostic:inout:{self.ig_client.pk}",
+        )
+
+        row = self._tap(replies[0].payload, text="IN ✅")
+        outcome = router.dispatch_postback(row)
+
+        self.assertIsNotNone(outcome)
+        self.assertEqual(outcome.action, "diagnostic:inout")
+        self.assertIn("Router V2", outcome.reply_text)
+        self.assertIn("без Gemini", outcome.reply_text)
+        self.assertFalse(outcome.quick_replies)
+
+    def test_inout_diagnostic_payload_for_another_client_is_not_claimed(self):
+        other = IgClient.get_or_create_for_sender("other-diagnostic-sender")
+        payload = router.inout_test_quick_replies(other.pk)[0].payload
+
+        self.assertIsNone(router.dispatch_postback(self._tap(payload, text="IN ✅")))
+
+    def test_inout_diagnostic_button_rejects_invalid_client_identity(self):
+        for invalid in (None, "", "0", "-1", "not-an-id"):
+            with self.assertRaises(ValueError):
+                router.inout_test_quick_replies(invalid)
 
     def test_remind_later_schedules_inside_the_reopened_window(self):
         row = self._tap("twc:1:parcel:later:42", text="Нагадати пізніше")

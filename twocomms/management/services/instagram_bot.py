@@ -5759,7 +5759,7 @@ def _mark_sending_after_typing_off(s, row, typing_active: bool, mark_callable):
     return mark_callable()
 
 
-def _quick_reply_payload(quick_replies) -> list:
+def _provider_quick_replies_payload(quick_replies) -> list:
     """Привести кнопки швидкої відповіді до лімітів Meta (13 шт., 20 символів)."""
     from management.services.ig_message_templates import (
         MAX_QUICK_REPLIES,
@@ -6474,7 +6474,7 @@ def send_text(
                 # разів, а натискання на застарілий чанк дало б дію, якої вже
                 # немає на екрані.
                 if quick_replies and chunk_index == len(parts) - 1:
-                    quick_reply_items = _quick_reply_payload(quick_replies)
+                    quick_reply_items = _provider_quick_replies_payload(quick_replies)
                     if quick_reply_items:
                         payload["message"]["quick_replies"] = quick_reply_items
                 if provider_transport(s) == LEGACY_PAGE_TRANSPORT:

@@ -24,6 +24,8 @@ from management.services.ig_message_templates import QuickReply, build_payload, 
 ACTION_PARCEL = "parcel"
 PARCEL_PICKED_UP = "got"
 PARCEL_REMIND_LATER = "later"
+ACTION_DIAGNOSTIC = "diagnostic"
+DIAGNOSTIC_INOUT = "inout"
 
 # Скільки чекати до повторного нагадування, якщо клієнт натиснув «нагадати».
 REMIND_LATER_DELAY_HOURS = 20
@@ -48,6 +50,24 @@ def parcel_quick_replies(order_id) -> tuple:
     )
 
 
+def inout_test_quick_replies(client_id) -> tuple:
+    """One safe, client-bound button for an explicit owner In/Out check.
+
+    The action has no commerce or CRM side effects.  Binding the payload to the
+    recipient prevents a copied/stale diagnostic payload from being handled in
+    another conversation.
+    """
+    normalized_client_id = str(client_id or "").strip()
+    if not normalized_client_id.isdigit() or int(normalized_client_id) <= 0:
+        raise ValueError("diagnostic quick reply requires a positive client id")
+    return (
+        QuickReply(
+            "IN ✅",
+            build_payload(ACTION_DIAGNOSTIC, DIAGNOSTIC_INOUT, normalized_client_id),
+        ),
+    )
+
+
 def dispatch_postback(row: InstagramBotMessage) -> PostbackOutcome | None:
     """Виконати відому дію по натисканню кнопки або повернути None.
 
@@ -58,9 +78,12 @@ def dispatch_postback(row: InstagramBotMessage) -> PostbackOutcome | None:
     parsed = parse_payload(getattr(row, "quick_reply_payload", "") or "")
     if not parsed or not row.client_id:
         return None
-    if parsed.get("action") != ACTION_PARCEL:
-        return None
+    action = parsed.get("action")
     args = parsed.get("args") or ()
+    if action == ACTION_DIAGNOSTIC:
+        return _handle_diagnostic(row, args)
+    if action != ACTION_PARCEL:
+        return None
     if not args:
         return None
     intent = args[0]
@@ -70,6 +93,35 @@ def dispatch_postback(row: InstagramBotMessage) -> PostbackOutcome | None:
     if intent == PARCEL_REMIND_LATER:
         return _handle_parcel_remind_later(row, order_id)
     return None
+
+
+def _handle_diagnostic(row, args: tuple) -> PostbackOutcome | None:
+    """Confirm a real Meta round trip without Gemini or business mutation."""
+    if len(args) != 2 or args[0] != DIAGNOSTIC_INOUT:
+        return None
+    expected_client_id = str(args[1] or "").strip()
+    if expected_client_id != str(row.client_id):
+        return None
+    language = _language(row)
+    texts = {
+        "uk": (
+            "IN отримано ✅ Вхідний webhook і Router V2 спрацювали. "
+            "OUT: це підтвердження надіслано без Gemini."
+        ),
+        "ru": (
+            "IN получен ✅ Входящий webhook и Router V2 сработали. "
+            "OUT: это подтверждение отправлено без Gemini."
+        ),
+        "en": (
+            "IN received ✅ The inbound webhook and Router V2 worked. "
+            "OUT: this confirmation was sent without Gemini."
+        ),
+    }
+    return PostbackOutcome(
+        action=f"{ACTION_DIAGNOSTIC}:{DIAGNOSTIC_INOUT}",
+        reply_text=texts[language],
+        reason="diagnostic_inout_roundtrip",
+    )
 
 
 def _language(row) -> str:
