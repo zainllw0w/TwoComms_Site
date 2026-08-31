@@ -21,6 +21,7 @@ from management.models import (
     InstagramBotMessage,
 )
 from management.services import ig_analysis_materiality as materiality
+from management.tests_support import AnalysisPrivacyCleanupMixin
 
 
 def _job(client, *, watermark=1):
@@ -1050,7 +1051,7 @@ class ShadowAnalysisCompletionTests(TestCase):
 
 
 @override_settings(IG_ANALYSIS_MATERIALITY_MODE="shadow")
-class MaterialityConcurrencyTests(TransactionTestCase):
+class MaterialityConcurrencyTests(AnalysisPrivacyCleanupMixin, TransactionTestCase):
     reset_sequences = False
 
     def test_same_digest_concurrency_appends_once_and_bumps_once(self):

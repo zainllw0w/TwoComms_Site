@@ -4,6 +4,7 @@ import json
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.core.exceptions import ValidationError
 from django.db import DatabaseError, connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -116,6 +117,167 @@ class TypedMemoryRuntimeTests(TestCase):
         )
         self.result.result_digest = analysis_v2.result_digest_for_instance(self.result)
         self.result.save(force_insert=True)
+
+    def _next_language_result(
+        self, *, language="ru", suffix="next", line_id="line:primary",
+        with_objection=False,
+    ):
+        message = InstagramBotMessage.objects.create(
+            client=self.client_row,
+            sender_id=self.client_row.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="language revision",
+            status=InstagramBotMessage.Status.DONE,
+        )
+        next_revision = int(self.job.revision or 0) + 1
+        next_highwater = int(self.job.materiality_event_highwater or 0) + 1
+        materiality_digest = hashlib.sha256(
+            f"typed-memory:{suffix}:materiality".encode()
+        ).hexdigest()
+        IgConversationAnalysisJob.objects.filter(pk=self.job.pk).update(
+            watermark_message_id=message.pk,
+            analyzed_watermark_message_id=message.pk,
+            revision=next_revision,
+            analyzed_revision=next_revision,
+            materiality_event_highwater=next_highwater,
+            analyzed_materiality_event_highwater=next_highwater,
+            materiality_digest=materiality_digest,
+            analyzed_materiality_digest=materiality_digest,
+            materiality_line_id=line_id,
+        )
+        self.job.refresh_from_db()
+        snapshot = IgConversationAnalysisSnapshot.objects.create(
+            client=self.client_row,
+            last_analyzed_message=message,
+            dedupe_key=f"typed-memory:{suffix}:snapshot",
+            score_band=IgConversationAnalysisSnapshot.Band.COLD,
+            interaction_type=IgConversationAnalysisSnapshot.InteractionType.INFORMATION_ONLY,
+            commercial_episode=self.episode,
+            required_state_fingerprint=self.fingerprint,
+            analyzed_at=timezone.now(),
+        )
+        result = IgConversationAnalysisResult(
+            result_key="analysis-v2:" + hashlib.sha256(
+                f"typed-memory:{suffix}:result".encode()
+            ).hexdigest(),
+            legacy_snapshot=snapshot,
+            client=self.client_row,
+            commercial_episode=self.episode,
+            line_id=line_id,
+            watermark_message_id=message.pk,
+            job_revision=next_revision,
+            materiality_event_highwater=next_highwater,
+            materiality_digest=materiality_digest,
+            authority_digest="b" * 64,
+            artifact_digest="c" * 64,
+            state_correlation=analysis_v2.state_correlation(self.fingerprint),
+            result_schema_version=analysis_v2.RESULT_SCHEMA_VERSION,
+            normalizer_version=analysis_v2.NORMALIZER_VERSION,
+            interaction_type=snapshot.interaction_type,
+            score_band=snapshot.score_band,
+            detected_language=language,
+            language_evidence_message_ids=[message.pk],
+            evidence_manifest=[{
+                "message_id": message.pk,
+                "source_role": "user",
+                "claim_codes": (
+                    ["interaction", "objection"]
+                    if with_objection else ["interaction"]
+                ),
+            }],
+            customer_evidence_count=1,
+            active_objection_type=("price" if with_objection else ""),
+            active_objection_confidence=(
+                Decimal("0.8000") if with_objection else None
+            ),
+            result_digest="",
+            analyzed_at=snapshot.analyzed_at,
+        )
+        result.result_digest = analysis_v2.result_digest_for_instance(result)
+        result.save(force_insert=True)
+        return result
+
+    def _append_direct_tombstone(self, head, *, revision):
+        old = head.current_fact
+        key_id, _ring = memory._keyring()
+        observed_at = head.projected_at + datetime.timedelta(microseconds=1)
+        values = {
+            "record_key": "",
+            "slot_key": old.slot_key,
+            "client_id": old.client_id,
+            "scope": old.scope,
+            "commercial_episode_id": old.commercial_episode_id,
+            "line_id": old.line_id,
+            "order_id": old.order_id,
+            "post_sale_case_id": old.post_sale_case_id,
+            "fact_key": old.fact_key,
+            "schema_version": memory.SCHEMA_VERSION,
+            "operation": IgMemoryFact.Operation.INVALIDATE,
+            "typed_value": {},
+            "confidence": None,
+            "source_role": "system",
+            "producer": "deterministic_projector",
+            "producer_policy_version": memory.PROJECTOR_VERSION,
+            "closure_method": "deterministic_invalidation",
+            "source_result_id": None,
+            "source_result_digest": "",
+            "source_materiality_digest": "",
+            "source_state_correlation": "",
+            "source_watermark_message_id": 0,
+            "source_event_digest": hashlib.sha256(
+                f"typed-memory:depth:{revision}".encode()
+            ).hexdigest(),
+            "expected_evidence_count": 0,
+            "supersedes_id": old.pk,
+            "reason_code": "reset_boundary",
+            "integrity_key_id": key_id,
+            "observed_at": observed_at,
+            "valid_until": None,
+            "sensitivity": old.sensitivity,
+            "retention_class": old.retention_class,
+        }
+        identity = memory._fact_hmac_payload(values)
+        identity.pop("record_key", None)
+        identity.pop("supersedes_id", None)
+        identity.pop("integrity_key_id", None)
+        values["record_key"] = "memory-fact:" + memory._sha(identity)
+        _kid, signature = memory._mac(
+            "management.typed-memory.fact.v1",
+            memory._fact_hmac_payload(values),
+            key_id=key_id,
+        )
+        fact = IgMemoryFact(**values, integrity_hmac=signature)
+        fact.save(force_insert=True)
+        head_values = {
+            "slot_key": head.slot_key,
+            "client_id": head.client_id,
+            "scope": head.scope,
+            "commercial_episode_id": head.commercial_episode_id,
+            "line_id": head.line_id,
+            "order_id": head.order_id,
+            "post_sale_case_id": head.post_sale_case_id,
+            "fact_key": head.fact_key,
+            "schema_version": head.schema_version,
+            "current_fact_id": fact.pk,
+            "state": IgMemoryHead.State.INVALIDATED,
+            "revision": revision,
+            "projection_policy_version": memory.PROJECTOR_VERSION,
+            "projected_at": observed_at,
+            "integrity_key_id": key_id,
+        }
+        _hkid, head_signature = memory._mac(
+            "management.typed-memory.head.v1",
+            memory._head_hmac_payload(head_values),
+            key_id=key_id,
+        )
+        head.current_fact = fact
+        head.state = IgMemoryHead.State.INVALIDATED
+        head.revision = revision
+        head.projected_at = observed_at
+        head.projection_hmac = head_signature
+        head.integrity_key_id = key_id
+        head.save()
+        return fact
 
     def test_off_mode_is_absolute_zero_query_and_typed_prompt_is_rejected(self):
         with CaptureQueriesContext(connection) as captured:
@@ -313,6 +475,80 @@ class TypedMemoryRuntimeTests(TestCase):
             self.assertTrue(memory.memory_chain_valid(language_head))
 
     @override_settings(**SHADOW)
+    def test_depth_one_allows_exact_replay_but_blocks_assert_and_tombstone(self):
+        memory.publish_analysis_memory(self.result.pk)
+        counts = (
+            IgMemoryFact.objects.count(),
+            IgMemoryFactEvidence.objects.count(),
+            IgMemoryHead.objects.count(),
+        )
+        with patch.object(memory, "MAX_CHAIN_DEPTH", 1):
+            replay = memory.publish_analysis_memory(self.result.pk)
+            self.assertEqual(replay.status, "published")
+            self.assertEqual(replay.unchanged_heads, 3)
+            language_head = IgMemoryHead.objects.get(fact_key="observed_language")
+            tombstone = memory.append_memory_tombstone(
+                language_head,
+                operation=IgMemoryFact.Operation.INVALIDATE,
+                source_event_digest="8" * 64,
+                reason_code="reset_boundary",
+            )
+            self.assertEqual(tombstone.status, "chain_depth_exhausted")
+            next_result = self._next_language_result(
+                suffix="depth-one",
+                line_id="line:secondary",
+                with_objection=True,
+            )
+            asserted = memory.publish_analysis_memory(next_result.pk)
+            self.assertEqual(asserted.status, "chain_depth_exhausted")
+            self.assertEqual(
+                (
+                    IgMemoryFact.objects.count(),
+                    IgMemoryFactEvidence.objects.count(),
+                    IgMemoryHead.objects.count(),
+                ),
+                counts,
+            )
+            language_head.refresh_from_db()
+            self.assertEqual(language_head.revision, 1)
+            self.assertTrue(memory.memory_chain_valid(language_head))
+
+    @override_settings(**SHADOW)
+    def test_real_512_chain_cannot_commit_revision_513(self):
+        memory.publish_analysis_memory(self.result.pk)
+        head = IgMemoryHead.objects.get(fact_key="observed_language")
+        for revision in range(2, memory.MAX_CHAIN_DEPTH + 1):
+            self._append_direct_tombstone(head, revision=revision)
+        head.refresh_from_db()
+        self.assertEqual(head.revision, memory.MAX_CHAIN_DEPTH)
+        self.assertTrue(memory.memory_chain_valid(head))
+        counts = (
+            IgMemoryFact.objects.count(),
+            IgMemoryFactEvidence.objects.count(),
+            IgMemoryHead.objects.count(),
+        )
+
+        with self.assertRaises(ValidationError):
+            self._append_direct_tombstone(
+                head,
+                revision=memory.MAX_CHAIN_DEPTH + 1,
+            )
+        next_result = self._next_language_result(suffix="depth-512")
+        asserted = memory.publish_analysis_memory(next_result.pk)
+        self.assertEqual(asserted.status, "chain_depth_exhausted")
+        self.assertEqual(
+            (
+                IgMemoryFact.objects.count(),
+                IgMemoryFactEvidence.objects.count(),
+                IgMemoryHead.objects.count(),
+            ),
+            counts,
+        )
+        head.refresh_from_db()
+        self.assertEqual(head.revision, memory.MAX_CHAIN_DEPTH)
+        self.assertTrue(memory.memory_chain_valid(head))
+
+    @override_settings(**SHADOW)
     def test_expiry_and_reset_append_tombstones_without_mutating_old_fact(self):
         memory.publish_analysis_memory(self.result.pk)
 
@@ -401,6 +637,11 @@ class TypedMemoryRuntimeTests(TestCase):
             cursor.execute(
                 "UPDATE management_igmemoryhead SET projection_hmac=%s WHERE id=%s",
                 ["", head.pk],
+            )
+        with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE management_igmemoryhead SET revision=%s WHERE id=%s",
+                [memory.MAX_CHAIN_DEPTH + 1, head.pk],
             )
         fact = head.current_fact
         with self.assertRaises(DatabaseError), connection.cursor() as cursor:

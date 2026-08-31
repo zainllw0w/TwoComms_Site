@@ -8,6 +8,7 @@ from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_
 from django.utils import timezone
 
 from management.models import IgMemoryFact, IgMemoryFactEvidence, IgMemoryHead
+from management.tests_support import AnalysisPrivacyCleanupMixin
 
 
 class TypedMemorySchemaTests(TestCase):
@@ -67,6 +68,10 @@ class TypedMemorySchemaTests(TestCase):
             "ig_memfact_scope_shape", "ig_memfact_source_shape",
             "ig_memfact_policy_shape",
         }.issubset({item.name for item in IgMemoryFact._meta.constraints}))
+        self.assertIn(
+            "ig_memhead_revision_bounds",
+            {item.name for item in IgMemoryHead._meta.constraints},
+        )
 
     def test_analysis_digest_is_version_aware_for_historical_v21_rows(self):
         from management.services import ig_analysis_v2
@@ -138,6 +143,25 @@ class TypedMemoryMigrationContractTests(SimpleTestCase):
         self.assertIn("KILL_EXIT_CODE = 97", source)
         self.assertIn("0185_typed_memory_v2", source)
 
+    def test_every_guarded_transaction_owner_uses_shared_privacy_cleanup(self):
+        from management.tests_ig_analysis_materiality import (
+            MaterialityConcurrencyTests,
+        )
+        from management.tests_ig_analysis_v2_migration import (
+            AnalysisV2TriggerDatabaseTests,
+        )
+        from management.tests_ig_typed_memory_mariadb import (
+            TypedMemoryMariaConcurrencyTests,
+        )
+
+        for test_case in (
+            MaterialityConcurrencyTests,
+            AnalysisV2TriggerDatabaseTests,
+            TypedMemoryMariaConcurrencyTests,
+            TypedMemoryPhysicalContractTests,
+        ):
+            self.assertTrue(issubclass(test_case, AnalysisPrivacyCleanupMixin))
+
     @override_settings(
         IG_TYPED_MEMORY_MODE="shadow_compare",
         IG_ANALYSIS_V2_MODE="off",
@@ -196,7 +220,7 @@ class TypedMemoryMigrationContractTests(SimpleTestCase):
         )
 
 
-class TypedMemoryPhysicalContractTests(TransactionTestCase):
+class TypedMemoryPhysicalContractTests(AnalysisPrivacyCleanupMixin, TransactionTestCase):
     reset_sequences = False
 
     def _require_migration_profile(self):

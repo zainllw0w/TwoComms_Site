@@ -54,6 +54,7 @@ __all__ = [
     "IgMemoryFact",
     "IgMemoryFactEvidence",
     "IgMemoryHead",
+    "IG_MEMORY_MAX_CHAIN_DEPTH",
     "IgConversationAnalysisEvent",
     "IgConversationAnalysisJob",
     "IgAiReplyRecoveryJob",
@@ -6104,6 +6105,7 @@ _MEMORY_RECORD_RE = re.compile(r"^memory-fact:[0-9a-f]{64}$")
 _MEMORY_SLOT_RE = re.compile(r"^memory-slot:[0-9a-f]{64}$")
 _MEMORY_SCHEMA_VERSION = "typed-memory.v1"
 _MEMORY_POLICY_VERSION = "typed-memory-projector.v1"
+IG_MEMORY_MAX_CHAIN_DEPTH = 512
 _MEMORY_FACT_KEYS = frozenset({
     "observed_language", "objection_observed", "deferred_intent",
 })
@@ -6337,7 +6339,10 @@ def _validate_memory_fact_payload(fact):
             or previous.post_sale_case_id != fact.post_sale_case_id
             or previous.fact_key != fact.fact_key
             or previous.schema_version != fact.schema_version
-            or not previous.current_for_heads.filter(slot_key=fact.slot_key).exists()
+            or not previous.current_for_heads.filter(
+                slot_key=fact.slot_key,
+                revision__lt=IG_MEMORY_MAX_CHAIN_DEPTH,
+            ).exists()
         ):
             raise ValidationError({"supersedes": "Memory fact predecessor is not current."})
     elif IgMemoryHead.objects.filter(slot_key=fact.slot_key).exists():
@@ -6650,8 +6655,8 @@ def _validate_memory_head_payload(head):
         head.line_id and not _MEMORY_LINE_RE.fullmatch(str(head.line_id))
     ):
         raise ValidationError({"fact_key": "Invalid typed-memory head identity."})
-    if int(head.revision or 0) < 1:
-        raise ValidationError({"revision": "Memory head revision must be positive."})
+    if not 1 <= int(head.revision or 0) <= IG_MEMORY_MAX_CHAIN_DEPTH:
+        raise ValidationError({"revision": "Memory head revision is outside its bounded chain."})
     if head.projection_policy_version != _MEMORY_POLICY_VERSION:
         raise ValidationError({"projection_policy_version": "Unsupported memory projector."})
     if not _MEMORY_HEX_RE.fullmatch(str(head.projection_hmac or "")):
@@ -6757,7 +6762,13 @@ class IgMemoryHead(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["slot_key"], name="ig_memhead_slot_uniq"),
             models.UniqueConstraint(fields=["current_fact"], name="ig_memhead_fact_uniq"),
-            models.CheckConstraint(condition=models.Q(revision__gte=1), name="ig_memhead_revision_positive"),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(revision__gte=1)
+                    & models.Q(revision__lte=IG_MEMORY_MAX_CHAIN_DEPTH)
+                ),
+                name="ig_memhead_revision_bounds",
+            ),
             models.CheckConstraint(
                 condition=(
                     models.Q(

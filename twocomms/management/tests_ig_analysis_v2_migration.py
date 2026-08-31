@@ -8,6 +8,8 @@ from django.db import DatabaseError, connection, migrations, models
 from django.test import SimpleTestCase, TransactionTestCase
 from django.utils import timezone
 
+from management.tests_support import AnalysisPrivacyCleanupMixin
+
 
 class AnalysisV2MigrationTests(SimpleTestCase):
     def setUp(self):
@@ -230,7 +232,7 @@ class AnalysisV2MigrationTests(SimpleTestCase):
         self.assertIn("KILL_EXIT_CODE = 97", source)
 
 
-class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
+class AnalysisV2TriggerDatabaseTests(AnalysisPrivacyCleanupMixin, TransactionTestCase):
     reset_sequences = False
 
     def test_result_update_and_both_deletes_are_blocked_but_status_update_works(self):
@@ -494,14 +496,3 @@ class AnalysisV2TriggerDatabaseTests(TransactionTestCase):
                 typed_memory_migration.reinstall_analysis_v22_insert_guard(
                     None, editor
                 )
-            # Migration-enabled TransactionTestCase cleanup then uses the same
-            # committed fence and shared purge path as runtime erasure before
-            # sqlflush runs.
-            from management.services.ig_typed_memory import (
-                purge_client_analysis_memory,
-            )
-
-            IgClient.objects.filter(pk=client.pk).update(
-                privacy_erasure_started_at=timezone.now()
-            )
-            purge_client_analysis_memory([client.pk])

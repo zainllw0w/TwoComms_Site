@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from threading import Barrier
 from unittest import skipUnless
+from unittest.mock import patch
 
 from django.apps import apps
 from django.db import DatabaseError, close_old_connections, connection
@@ -22,6 +23,7 @@ from management.models import (
 )
 from management.services import ig_analysis_v2 as analysis_v2
 from management.services import ig_typed_memory as memory
+from management.tests_support import AnalysisPrivacyCleanupMixin
 
 
 @skipUnless(connection.vendor == "mysql", "Disposable MariaDB-only typed-memory proof")
@@ -35,7 +37,7 @@ from management.services import ig_typed_memory as memory
         "tmk_maria_v1": "maria-typed-memory-test-key-000000000001",
     },
 )
-class TypedMemoryMariaConcurrencyTests(TransactionTestCase):
+class TypedMemoryMariaConcurrencyTests(AnalysisPrivacyCleanupMixin, TransactionTestCase):
     reset_sequences = True
 
     def setUp(self):
@@ -110,13 +112,6 @@ class TypedMemoryMariaConcurrencyTests(TransactionTestCase):
         result.result_digest = analysis_v2.result_digest_for_instance(result)
         result.save(force_insert=True)
         self.result_id = result.pk
-
-    def tearDown(self):
-        IgClient.objects.filter(pk=self.client_row.pk).update(
-            privacy_erasure_started_at=timezone.now()
-        )
-        memory.purge_client_analysis_memory([self.client_row.pk])
-        super().tearDown()
 
     def test_database_is_explicitly_disposable(self):
         self.assertRegex(
@@ -214,3 +209,34 @@ class TypedMemoryMariaConcurrencyTests(TransactionTestCase):
                 f"({', '.join(['%s'] * len(values))})",
                 values,
             )
+        head = IgMemoryHead.objects.get()
+        with self.assertRaises(DatabaseError), connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE management_igmemoryhead SET revision=%s WHERE id=%s",
+                [memory.MAX_CHAIN_DEPTH + 1, head.pk],
+            )
+
+    def test_mariadb_depth_gate_returns_typed_status_without_rows(self):
+        self.assertEqual(memory.publish_analysis_memory(self.result_id).status, "published")
+        head = IgMemoryHead.objects.get()
+        counts = (
+            IgMemoryFact.objects.count(),
+            IgMemoryFactEvidence.objects.count(),
+            IgMemoryHead.objects.count(),
+        )
+        with patch.object(memory, "MAX_CHAIN_DEPTH", 1):
+            outcome = memory.append_memory_tombstone(
+                head,
+                operation=IgMemoryFact.Operation.INVALIDATE,
+                source_event_digest="7" * 64,
+                reason_code="reset_boundary",
+            )
+        self.assertEqual(outcome.status, "chain_depth_exhausted")
+        self.assertEqual(
+            (
+                IgMemoryFact.objects.count(),
+                IgMemoryFactEvidence.objects.count(),
+                IgMemoryHead.objects.count(),
+            ),
+            counts,
+        )

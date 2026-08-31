@@ -195,7 +195,7 @@ STATE_OPERATIONS = [
         ),
         migrations.AddConstraint(
             model_name='igmemoryhead',
-            constraint=models.CheckConstraint(condition=models.Q(('revision__gte', 1)), name='ig_memhead_revision_positive'),
+            constraint=models.CheckConstraint(condition=models.Q(('revision__gte', 1), ('revision__lte', 512)), name='ig_memhead_revision_bounds'),
         ),
         migrations.AddConstraint(
             model_name='igmemoryhead',
@@ -263,7 +263,7 @@ CHECK_SPECS = (
     ("management", "IgMemoryFact", "ig_memfact_policy_shape"),
     ("management", "IgMemoryFactEvidence", "ig_memev_ordinal_positive"),
     ("management", "IgMemoryFactEvidence", "ig_memev_message_positive"),
-    ("management", "IgMemoryHead", "ig_memhead_revision_positive"),
+    ("management", "IgMemoryHead", "ig_memhead_revision_bounds"),
     ("management", "IgMemoryHead", "ig_memhead_scope_shape"),
 )
 UNIQUE_SPECS = (
@@ -296,7 +296,7 @@ CHECK_COLUMNS = {
     },
     "ig_memev_ordinal_positive": {"ordinal"},
     "ig_memev_message_positive": {"message_id"},
-    "ig_memhead_revision_positive": {"revision"},
+    "ig_memhead_revision_bounds": {"revision"},
     "ig_memhead_scope_shape": {
         "scope", "commercial_episode_id", "line_id", "order_id",
         "post_sale_case_id",
@@ -343,7 +343,10 @@ CHECK_TRUTH_TABLES = {
     ),
     "ig_memev_ordinal_positive": (({"ordinal": 0}, False), ({"ordinal": 1}, True)),
     "ig_memev_message_positive": (({"message_id": 0}, False), ({"message_id": 1}, True)),
-    "ig_memhead_revision_positive": (({"revision": 0}, False), ({"revision": 1}, True)),
+    "ig_memhead_revision_bounds": (
+        ({"revision": 0}, False), ({"revision": 1}, True),
+        ({"revision": 512}, True), ({"revision": 513}, False),
+    ),
 }
 
 
@@ -1195,6 +1198,7 @@ def _mysql_fact_invalid():
               AND previous_fact.scope=NEW.scope
               AND previous_fact.fact_key=NEW.fact_key
               AND previous_fact.schema_version=NEW.schema_version
+              AND head.revision<512
         ))
         OR (NEW.supersedes_id IS NULL AND EXISTS (
             SELECT 1 FROM {HEAD_TABLE} head WHERE head.slot_key=NEW.slot_key
@@ -1333,6 +1337,7 @@ def _sqlite_fact_invalid():
               AND previous_fact.scope=NEW.scope
               AND previous_fact.fact_key=NEW.fact_key
               AND previous_fact.schema_version=NEW.schema_version
+              AND head.revision<512
         ))
         OR (NEW.supersedes_id IS NULL AND EXISTS (
             SELECT 1 FROM management_igmemoryhead head WHERE head.slot_key=NEW.slot_key
@@ -1468,7 +1473,7 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
         )"""
         create_sql = (
             f"CREATE TRIGGER ig_memhead_insert_guard BEFORE INSERT ON {HEAD_TABLE} "
-            f"FOR EACH ROW BEGIN IF NEW.revision<>1 OR NEW.state<>'active' OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
+            f"FOR EACH ROW BEGIN IF NEW.revision<>1 OR NEW.revision>512 OR NEW.state<>'active' OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR BINARY NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
             "OR BINARY NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "
             "OR BINARY NEW.integrity_key_id REGEXP '[0-9]{7}' "
@@ -1484,7 +1489,7 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
         )
         create_sql = (
             f"CREATE TRIGGER ig_memhead_transition BEFORE UPDATE ON {HEAD_TABLE} "
-            f"FOR EACH ROW BEGIN IF NOT ({identity_unchanged}) OR NEW.revision<>OLD.revision+1 "
+            f"FOR EACH ROW BEGIN IF NOT ({identity_unchanged}) OR NEW.revision<>OLD.revision+1 OR NEW.revision>512 "
             "OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR BINARY NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
             "OR BINARY NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "
@@ -1637,7 +1642,7 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
         )"""
         create_sql = (
             f"CREATE TRIGGER ig_memhead_insert_guard BEFORE INSERT ON {HEAD_TABLE} "
-            f"WHEN NEW.revision<>1 OR NEW.state<>'active' OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
+            f"WHEN NEW.revision<>1 OR NEW.revision>512 OR NEW.state<>'active' OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
             "OR NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "
             "OR NEW.integrity_key_id REGEXP '[0-9]{7}' "
@@ -1654,7 +1659,7 @@ def install_typed_memory_and_privacy_triggers(apps, schema_editor):
         )
         create_sql = (
             f"CREATE TRIGGER ig_memhead_transition BEFORE UPDATE ON {HEAD_TABLE} "
-            f"WHEN ({changed}) OR NEW.revision<>OLD.revision+1 OR NOT {sqlite_head_match} "
+            f"WHEN ({changed}) OR NEW.revision<>OLD.revision+1 OR NEW.revision>512 OR NOT {sqlite_head_match} "
             "OR NEW.projection_policy_version<>'typed-memory-projector.v1' "
             "OR NEW.projection_hmac NOT REGEXP '^[0-9a-f]{64}$' "
             "OR NEW.integrity_key_id NOT REGEXP '^tmk_[a-z0-9][a-z0-9_.-]{0,27}$' "

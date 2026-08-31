@@ -18,6 +18,7 @@ from management.models import (
     IgClient,
     IgConversationAnalysisJob,
     IgConversationAnalysisResult,
+    IG_MEMORY_MAX_CHAIN_DEPTH,
     IgMemoryFact,
     IgMemoryFactEvidence,
     IgMemoryHead,
@@ -33,7 +34,7 @@ PROJECTOR_VERSION = "typed-memory-projector.v1"
 RESULT_SCHEMA_VERSION = "analysis-v2.2"
 MAX_EVIDENCE = 40
 MAX_RECONCILE = 500
-MAX_CHAIN_DEPTH = 512
+MAX_CHAIN_DEPTH = IG_MEMORY_MAX_CHAIN_DEPTH
 _KEY_ID_RE = re.compile(r"^tmk_(?!.*[0-9]{7})[a-z0-9][a-z0-9_.-]{0,27}$")
 
 
@@ -599,7 +600,7 @@ def _publish_analysis_memory_once(result_or_id) -> PublishOutcome:
             )
             if owned_evidence != set(all_evidence_ids):
                 return PublishOutcome(status="invalid_evidence", result_id=result.pk)
-            created_facts = advanced_heads = unchanged_heads = 0
+            plans = []
             for candidate in sorted(candidates, key=lambda row: (
                 row.fact_key, row.scope, row.line_id,
             )):
@@ -626,8 +627,30 @@ def _publish_analysis_memory_once(result_or_id) -> PublishOutcome:
                 if existing is not None:
                     if not fact_integrity_valid(existing):
                         raise ValueError("typed-memory fact identity conflict")
-                    fact = existing
-                else:
+                exact_noop = bool(
+                    head is not None
+                    and existing is not None
+                    and head.current_fact_id == existing.pk
+                )
+                if (
+                    head is not None
+                    and not exact_noop
+                    and int(head.revision or 0) >= MAX_CHAIN_DEPTH
+                ):
+                    return PublishOutcome(
+                        status="chain_depth_exhausted",
+                        result_id=result.pk,
+                    )
+                plans.append((candidate, slot_key, head, values, existing, exact_noop))
+
+            # Every affected head is now locked and every possible advancement
+            # has passed the depth gate. Only this second phase may append rows.
+            created_facts = advanced_heads = unchanged_heads = 0
+            for candidate, slot_key, head, values, existing, exact_noop in plans:
+                if exact_noop:
+                    unchanged_heads += 1
+                    continue
+                if existing is None:
                     _kid, signature = _mac(
                         "management.typed-memory.fact.v1",
                         _fact_hmac_payload(values),
@@ -658,9 +681,8 @@ def _publish_analysis_memory_once(result_or_id) -> PublishOutcome:
                             evidence_hmac=evidence_signature,
                         )
                     created_facts += 1
-                if head and head.current_fact_id == fact.pk:
-                    unchanged_heads += 1
-                    continue
+                else:
+                    fact = existing
                 head_values = {
                     "slot_key": slot_key,
                     "client_id": result.client_id,
@@ -781,7 +803,11 @@ def _append_memory_tombstone_once(
                 .select_related("current_fact")
                 .get(pk=head_id)
             )
-            if head.state != IgMemoryHead.State.ACTIVE or not memory_chain_valid(head):
+            if not memory_chain_valid(head):
+                return PublishOutcome(status="not_active")
+            if int(head.revision or 0) >= MAX_CHAIN_DEPTH:
+                return PublishOutcome(status="chain_depth_exhausted")
+            if head.state != IgMemoryHead.State.ACTIVE:
                 return PublishOutcome(status="not_active")
             old = head.current_fact
             if operation == IgMemoryFact.Operation.EXPIRE and (
