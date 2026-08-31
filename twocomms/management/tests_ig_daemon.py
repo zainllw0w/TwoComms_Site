@@ -1518,7 +1518,7 @@ class DaemonStatusTests(TestCase):
         cache.delete(DAEMON_LOCK_KEY)
         super().tearDown()
 
-    def test_fresh_database_heartbeat_without_daemon_heartbeat_is_not_running(self):
+    def test_recent_database_heartbeat_without_daemon_pulse_is_recovering(self):
         settings = InstagramBotSettings.load()
         settings.is_enabled = True
         settings.heartbeat_at = timezone.now() - timedelta(seconds=10)
@@ -1530,7 +1530,23 @@ class DaemonStatusTests(TestCase):
         self.assertFalse(snapshot["daemon_online"])
         self.assertTrue(snapshot["db_heartbeat_fresh"])
         self.assertFalse(snapshot["running"])
+        self.assertEqual(snapshot["state"], "worker_recovering")
+        self.assertTrue(snapshot["recovery_expected"])
+
+    def test_database_heartbeat_without_daemon_after_grace_is_worker_error(self):
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.heartbeat_at = timezone.now() - timedelta(seconds=45)
+        settings.save(update_fields=["is_enabled", "heartbeat_at"])
+        cache.delete(HB_KEY)
+
+        snapshot = bot.status_snapshot()
+
+        self.assertFalse(snapshot["daemon_online"])
+        self.assertTrue(snapshot["db_heartbeat_fresh"])
+        self.assertFalse(snapshot["running"])
         self.assertEqual(snapshot["state"], "worker_error")
+        self.assertTrue(snapshot["recovery_expected"])
 
     @patch("management.services.ig_daemon_health.cache.get", return_value={"at": 100.0, "state": "idle"})
     @patch("management.services.ig_daemon_health.time.time", return_value=110.0)

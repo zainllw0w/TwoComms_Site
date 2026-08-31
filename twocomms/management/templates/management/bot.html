@@ -560,6 +560,7 @@ body.bot-stats-detail-drawer-open{overflow:hidden;}
 .bot-dot{width:13px;height:13px;border-radius:50%;background:#5b6472;}
 .bot-dot.on{background:#22c55e;animation:botpulse 1.7s infinite;}
 .bot-dot.off{background:#ef4444;}
+.bot-dot.idle{background:#f59e0b;}
 
 /* ---- Console ---- */
 .bot-console-box{background:#06080d;border:1px solid #1c222e;border-radius:12px;height:420px;overflow-y:auto;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;}
@@ -1924,15 +1925,16 @@ body.bot-drawer-open{overflow:hidden;}
     const dot=document.getElementById('bot-dot');
     let txt, sub, cls;
     if(st.state==='maintenance'){ txt='Технічна пауза'; sub='Автоматичний обробник і контроль запуску тимчасово зупинені'; cls='off'; }
+    else if(st.state==='worker_recovering'){ txt='Відновлюємо обробник'; sub='База даних доступна; supervisor запускає новий процес (зазвичай кілька секунд)'; cls='idle'; }
     else if(st.state==='enabled_but_worker_missing'){ txt='Обробник не запущено'; sub='Бот увімкнено, система відновлює автоматичний обробник (до 1 хв)'; cls='off'; }
-    else if(st.state==='worker_error'){ txt='Помилка обробника'; sub='Стан бази даних є, але перевірка зв’язку з обробником відсутня'; cls='off'; }
+    else if(st.state==='worker_error'){ txt='Обробник не відновився'; sub='База даних доступна, але supervisor не підтвердив новий процес за 30 секунд'; cls='off'; }
     else if(st.state==='worker_stalled'){ txt='Обробник завис'; sub='Процес онлайн, але основний цикл не просувається — відповіді не підтверджені'; cls='off'; }
     else if(st.state==='ingress_degraded'){ txt='Прийом повідомлень порушено'; sub='Процес працює, але нові повідомлення не надходять'; cls='off'; }
     else if(!online){ txt='Офлайн'; sub='Автоматичний обробник не запущено'; cls='off'; }
     else if(st.is_enabled){ txt='Працює'; sub='Агент онлайн і відповідає'; cls='on'; }
     else { txt='Зупинено'; sub='Агент онлайн, але не відповідає'; cls='idle'; }
     pill.className='bot-pill '+cls; pillT.textContent=txt;
-    if(dot) dot.className='bot-dot '+(cls==='off'?'off':'on');
+    if(dot) dot.className='bot-dot '+(cls==='on'?'on':cls==='idle'?'idle':'off');
     document.getElementById('bot-state-text').textContent=txt;
     document.getElementById('bot-state-sub').textContent=sub;
     document.getElementById('bot-replies').textContent=st.replies_count;

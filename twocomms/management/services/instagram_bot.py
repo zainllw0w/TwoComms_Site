@@ -15027,6 +15027,9 @@ def ingress_status(s: InstagramBotSettings, *, now=None) -> dict[str, object]:
     }
 
 
+WORKER_RECOVERY_GRACE_SECONDS = 30
+
+
 def status_snapshot() -> dict:
     from management.services.ig_maintenance import maintenance_status
     from management.services.ig_permission_transitions import (
@@ -15069,6 +15072,15 @@ def status_snapshot() -> dict:
         state = "ingress_degraded"
     elif daemon_online:
         state = "running"
+    elif (
+        db_heartbeat_fresh
+        and db_heartbeat_age is not None
+        and db_heartbeat_age < WORKER_RECOVERY_GRACE_SECONDS
+    ):
+        # A controlled reload removes cache pulses before the supervisor starts
+        # the replacement child.  The durable heartbeat remains fresh for a
+        # few seconds; this is recovery progress, not a MariaDB contradiction.
+        state = "worker_recovering"
     elif db_heartbeat_fresh:
         state = "worker_error"
     else:
