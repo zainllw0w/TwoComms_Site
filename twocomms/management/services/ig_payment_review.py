@@ -2812,6 +2812,8 @@ def correct_false_historical_purchase(review, *, actor, reason: str):
     from management.ig_bot_models import (
         IgClient,
         IgCommercialEpisode,
+        IgCommercialEpisodeEvent,
+        IgClientStageEvent,
         IgPaymentConfirmationReview,
         IgPaymentReviewDecision,
     )
@@ -2820,7 +2822,10 @@ def correct_false_historical_purchase(review, *, actor, reason: str):
         verified_payment_deals,
     )
     from management.services.ig_commercial_episodes import (
+        FALSE_HISTORICAL_PURCHASE_REASON,
         append_episode_event,
+        derive_current_episode_stage,
+        ensure_open_episode_for_locked_client,
         payment_truth_snapshot,
     )
 
@@ -2842,18 +2847,18 @@ def correct_false_historical_purchase(review, *, actor, reason: str):
         IgPaymentReviewDecision.objects.filter(
             review=locked,
             decision=IgPaymentReviewDecision.Decision.MANAGER_REJECTED,
-            reason_code="false_historical_purchase_corrected",
+            reason_code=FALSE_HISTORICAL_PURCHASE_REASON,
         )
         .order_by("-id")
         .first()
     )
-    if (
+    already_corrected = bool(
         locked.status == IgPaymentConfirmationReview.Status.SUPERSEDED
         and previous_retraction is not None
-    ):
-        return locked
-    if locked.status != IgPaymentConfirmationReview.Status.CONFIRMED or (
-        locked.resolution_kind
+    )
+    if not already_corrected and (
+        locked.status != IgPaymentConfirmationReview.Status.CONFIRMED
+        or locked.resolution_kind
         != IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
     ):
         raise ValueError("Виправлення доступне лише для підтвердженої історичної покупки.")
@@ -2864,10 +2869,32 @@ def correct_false_historical_purchase(review, *, actor, reason: str):
     ).exists():
         raise ValueError("Не можна скасувати історичну покупку з provider-підтвердженою оплатою.")
 
+    episode_ids = set(
+        IgCommercialEpisode.objects.select_for_update()
+        .filter(client_id=client.pk, primary_payment_review_id=locked.pk)
+        .values_list("pk", flat=True)
+    )
+    correction_events = list(
+        IgCommercialEpisodeEvent.objects.filter(
+            episode__client_id=client.pk,
+            event_type="historical_purchase_corrected",
+        ).values("episode_id", "evidence")
+    )
+    for row in correction_events:
+        evidence = row.get("evidence")
+        if not isinstance(evidence, dict):
+            continue
+        try:
+            event_review_id = int(evidence.get("review_id") or 0)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        if event_review_id == locked.pk:
+            episode_ids.add(int(row["episode_id"]))
     episodes = list(
         IgCommercialEpisode.objects.select_for_update()
         .select_related("deal", "intended_order")
-        .filter(client_id=client.pk, primary_payment_review_id=locked.pk)
+        .filter(client_id=client.pk, pk__in=episode_ids)
+        .order_by("id")
     )
     for episode in episodes:
         if episode.intended_order_id:
@@ -2878,52 +2905,58 @@ def correct_false_historical_purchase(review, *, actor, reason: str):
             raise ValueError("Епізод має provider-підтверджену оплату.")
 
     now = timezone.now()
-    decision = IgPaymentReviewDecision.objects.create(
-        review=locked,
-        client=client,
-        decision=IgPaymentReviewDecision.Decision.MANAGER_REJECTED,
-        verification_source="manager",
-        verification_scope=IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED,
-        confirmed_amount=None,
-        order_total_amount=None,
-        order_total_source="",
-        currency=str(getattr(locked.deal, "currency", "") or "UAH")[:8],
-        amount_source="owner_correction",
-        amount_evidence_message_ids=[],
-        reason_code="false_historical_purchase_corrected",
-        reason_text=note[:500],
-        evidence_watermark_message_id=locked.watermark_message_id or 0,
-        review_status_before=IgPaymentConfirmationReview.Status.CONFIRMED,
-        review_status_after=IgPaymentConfirmationReview.Status.SUPERSEDED,
-        stage_before=client.stage or "",
-        stage_after=client.stage or "",
-        actor=actor,
-        actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
-        actor_external_id=str(actor.pk)[:128],
-        actor_label=str(getattr(actor, "get_username", lambda: "")() or actor.pk)[:150],
-    )
-
-    locked.status = IgPaymentConfirmationReview.Status.SUPERSEDED
-    locked.superseded_at = now
-    locked.supersede_reason = "false_historical_purchase_corrected"
-    locked.resolution_kind = IgPaymentConfirmationReview.ResolutionKind.NONE
-    locked.resolution_outcome = None
-    locked.resolution_note = f"Correction: {note}"[:2000]
-    locked.resolved_at = now
-    locked.resolved_by = actor
-    locked.save(
-        update_fields=[
-            "status",
-            "superseded_at",
-            "supersede_reason",
-            "resolution_kind",
-            "resolution_outcome",
-            "resolution_note",
-            "resolved_at",
-            "resolved_by",
-            "updated_at",
-        ]
-    )
+    if already_corrected:
+        decision = previous_retraction
+        correction_at = locked.superseded_at or decision.created_at or now
+    else:
+        decision = IgPaymentReviewDecision.objects.create(
+            review=locked,
+            client=client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_REJECTED,
+            verification_source="manager",
+            verification_scope=IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED,
+            confirmed_amount=None,
+            order_total_amount=None,
+            order_total_source="",
+            currency=str(getattr(locked.deal, "currency", "") or "UAH")[:8],
+            amount_source="owner_correction",
+            amount_evidence_message_ids=[],
+            reason_code=FALSE_HISTORICAL_PURCHASE_REASON,
+            reason_text=note[:500],
+            evidence_watermark_message_id=locked.watermark_message_id or 0,
+            review_status_before=IgPaymentConfirmationReview.Status.CONFIRMED,
+            review_status_after=IgPaymentConfirmationReview.Status.SUPERSEDED,
+            stage_before=client.stage or "",
+            stage_after=client.stage or "",
+            actor=actor,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(actor.pk)[:128],
+            actor_label=str(
+                getattr(actor, "get_username", lambda: "")() or actor.pk
+            )[:150],
+        )
+        correction_at = now
+        locked.status = IgPaymentConfirmationReview.Status.SUPERSEDED
+        locked.superseded_at = correction_at
+        locked.supersede_reason = FALSE_HISTORICAL_PURCHASE_REASON
+        locked.resolution_kind = IgPaymentConfirmationReview.ResolutionKind.NONE
+        locked.resolution_outcome = None
+        locked.resolution_note = f"Correction: {note}"[:2000]
+        locked.resolved_at = correction_at
+        locked.resolved_by = actor
+        locked.save(
+            update_fields=[
+                "status",
+                "superseded_at",
+                "supersede_reason",
+                "resolution_kind",
+                "resolution_outcome",
+                "resolution_note",
+                "resolved_at",
+                "resolved_by",
+                "updated_at",
+            ]
+        )
 
     for episode in episodes:
         previous_state = episode.state
@@ -2931,7 +2964,7 @@ def correct_false_historical_purchase(review, *, actor, reason: str):
         episode.state = IgCommercialEpisode.State.CANCELLED
         episode.outcome = "historical_purchase_corrected"
         episode.open_slot = None
-        episode.closed_at = now
+        episode.closed_at = correction_at
         episode.payment_snapshot = payment_truth_snapshot(
             episode=episode,
             review=None,
@@ -2959,11 +2992,78 @@ def correct_false_historical_purchase(review, *, actor, reason: str):
             evidence={
                 "review_id": locked.pk,
                 "decision_id": decision.pk,
-                "reason_code": "false_historical_purchase_corrected",
+                "reason_code": FALSE_HISTORICAL_PURCHASE_REASON,
             },
         )
 
     recalculate_client_payment_aggregates(client)
+    client.refresh_from_db()
+
+    corrected_ids = {episode.pk for episode in episodes}
+    current = (
+        IgCommercialEpisode.objects.select_for_update()
+        .select_related("deal", "deal__order", "intended_order")
+        .filter(
+            client_id=client.pk,
+            open_slot=1,
+            state=IgCommercialEpisode.State.ACTIVE,
+        )
+        .exclude(pk__in=corrected_ids)
+        .order_by("-sequence", "-id")
+        .first()
+    )
+    if current is None and client.current_commercial_episode_id not in corrected_ids:
+        current = (
+            IgCommercialEpisode.objects.select_for_update()
+            .select_related("deal", "deal__order", "intended_order")
+            .filter(
+                pk=client.current_commercial_episode_id,
+                client_id=client.pk,
+                state=IgCommercialEpisode.State.ACTIVE,
+            )
+            .first()
+        )
+
+    latest_stage_event = (
+        IgClientStageEvent.objects.select_for_update()
+        .filter(client_id=client.pk)
+        .order_by("-id")
+        .first()
+    )
+    poisoned_stage_reasons = {
+        "historical_payment_review_completed",
+        "historical_payment_review_paid",
+        FALSE_HISTORICAL_PURCHASE_REASON,
+    }
+    stage_was_poisoned = bool(
+        latest_stage_event
+        and latest_stage_event.reason in poisoned_stage_reasons
+        and latest_stage_event.to_stage == client.stage
+    )
+
+    if current is None and client.current_commercial_episode_id in corrected_ids:
+        client.current_commercial_episode = None
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+        if stage_was_poisoned and client.stage != IgClient.Stage.NEW:
+            client.set_stage(
+                IgClient.Stage.NEW,
+                reason=FALSE_HISTORICAL_PURCHASE_REASON,
+            )
+        current = ensure_open_episode_for_locked_client(
+            client,
+            materialization_prefix="ig-false-history-correction",
+        )
+    elif current is not None and client.current_commercial_episode_id != current.pk:
+        client.current_commercial_episode = current
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+
+    if current is not None and stage_was_poisoned:
+        target_stage = derive_current_episode_stage(client, current)
+        if target_stage != client.stage:
+            client.set_stage(
+                target_stage,
+                reason=FALSE_HISTORICAL_PURCHASE_REASON,
+            )
     return locked
 
 

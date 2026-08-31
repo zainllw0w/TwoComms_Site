@@ -126,6 +126,32 @@ def memory_note(client: IgClient) -> str | None:
     summary = (client.memory_summary or "").strip()
     if not summary:
         return None
+    summary_at = getattr(client, "memory_updated_at", None)
+    if summary_at is None:
+        return None
+    try:
+        episode = getattr(client, "current_commercial_episode", None)
+    except Exception:
+        episode = None
+    episode_opened_at = getattr(episode, "opened_at", None) if episode else None
+    if episode_opened_at and summary_at < episode_opened_at:
+        # A narrative generated for an earlier sales episode has no typed
+        # subject/line boundaries.  Reusing it can turn an old recipient, gift,
+        # size or test persona into a current customer fact.
+        return None
+    try:
+        from management.models import IgFunnelResetAudit
+
+        latest_reset_at = (
+            IgFunnelResetAudit.objects.filter(client_id=client.pk)
+            .order_by("-id")
+            .values_list("created_at", flat=True)
+            .first()
+        )
+    except Exception:
+        latest_reset_at = None
+    if latest_reset_at and summary_at <= latest_reset_at:
+        return None
     from management.services.instagram_bot import neutralize_untrusted_text
 
     safe = neutralize_untrusted_text(summary, limit=MEMORY_NOTE_MAX_CHARS)

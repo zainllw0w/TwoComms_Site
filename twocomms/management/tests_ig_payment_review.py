@@ -1825,6 +1825,7 @@ class FalseHistoricalPurchaseCorrectionTests(TestCase):
         from management.ig_bot_models import (
             IgCommercialEpisode,
             IgCommercialEpisodeEvent,
+            IgDeal,
             IgPaymentConfirmationReview,
             IgPaymentReviewDecision,
         )
@@ -1844,7 +1845,13 @@ class FalseHistoricalPurchaseCorrectionTests(TestCase):
             is_staff=True,
         )
         client = IgClient.get_or_create_for_sender("false-historical-correction-client")
-        original_stage = client.stage
+        client.stage = IgClient.Stage.CHECKOUT
+        client.intent = IgClient.Intent.PAYMENT
+        client.save(update_fields=["stage", "intent", "updated_at"])
+        client.set_stage(
+            IgClient.Stage.DONE,
+            reason="historical_payment_review_completed",
+        )
         review = IgPaymentConfirmationReview.objects.create(
             client=client,
             dedupe_key="false-historical-correction-review",
@@ -1893,12 +1900,18 @@ class FalseHistoricalPurchaseCorrectionTests(TestCase):
             primary_payment_review=review,
             payment_snapshot={"review_id": review.pk, "decision_id": original_decision.pk},
         )
+        current_deal = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.QUOTED,
+            amount=Decimal("788.00"),
+        )
         current_episode = IgCommercialEpisode.objects.create(
             client=client,
             sequence=2,
             open_slot=1,
             materialization_key="current-real-prospect-episode",
             state=IgCommercialEpisode.State.ACTIVE,
+            deal=current_deal,
         )
         client.current_commercial_episode = current_episode
         client.save(update_fields=["current_commercial_episode", "updated_at"])
@@ -1956,22 +1969,68 @@ class FalseHistoricalPurchaseCorrectionTests(TestCase):
         )
         self.assertEqual(current_episode.state, IgCommercialEpisode.State.ACTIVE)
         self.assertEqual(client.current_commercial_episode_id, current_episode.pk)
-        self.assertEqual(client.stage, original_stage)
+        self.assertEqual(client.stage, IgClient.Stage.CHECKOUT)
         self.assertEqual(client.purchases_count, 0)
         self.assertFalse((client.conversion_flags or {}).get("is_buyer"))
         self.assertFalse(client_has_confirmed_purchase(client))
         self.assertFalse(historical_purchase_confirmation(client)["confirmed"])
+        from management.services.instagram_bot import build_prompt_snapshot
+
+        prompt = build_prompt_snapshot(client)
+        self.assertNotIn("Завершено (100% воронки)", prompt)
+
+        # Reproduce the old daemon-start migration reconciler: it reopened the
+        # corrected deal episode and materialized the retired review separately.
+        historical_episode.state = IgCommercialEpisode.State.ACTIVE
+        historical_episode.outcome = ""
+        historical_episode.closed_at = None
+        historical_episode.save(update_fields=[
+            "state", "outcome", "closed_at", "updated_at",
+        ])
+        resurrected = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=3,
+            open_slot=None,
+            materialization_key="retired-review-rematerialized",
+            state=IgCommercialEpisode.State.LOST,
+            outcome="superseded_duplicate_payment_review",
+            primary_payment_review=review,
+        )
 
         replay = correct_false_historical_purchase(
             corrected,
             actor=actor,
             reason="Owner confirmed that no historical purchase occurred",
         )
+        historical_episode.refresh_from_db()
+        resurrected.refresh_from_db()
+        current_episode.refresh_from_db()
+        client.refresh_from_db()
         self.assertEqual(replay.pk, corrected.pk)
         self.assertEqual(review.decisions.count(), 2)
+        self.assertEqual(historical_episode.state, IgCommercialEpisode.State.CANCELLED)
+        self.assertEqual(resurrected.state, IgCommercialEpisode.State.CANCELLED)
+        self.assertIsNone(resurrected.primary_payment_review_id)
+        self.assertEqual(client.current_commercial_episode_id, current_episode.pk)
+        self.assertEqual(client.stage, IgClient.Stage.CHECKOUT)
         self.assertEqual(
             IgCommercialEpisodeEvent.objects.filter(
-                event_type="historical_purchase_corrected"
+                event_type="historical_purchase_corrected",
+                evidence__review_id=review.pk,
             ).count(),
-            1,
+            2,
+        )
+
+        from django.core.management import call_command
+
+        call_command("reconcile_ig_commercial_episodes", passes=3)
+        call_command("reconcile_ig_commercial_episodes", passes=3)
+        self.assertFalse(
+            IgCommercialEpisode.objects.filter(
+                primary_payment_review=review,
+            ).exists()
+        )
+        self.assertEqual(
+            IgCommercialEpisode.objects.filter(client=client).count(),
+            3,
         )

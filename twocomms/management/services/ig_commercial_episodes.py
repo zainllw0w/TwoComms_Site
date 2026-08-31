@@ -22,6 +22,8 @@ _EPISODE_LOCKS = WeakValueDictionary()
 _EPISODE_LOCKS_GUARD = RLock()
 _HELD_DB_LOCKS = ContextVar("ig_episode_db_locks", default=frozenset())
 
+FALSE_HISTORICAL_PURCHASE_REASON = "false_historical_purchase_corrected"
+
 
 @contextmanager
 def commercial_episode_client_lock(client_id: int):
@@ -66,6 +68,114 @@ class ResolvedClientOrder:
     episode: object | None
     attribution: object | None
     match_kind: str
+
+
+def review_has_false_historical_purchase_correction(review) -> bool:
+    """Return whether an audited owner correction retired this review.
+
+    A corrected historical review is a tombstone, not a duplicate payment
+    attempt.  Runtime reconciliation must never turn it back into a commercial
+    episode merely because its original source row still exists for audit.
+    """
+    if review is None or not getattr(review, "pk", None):
+        return False
+    if str(getattr(review, "status", "") or "") != "superseded":
+        return False
+    if str(getattr(review, "supersede_reason", "") or "") == (
+        FALSE_HISTORICAL_PURCHASE_REASON
+    ):
+        return True
+    try:
+        return review.decisions.filter(
+            decision="manager_rejected",
+            reason_code=FALSE_HISTORICAL_PURCHASE_REASON,
+        ).exists()
+    except Exception:
+        return False
+
+
+def derive_current_episode_stage(client, episode=None) -> str:
+    """Derive the current funnel stage from current-episode evidence only.
+
+    This deliberately seeds the monotonic reducer at ``NEW`` instead of the
+    mutable client stage.  It is used when a false historical-payment decision
+    poisoned that stage with ``paid/order_created/done``.  Stage snapshots are
+    not inputs either: an episode opened while the poisoned stage was current
+    necessarily copied the same bad value.
+    """
+    from management.ig_bot_models import (
+        IgClient,
+        IgConversationSignal,
+        IgDeal,
+    )
+    from management.services.bot_payment_truth import current_payment_confirmation
+    from management.services.bot_sales_classifier import observed_stage_target
+    from management.services.ig_funnel_reset import current_message_floor
+
+    if not client or not getattr(client, "pk", None):
+        return IgClient.Stage.NEW
+    if bool(getattr(client, "manager_takeover", False)):
+        return IgClient.Stage.LEAD_TO_MANAGER
+    if episode is None:
+        episode = getattr(client, "current_commercial_episode", None)
+    if episode is None or (
+        episode.client_id != client.pk
+        or episode.open_slot != 1
+        or episode.state != episode.State.ACTIVE
+    ):
+        return IgClient.Stage.NEW
+
+    deal = getattr(episode, "deal", None) if episode.deal_id else None
+    order = getattr(episode, "intended_order", None) if episode.intended_order_id else None
+    if order is None and deal is not None and deal.order_id:
+        order = deal.order
+
+    boundary = max(
+        int(current_message_floor(client) or 0),
+        int(episode.opened_watermark_message_id or 0),
+    )
+    signal_types = set(
+        IgConversationSignal.objects.filter(
+            client_id=client.pk,
+            message_id__gte=boundary,
+        )
+        .exclude(signal_type=IgConversationSignal.Type.MANAGER_TAKEOVER)
+        .values_list("signal_type", flat=True)
+    )
+    product_snapshot = (
+        episode.product_snapshot if isinstance(episode.product_snapshot, list) else []
+    )
+    has_product = bool(product_snapshot or getattr(client, "current_product_id", None))
+    has_size = bool(
+        getattr(client, "current_size", "")
+        or any(
+            isinstance(row, dict) and str(row.get("size") or "").strip()
+            for row in product_snapshot
+        )
+    )
+    if deal is not None and not has_product:
+        has_product = deal.items.exists()
+    if deal is not None and not has_size:
+        has_size = deal.items.exclude(size="").exists()
+
+    verified_payment = bool(current_payment_confirmation(client).get("confirmed"))
+    payment_pending = bool(
+        deal is not None and deal.status == IgDeal.Status.AWAITING_PAYMENT
+    )
+    order_created = bool(order is not None)
+    target = observed_stage_target(
+        IgClient.Stage.NEW,
+        signal_types=signal_types,
+        intent=str(getattr(client, "intent", "") or ""),
+        has_product=has_product,
+        has_size=has_size,
+        payment_pending=payment_pending,
+        verified_payment=verified_payment,
+        order_created=order_created,
+    )
+    if verified_payment and order is not None and str(order.status or "") == "done":
+        return IgClient.Stage.DONE
+    return target
 
 
 def _decimal(value, default="0") -> Decimal:
@@ -632,6 +742,10 @@ def ensure_episode_for_deal(deal):
 def ensure_episode_for_review(review, *, isolate_from_current: bool = False):
     from management.ig_bot_models import IgClient, IgCommercialEpisode, IgOrderAttribution
 
+    if review_has_false_historical_purchase_correction(review):
+        raise ValueError(
+            "Виправлена хибна історична покупка не може створювати комерційний епізод."
+        )
     with commercial_episode_client_lock(review.client_id):
         with transaction.atomic():
             client = IgClient.objects.select_for_update().get(pk=review.client_id)
@@ -856,6 +970,108 @@ def ensure_episode_for_attribution(attribution):
             creation_mode=attribution.creation_mode,
             payment_source=attribution.payment_source,
         )
+
+
+def reconcile_missing_commercial_episode_sources(*, passes: int = 3) -> dict:
+    """Attach only source rows that have no runtime episode yet.
+
+    The daemon used to rerun migration ``0106`` on every start.  That migration
+    is a historical reconstruction: it is allowed to rewrite existing episode
+    state from legacy rows, which makes it unsuitable as an online reconciler.
+    In particular it could overwrite an append-only owner correction and then
+    materialize the retired review as a new ``lost`` episode.
+
+    This online path is intentionally monotonic.  It invokes the normal locked
+    materializers only for genuinely missing, still-actionable source rows and
+    never rewrites an existing episode projection.
+    """
+    from management.ig_bot_models import (
+        IgCommercialEpisode,
+        IgDeal,
+        IgOrderAttribution,
+        IgPaymentConfirmationReview,
+    )
+
+    bounded_passes = max(1, min(int(passes or 1), 10))
+    processed = {"deals": 0, "reviews": 0, "attributions": 0}
+
+    def missing_sources():
+        episode_rows = IgCommercialEpisode.objects.all()
+        episode_attribution_ids = episode_rows.exclude(
+            order_attribution_id__isnull=True
+        ).values("order_attribution_id")
+        attribution_review_ids = IgOrderAttribution.objects.filter(
+            pk__in=episode_attribution_ids,
+            payment_review_id__isnull=False,
+        ).values("payment_review_id")
+        materialized_reviews = (
+            Q(
+                pk__in=episode_rows.exclude(
+                    primary_payment_review_id__isnull=True
+                ).values("primary_payment_review_id")
+            )
+            | Q(
+                deal_id__isnull=False,
+                deal_id__in=episode_rows.exclude(deal_id__isnull=True).values(
+                    "deal_id"
+                ),
+            )
+            | Q(
+                order_id__isnull=False,
+                order_id__in=episode_rows.exclude(
+                    intended_order_id__isnull=True
+                ).values("intended_order_id"),
+            )
+            | Q(pk__in=attribution_review_ids)
+        )
+        deals = list(
+            IgDeal.objects.filter(commercial_episode__isnull=True)
+            .exclude(status=IgDeal.Status.CANCELLED)
+            .order_by("id")[:500]
+        )
+        reviews = list(
+            IgPaymentConfirmationReview.objects.filter(
+                status__in=(
+                    IgPaymentConfirmationReview.Status.PENDING,
+                    IgPaymentConfirmationReview.Status.CONFIRMED,
+                ),
+            )
+            .exclude(materialized_reviews)
+            .order_by("id")[:500]
+        )
+        attributions = list(
+            IgOrderAttribution.objects.filter(commercial_episode__isnull=True)
+            .order_by("id")[:500]
+        )
+        return deals, reviews, attributions
+
+    for _unused in range(bounded_passes):
+        deals, reviews, attributions = missing_sources()
+        if not any((deals, reviews, attributions)):
+            break
+        for deal in deals:
+            ensure_episode_for_deal(deal)
+            processed["deals"] += 1
+        for review in reviews:
+            # The status filter rejects every superseded review; keep the
+            # explicit predicate as a fail-closed guard if statuses evolve.
+            if review_has_false_historical_purchase_correction(review):
+                continue
+            ensure_episode_for_review(review)
+            processed["reviews"] += 1
+        for attribution in attributions:
+            ensure_episode_for_attribution(attribution)
+            processed["attributions"] += 1
+
+    deals, reviews, attributions = missing_sources()
+    return {
+        **processed,
+        "remaining": {
+            "deals": len(deals),
+            "reviews": len(reviews),
+            "attributions": len(attributions),
+        },
+    }
 
 
 def bind_episode_order(

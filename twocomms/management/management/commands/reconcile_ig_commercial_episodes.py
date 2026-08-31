@@ -1,6 +1,4 @@
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connection
-from importlib import import_module
 
 
 class Command(BaseCommand):
@@ -10,21 +8,24 @@ class Command(BaseCommand):
         parser.add_argument("--passes", type=int, default=3)
 
     def handle(self, *args, **options):
-        migration = import_module("management.migrations.0106_ig_commercial_episodes")
-
         passes = max(1, min(int(options["passes"]), 10))
-        # Use the live app registry: this command runs after migrations and may
-        # repair rows written by an older worker during the release window.
-        from django.apps import apps
+        from management.services.ig_commercial_episodes import (
+            reconcile_missing_commercial_episode_sources,
+        )
 
         try:
-            schema_context = type("SchemaContext", (), {"connection": connection})()
-            remaining = migration.backfill_until_quiescent(
-                apps, schema_context, max_passes=passes
+            result = reconcile_missing_commercial_episode_sources(
+                passes=passes,
             )
         except Exception as exc:
             raise CommandError(str(exc)) from exc
+        remaining = result["remaining"]
         self.stdout.write(self.style.SUCCESS(
-            "Instagram commercial episodes reconciled; "
+            "Instagram missing commercial episodes reconciled; "
+            + ", ".join(
+                f"processed_{key}={result[key]}"
+                for key in ("deals", "reviews", "attributions")
+            )
+            + "; remaining "
             + ", ".join(f"{key}={value}" for key, value in remaining.items())
         ))

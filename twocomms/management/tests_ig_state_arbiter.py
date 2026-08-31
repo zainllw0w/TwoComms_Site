@@ -24,6 +24,7 @@ from django.test import TestCase
 
 from management.ig_bot_models import (
     IgClient,
+    IgCommercialEpisode,
     IgDeal,
     IgPaymentConfirmationReview,
     IgPaymentReviewDecision,
@@ -151,6 +152,35 @@ class CoherentStateTests(StateArbiterMixin, TestCase):
         self.assertFalse(state.is_buyer)
         self.assertEqual(state.payment_source, "none")
         self.assertEqual(state.side_flow, "")
+
+    def test_unverified_hard_stage_is_derived_from_current_episode(self):
+        from management.services.ig_client_state import resolve_client_state
+
+        client = self._client("arbiter-false-history-stage")
+        client.stage = IgClient.Stage.DONE
+        client.intent = IgClient.Intent.PAYMENT
+        client.save(update_fields=["stage", "intent", "updated_at"])
+        deal = IgDeal.objects.create(
+            client=client,
+            status=IgDeal.Status.QUOTED,
+            amount=Decimal("788.00"),
+        )
+        episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=1,
+            open_slot=1,
+            materialization_key="arbiter-false-history-stage",
+            deal=deal,
+        )
+        client.current_commercial_episode = episode
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+
+        state = resolve_client_state(client)
+
+        self.assertFalse(state.is_buyer)
+        self.assertEqual(state.stage, IgClient.Stage.CHECKOUT)
+        self.assertLess(state.funnel_progress, 100)
+        self.assertIn("stage:derived_current_episode", state.sources)
 
     def test_state_exposes_a_single_human_headline(self):
         """Ровно то, чего требовал критерий приёмки W3 для клиента #59."""

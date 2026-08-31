@@ -11,7 +11,13 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from management.models import IgAnalysisMaterialityEvent, IgClient, InstagramBotMessage
+from management.models import (
+    IgAnalysisMaterialityEvent,
+    IgClient,
+    IgCommercialEpisode,
+    IgFunnelResetAudit,
+    InstagramBotMessage,
+)
 from management.services import bot_memory
 
 
@@ -23,10 +29,56 @@ class MemoryNoteTests(TestCase):
     def test_text_when_set(self):
         c = IgClient.get_or_create_for_sender("m2")
         c.memory_summary = "хоче худі Kharkiv, розмір M, 950 грн"
+        c.memory_updated_at = timezone.now()
         c.save()
         note = bot_memory.memory_note(c)
         self.assertIsNotNone(note)
         self.assertIn("Kharkiv", note)
+
+    def test_summary_older_than_current_episode_is_not_injected(self):
+        c = IgClient.get_or_create_for_sender("m2-stale-episode")
+        c.memory_summary = "old narrative"
+        c.memory_updated_at = timezone.now()
+        c.save(update_fields=["memory_summary", "memory_updated_at", "updated_at"])
+        episode = IgCommercialEpisode.objects.create(
+            client=c,
+            sequence=1,
+            materialization_key="memory-stale-episode",
+        )
+        c.current_commercial_episode = episode
+        c.save(update_fields=["current_commercial_episode", "updated_at"])
+
+        self.assertIsNone(bot_memory.memory_note(c))
+
+    def test_fresh_summary_inside_current_episode_is_still_available(self):
+        c = IgClient.get_or_create_for_sender("m2-fresh-episode")
+        episode = IgCommercialEpisode.objects.create(
+            client=c,
+            sequence=1,
+            materialization_key="memory-fresh-episode",
+        )
+        c.current_commercial_episode = episode
+        c.memory_summary = "current narrative"
+        c.memory_updated_at = timezone.now()
+        c.save(update_fields=[
+            "current_commercial_episode", "memory_summary",
+            "memory_updated_at", "updated_at",
+        ])
+
+        self.assertIn("current narrative", bot_memory.memory_note(c) or "")
+
+    def test_summary_at_or_before_reset_is_not_injected(self):
+        c = IgClient.get_or_create_for_sender("m2-stale-reset")
+        c.memory_summary = "pre-reset narrative"
+        c.memory_updated_at = timezone.now()
+        c.save(update_fields=["memory_summary", "memory_updated_at", "updated_at"])
+        IgFunnelResetAudit.objects.create(
+            client=c,
+            reason="test boundary",
+            resulting_stage=IgClient.Stage.NEW,
+        )
+
+        self.assertIsNone(bot_memory.memory_note(c))
 
 
 class UpdateMemoryTests(TestCase):

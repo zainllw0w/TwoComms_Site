@@ -173,6 +173,47 @@ class CommercialEpisodeTests(TestCase):
         episode = IgCommercialEpisode.objects.get(deal=deal)
         self.assertEqual(episode.client_id, self.client.pk)
 
+    def test_missing_only_reconcile_does_not_reprocess_secondary_review(self):
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgDeal,
+            IgPaymentConfirmationReview,
+        )
+        from management.services.ig_commercial_episodes import (
+            reconcile_missing_commercial_episode_sources,
+        )
+
+        deal = IgDeal.objects.create(
+            client=self.client,
+            amount=Decimal("640.00"),
+        )
+        episode = IgCommercialEpisode.objects.create(
+            client=self.client,
+            sequence=1,
+            materialization_key="secondary-review-existing-deal",
+            deal=deal,
+        )
+        review = IgPaymentConfirmationReview.objects.create(
+            client=self.client,
+            deal=deal,
+            dedupe_key="secondary-review-existing-deal",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+        )
+
+        first = reconcile_missing_commercial_episode_sources(passes=3)
+        second = reconcile_missing_commercial_episode_sources(passes=3)
+
+        self.assertEqual(first["reviews"], 0)
+        self.assertEqual(second["reviews"], 0)
+        self.assertEqual(first["remaining"]["reviews"], 0)
+        self.assertEqual(second["remaining"]["reviews"], 0)
+        self.assertEqual(IgCommercialEpisode.objects.filter(client=self.client).count(), 1)
+        episode.refresh_from_db()
+        self.assertIsNone(episode.primary_payment_review_id)
+        self.assertFalse(
+            IgCommercialEpisode.objects.filter(primary_payment_review=review).exists()
+        )
+
     def test_order_truth_change_closes_only_the_exact_episode(self):
         from management.ig_bot_models import IgCommercialEpisode
         from management.services.ig_commercial_episodes import (

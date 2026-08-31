@@ -2,6 +2,7 @@
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 
 from management.models import IgClient, InstagramBotMessage
 from management.services import bot_memory
@@ -26,7 +27,8 @@ class UntrustedMemoryNoteTests(TestCase):
 
     def _note(self, summary):
         self.ig_client.memory_summary = summary
-        self.ig_client.save(update_fields=["memory_summary"])
+        self.ig_client.memory_updated_at = timezone.now()
+        self.ig_client.save(update_fields=["memory_summary", "memory_updated_at"])
         return bot_memory.memory_note(self.ig_client) or ""
 
     def test_summary_is_offered_as_quoted_records_not_instructions(self):

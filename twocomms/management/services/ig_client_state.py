@@ -70,13 +70,13 @@ def _payment_source(client) -> tuple[str, bool]:
     return "none", False
 
 
-def _funnel_progress(client) -> int:
+def _funnel_progress(client, stage: str | None = None) -> int:
     """Percent of the main funnel completed, independent of any side flow."""
     from management.models import IgClient
 
     order = [item.value for item in IgClient.FUNNEL_ORDER]
     try:
-        index = order.index(client.stage)
+        index = order.index(stage if stage is not None else client.stage)
     except ValueError:
         return 0
     return int(round((index + 1) * 100 / len(order)))
@@ -95,6 +95,27 @@ def resolve_client_state(client) -> CoherentState:
     is_buyer = payment_source in {"provider", "manager"}
     purchases = int(getattr(client, "purchases_count", 0) or 0)
     sources = [f"payment:{payment_source}"]
+
+    effective_stage = str(client.stage or "")
+    try:
+        from management.models import IgClient
+
+        hard_stages = {
+            IgClient.Stage.PAID,
+            IgClient.Stage.ORDER_CREATED,
+            IgClient.Stage.DONE,
+        }
+        if not is_buyer and effective_stage in hard_stages:
+            from management.services.ig_commercial_episodes import (
+                derive_current_episode_stage,
+            )
+
+            effective_stage = derive_current_episode_stage(client)
+            sources.append("stage:derived_current_episode")
+    except Exception:
+        # Keep the read model available during a partial rollout.  The caller's
+        # hard-stage payment warning still prevents a purchase claim.
+        effective_stage = str(client.stage or "")
 
     side_flow = ""
     side_flow_status = ""
@@ -115,9 +136,9 @@ def resolve_client_state(client) -> CoherentState:
     try:
         from management.models import IgClient
 
-        stage_label = str(IgClient.Stage(client.stage).label)
+        stage_label = str(IgClient.Stage(effective_stage).label)
     except Exception:
-        stage_label = str(client.stage or "")
+        stage_label = effective_stage
 
     headline_parts = []
     if reversed_payment:
@@ -139,9 +160,9 @@ def resolve_client_state(client) -> CoherentState:
         payment_source=payment_source,
         payment_reversed=reversed_payment,
         purchases=purchases,
-        stage=str(client.stage or ""),
+        stage=effective_stage,
         stage_label=stage_label,
-        funnel_progress=_funnel_progress(client),
+        funnel_progress=_funnel_progress(client, effective_stage),
         side_flow=side_flow,
         side_flow_label=_SIDE_FLOW_LABELS.get(side_flow, ""),
         side_flow_status=side_flow_status,
