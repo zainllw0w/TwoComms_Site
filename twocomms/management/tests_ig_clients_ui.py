@@ -349,6 +349,24 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             self.template[initial_start:initial_end],
         )
 
+    def test_open_conversation_poll_is_stale_safe_and_non_intrusive(self):
+        for contract in (
+            "const CLIENT_CONVERSATION_POLL_MS=6500",
+            "const requestedConvId=convId",
+            "if(convId!==requestedConvId)return",
+            "convId=c.id;convPollFailures=0",
+            "const data=await readJsonResponse(response,'Не вдалося перевірити нові повідомлення.')",
+            "if(authFailure||convPollFailures>=3)",
+            "Показано останні успішні дані.",
+            "globalFeedback.dataset.source='conversation-poll'",
+        ):
+            self.assertIn(contract, self.template)
+
+        self.assertNotIn(
+            "Не вдалося оновити відкритий діалог.",
+            self.template,
+        )
+
     def test_relative_time_distinguishes_future_and_overdue_followups(self):
         for contract in (
             "function relativeTime(iso,{due=false}={})",
