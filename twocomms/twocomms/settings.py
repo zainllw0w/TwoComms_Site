@@ -239,6 +239,17 @@ GEMINI_ACCOUNTING_IDENTITY_HMAC_KEY = os.environ.get(
     '',
 ).strip()
 
+# Durable/background Gemini work rotates to the next project after one
+# provider boundary per candidate.  This is an explicit resilience policy,
+# independent from accounting shadow: both ``off`` and ``shadow`` execute the
+# same sequence, so S3b remains observational after this release baseline.
+# A timeout is ambiguous quota spend and must not be retried immediately on
+# the same project/model under a second accounting identity.
+IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION = _env_bool(
+    'IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION',
+    True,
+)
+
 # Э0.6: запись хода клиента (`IgCustomerTurn`). Само по себе только наблюдение —
 # порядок обработки очереди не меняется, поэтому включено по умолчанию: без записи
 # метрику messages-per-turn нельзя ни снять, ни опровергнуть. Переход воркера на

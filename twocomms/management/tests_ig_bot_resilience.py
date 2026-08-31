@@ -355,6 +355,7 @@ class BackgroundPoolLeaseTests(SimpleTestCase):
         self.assertLess(sum(effective_timeout), gk.KEY_LEASE_SECONDS)
         release.assert_called_once_with("GEMINI_API4", "lease-token")
 
+    @override_settings(IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION=False)
     def test_retry_releases_lease_before_deadline_clipped_backoff(self):
         events = []
         clock = {"now": 10.0}

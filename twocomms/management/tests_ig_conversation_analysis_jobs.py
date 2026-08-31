@@ -1129,6 +1129,33 @@ class ConversationAnalysisJobTests(TestCase):
         self.assertEqual(self.operational_digest(), before)
         generate.assert_not_called()
 
+    @patch(
+        "management.services.gemini_accounting_runtime.reconcile_expired_request_graphs",
+        return_value=2,
+    )
+    def test_analysis_reconcile_also_closes_expired_request_graphs(self, reconcile_graphs):
+        now = timezone.now()
+
+        result = analysis.reconcile_analysis_jobs(limit=25, now=now)
+
+        reconcile_graphs.assert_called_once_with(now=now, limit=25)
+        self.assertEqual(result["request_graphs_reconciled"], 2)
+
+    @patch(
+        "management.services.gemini_accounting_runtime.reconcile_expired_request_graphs",
+        side_effect=RuntimeError("corrupt graph fixture"),
+    )
+    def test_request_graph_housekeeping_failure_does_not_block_analysis_reconcile(
+        self,
+        reconcile_graphs,
+    ):
+        now = timezone.now()
+
+        result = analysis.reconcile_analysis_jobs(limit=25, now=now)
+
+        reconcile_graphs.assert_called_once_with(now=now, limit=25)
+        self.assertEqual(result["request_graphs_reconciled"], 0)
+
     def test_skipped_job_is_reconciled_when_verified_payment_truth_changes(self):
         reaction = self.message("❤️")
         IgConversationAnalysisSnapshot.objects.create(

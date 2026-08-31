@@ -741,6 +741,11 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
     manual_key = str(manual_key or "").strip() or None
     if manual_key and not gemini_keys.manual_key_allowed(role, manual_key):
         manual_key = None
+    if manual_key and gemini_keys.configured_alias_for_secret(manual_key):
+        # A configured credential already participates in the project pool.
+        # Calling it once as ``manual`` and again through its alias would spend
+        # the same project quota twice under different labels.
+        manual_key = None
     payload["_reasoning_task"] = policy["task"]
     log: list[str] = []
     n_attempts = gemini_keys.attempts_per_model(role)
@@ -751,7 +756,24 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
         deadline_seconds = CHAT_DEADLINE_SECONDS if role == "chat" else None
     t_start = time.monotonic()
     deadline = None if deadline_seconds is None else t_start + deadline_seconds
+    # One ambiguous provider boundary is conservative spend.  Rotate durable
+    # analysis to the next project rather than retrying the same project/model
+    # in another inner attempt or round.  This policy is deliberately
+    # independent from accounting mode so shadow never changes execution.
+    single_boundary_rotation = bool(
+        role == "management"
+        and getattr(
+            settings,
+            "IG_GEMINI_ANALYSIS_SINGLE_BOUNDARY_ROTATION",
+            True,
+        )
+    )
+    if single_boundary_rotation:
+        n_attempts = 1
+        rounds = 1
+
     accounting_observer = None
+    planning_candidates = []
     accounting_ownership_blocked = False
     try:
         from management.services import gemini_accounting_runtime
@@ -784,7 +806,6 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
         raise CallAIAnalysisError(
             "Gemini provider dispatch rejected: source/lane already owned."
         )
-
     def _over_deadline() -> bool:
         return deadline_seconds is not None and (time.monotonic() - t_start) >= deadline_seconds
 
@@ -794,6 +815,21 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                 log_cb(msg)
             except Exception:
                 pass
+
+    def _call_graph_owned(*args, **kwargs):
+        """Terminalize the owned graph before propagating any gateway exit."""
+        try:
+            return _call_combo(*args, **kwargs)
+        except Exception as exc:
+            if accounting_observer is not None:
+                detail = str(exc).casefold()
+                reason = (
+                    "ownership_conflict"
+                    if "ownership" in detail or "stale request" in detail
+                    else "gateway_exception"
+                )
+                accounting_observer.resolve_failure(reason)
+            raise
 
     aborted = False
     for round_idx in range(rounds):
@@ -821,14 +857,16 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
                         )
                     continue
                 attempted_this_round = True
-                status, res = _call_combo("(manual)", manual_key, model, payload,
-                                          n_attempts, grounded, log, parse, call_timeout,
-                                          log_cb, role=role, deadline=deadline,
-                                          accounting_observer=accounting_observer,
-                                          candidate_index=(
-                                              accounting_observer.candidate_index("(manual)", model)
-                                              if accounting_observer is not None else 0
-                                          ))
+                status, res = _call_graph_owned(
+                    "(manual)", manual_key, model, payload,
+                    n_attempts, grounded, log, parse, call_timeout,
+                    log_cb, role=role, deadline=deadline,
+                    accounting_observer=accounting_observer,
+                    candidate_index=(
+                        accounting_observer.candidate_index("(manual)", model)
+                        if accounting_observer is not None else 0
+                    ),
+                )
                 if status == "ok":
                     return res
                 if _over_deadline():
@@ -839,23 +877,54 @@ def _run_with_pool(role: str, payload: dict, *, manual_key: str | None = None,
             if aborted:
                 break
 
-        # Always execute the fresh legacy iterator after manual attempts.
-        # Shadow planning above is observational and never becomes authority.
+        # Accounting shadow observes the same fresh execution iterator as off
+        # mode.  Duplicate credentials/project identities are skipped inside
+        # each model tier so aliases cannot silently spend one project twice.
+        seen_fingerprints_by_model: dict[str, set[bytes]] = {}
+        seen_projects_by_model: dict[str, set[str]] = {}
         for key_name, key_value, model in gemini_keys.iter_attempts(
-            role, model_chain_override=models
+            role,
+            model_chain_override=models,
         ):
             if _over_deadline():
                 aborted = True
                 break
+            fingerprint = gemini_keys.credential_fingerprint(key_value)
+            project_identity = gemini_keys.project_group(key_name)
+            seen_fingerprints = seen_fingerprints_by_model.setdefault(model, set())
+            seen_projects = seen_projects_by_model.setdefault(model, set())
+            duplicate = bool(fingerprint and fingerprint in seen_fingerprints) or bool(
+                project_identity and project_identity in seen_projects
+            )
+            if duplicate:
+                if accounting_observer is not None:
+                    accounting_observer.record_not_attempted(
+                        key_name=key_name,
+                        model=model,
+                        candidate_index=accounting_observer.candidate_index(
+                            key_name,
+                            model,
+                        ),
+                        reason="duplicate",
+                    )
+                log.append(f"{key_name}/{model}: duplicate project credential")
+                _emit(f"{key_name}/{model}: duplicate project credential → skip")
+                continue
+            if fingerprint:
+                seen_fingerprints.add(fingerprint)
+            if project_identity:
+                seen_projects.add(project_identity)
             attempted_this_round = True
-            status, res = _call_combo(key_name, key_value, model, payload,
-                                      n_attempts, grounded, log, parse, call_timeout,
-                                      log_cb, role=role, deadline=deadline,
-                                      accounting_observer=accounting_observer,
-                                      candidate_index=(
-                                          accounting_observer.candidate_index(key_name, model)
-                                          if accounting_observer is not None else 0
-                                      ))
+            status, res = _call_graph_owned(
+                key_name, key_value, model, payload,
+                n_attempts, grounded, log, parse, call_timeout,
+                log_cb, role=role, deadline=deadline,
+                accounting_observer=accounting_observer,
+                candidate_index=(
+                    accounting_observer.candidate_index(key_name, model)
+                    if accounting_observer is not None else 0
+                ),
+            )
             if status == "ok":
                 return res
             if _over_deadline():

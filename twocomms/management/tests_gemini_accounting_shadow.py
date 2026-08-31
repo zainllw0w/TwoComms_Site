@@ -2338,6 +2338,493 @@ class GeminiShadowRuntimeTests(TestCase):
 
 
 @override_settings(**SHADOW)
+class GeminiShadowAnalysisGraphRegressionTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        seed_shadow_profiles()
+
+    @staticmethod
+    def _analysis_candidates():
+        return [
+            (alias, f"analysis-key-{index}", "gemini-3.6-flash")
+            for index, alias in enumerate(
+                ("GEMINI_API", "GEMINI_API2", "GEMINI_API3",
+                 "GEMINI_API4", "GEMINI_API5", "GEMINI_API6"),
+                start=1,
+            )
+        ]
+
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "analysis-key-1",
+            "GEMINI_API2": "analysis-key-2",
+            "GEMINI_API3": "analysis-key-3",
+            "GEMINI_API4": "analysis-key-4",
+            "GEMINI_API5": "analysis-key-5",
+            "GEMINI_API6": "analysis-key-6",
+        },
+        clear=False,
+    )
+    def test_timeout_rotates_to_next_frozen_project_and_terminalizes_winner(self):
+        candidates = self._analysis_candidates()
+        provider_keys = []
+
+        def call_once(model, _payload, key, **kwargs):
+            provider_keys.append(key)
+            boundary = kwargs["attempt_boundary"]
+            self.assertTrue(boundary.before_provider(serialized_bytes=128))
+            if key == "analysis-key-1":
+                error = ai._GeminiTransient("timeout: ambiguous provider result")
+                boundary.failed(error)
+                raise error
+            boundary.succeeded({"promptTokenCount": 2, "totalTokenCount": 3})
+            return "analysis recovered", {
+                "promptTokenCount": 2,
+                "totalTokenCount": 3,
+            }
+
+        with (
+            patch.object(
+                ai.gemini_keys,
+                "task_model_chain",
+                return_value=["gemini-3.6-flash"],
+            ),
+            patch.object(
+                ai.gemini_keys,
+                "iter_attempts",
+                side_effect=lambda *_args, **_kwargs: iter(candidates),
+            ),
+            patch.object(ai.gemini_keys, "attempts_per_model", return_value=2),
+            patch.object(ai.gemini_keys, "max_rounds", return_value=2),
+            patch.object(
+                ai.gemini_keys,
+                "acquire_key_lease",
+                side_effect=lambda key_name, **_kwargs: f"lease-{key_name}",
+            ),
+            patch.object(ai.gemini_keys, "release_key_lease", return_value=True),
+            patch.object(ai.gemini_quota, "try_reserve", return_value=True),
+            patch.object(ai.gemini_quota, "settle"),
+            patch.object(ai, "_gemini_call_once", side_effect=call_once),
+        ):
+            result = ai._run_with_pool(
+                "management",
+                {"contents": []},
+                deadline_seconds=30,
+                reasoning_task="conversation_reanalysis",
+            )
+
+        self.assertEqual(result["parsed"], "analysis recovered")
+        self.assertEqual(provider_keys, ["analysis-key-1", "analysis-key-2"])
+        graph = GeminiRequest.objects.get()
+        graph.refresh_from_db()
+        self.assertEqual(graph.terminal_resolution, "succeeded")
+        self.assertEqual(graph.terminal_reason, "provider_success")
+        attempts = GeminiRequestAttempt.objects.filter(request_graph=graph)
+        self.assertEqual(
+            attempts.filter(candidate_index=1).count(),
+            1,
+            "one frozen candidate may cross the provider boundary only once",
+        )
+        timed_out = attempts.get(candidate_index=1)
+        self.assertEqual(
+            timed_out.fsm_state,
+            GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+        )
+        winner = attempts.get(candidate_index=2)
+        self.assertTrue(winner.winner_claimed)
+        self.assertEqual(graph.winner_attempt_id, winner.pk)
+        self.assertEqual(
+            attempts.filter(
+                candidate_index__in=(3, 4, 5, 6),
+                outcome="not_attempted",
+                not_attempted_reason="winner_found",
+            ).count(),
+            4,
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "analysis-key-1",
+            "GEMINI_API2": "analysis-key-2",
+        },
+        clear=False,
+    )
+    def test_configured_manual_key_is_not_dispatched_twice_under_two_labels(self):
+        provider_keys = []
+
+        def call_once(_model, _payload, key, **kwargs):
+            provider_keys.append(key)
+            boundary = kwargs["attempt_boundary"]
+            self.assertTrue(boundary.before_provider(serialized_bytes=64))
+            boundary.succeeded({"promptTokenCount": 1, "totalTokenCount": 2})
+            return "ok", {"promptTokenCount": 1, "totalTokenCount": 2}
+
+        candidates = [
+            ("GEMINI_API", "analysis-key-1", "gemini-3.6-flash"),
+            ("GEMINI_API2", "analysis-key-2", "gemini-3.6-flash"),
+        ]
+        with (
+            patch.object(ai.gemini_keys, "manual_key_allowed", return_value=True),
+            patch.object(
+                ai.gemini_keys,
+                "task_model_chain",
+                return_value=["gemini-3.6-flash"],
+            ),
+            patch.object(
+                ai.gemini_keys,
+                "iter_attempts",
+                side_effect=lambda *_args, **_kwargs: iter(candidates),
+            ),
+            patch.object(
+                ai.gemini_keys,
+                "acquire_key_lease",
+                side_effect=lambda key_name, **_kwargs: f"lease-{key_name}",
+            ),
+            patch.object(ai.gemini_keys, "release_key_lease", return_value=True),
+            patch.object(ai.gemini_quota, "try_reserve", return_value=True),
+            patch.object(ai.gemini_quota, "settle"),
+            patch.object(ai, "_gemini_call_once", side_effect=call_once),
+        ):
+            result = ai._run_with_pool(
+                "management",
+                {"contents": []},
+                manual_key="analysis-key-1",
+                deadline_seconds=30,
+                reasoning_task="conversation_reanalysis",
+            )
+
+        self.assertEqual(result["parsed"], "ok")
+        self.assertEqual(provider_keys, ["analysis-key-1"])
+        graph = GeminiRequest.objects.get()
+        self.assertFalse(any(
+            row.get("key_name") == "(manual)" for row in graph.candidate_plan
+        ))
+
+    @patch.dict(
+        os.environ,
+        {
+            "GEMINI_API": "analysis-key-1",
+            "GEMINI_API2": "analysis-key-2",
+            "GEMINI_API3": "analysis-key-3",
+            "GEMINI_API4": "analysis-key-4",
+            "GEMINI_API5": "analysis-key-5",
+            "GEMINI_API6": "analysis-key-6",
+        },
+        clear=False,
+    )
+    def test_ownership_exception_terminalizes_graph_and_all_candidates(self):
+        candidates = self._analysis_candidates()
+        with (
+            patch.object(
+                ai.gemini_keys,
+                "task_model_chain",
+                return_value=["gemini-3.6-flash"],
+            ),
+            patch.object(
+                ai.gemini_keys,
+                "iter_attempts",
+                side_effect=lambda *_args, **_kwargs: iter(candidates),
+            ),
+            patch.object(ai.gemini_keys, "attempts_per_model", return_value=2),
+            patch.object(ai.gemini_keys, "max_rounds", return_value=2),
+            patch.object(
+                ai.gemini_keys,
+                "acquire_key_lease",
+                return_value="ownership-lease",
+            ),
+            patch.object(ai.gemini_keys, "release_key_lease", return_value=True),
+            patch.object(
+                runtime.RequestObserver,
+                "_validate_boundary",
+                side_effect=RuntimeError("simulated ownership failure"),
+            ),
+            patch.object(ai, "_gemini_call_once") as provider,
+        ):
+            with self.assertRaises(ai.CallAIAnalysisError):
+                ai._run_with_pool(
+                    "management",
+                    {"contents": []},
+                    deadline_seconds=30,
+                    reasoning_task="conversation_reanalysis",
+                )
+
+        provider.assert_not_called()
+        graph = GeminiRequest.objects.get()
+        self.assertEqual(graph.terminal_resolution, "failed")
+        self.assertEqual(graph.terminal_reason, "ownership_conflict")
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(
+                request_graph=graph,
+                outcome="not_attempted",
+                not_attempted_reason="ownership_conflict",
+            ).count(),
+            6,
+        )
+
+    def test_expired_unresolved_graph_is_reconciled_exactly_once(self):
+        plan = _raw_plan("gemini-3.6-flash") + [{
+            "candidate_index": 2,
+            "key_name": "GEMINI_API2",
+            "key_value": "must-never-be-persisted",
+            "project_identity": "gemini-project-2",
+            "identity_status": "known",
+            "model": "gemini-3.6-flash",
+            "skip_reason": "",
+        }]
+        observer = runtime.begin_request(
+            request_id=uuid_for_test(),
+            role="management",
+            reasoning_task="conversation_reanalysis",
+            candidate_plan=plan,
+            deadline_seconds=1,
+            lane="analysis",
+        )
+        boundary = observer.attempt(
+            key_name="GEMINI_API",
+            model="gemini-3.6-flash",
+            candidate_index=1,
+        )
+        self.assertTrue(boundary.before_provider(serialized_bytes=128))
+        boundary.failed(ai._GeminiTransient("timeout: unresolved provider result"))
+        timeout_attempt = GeminiRequestAttempt.objects.get(pk=boundary.attempt_id)
+        quota_state = GeminiQuotaState.objects.get(pk=boundary.state_id)
+        self.assertEqual(
+            timeout_attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+        )
+        self.assertEqual(quota_state.rpd_uncertain, 1)
+        self.assertEqual(quota_state.in_flight_count, 0)
+        expired_at = timezone.now() - dt.timedelta(seconds=1)
+        GeminiRequest._base_manager.filter(pk=observer.graph_id).update(
+            deadline_at=expired_at,
+        )
+
+        self.assertEqual(
+            runtime.reconcile_expired_request_graphs(now=timezone.now()),
+            1,
+        )
+        self.assertEqual(
+            runtime.reconcile_expired_request_graphs(now=timezone.now()),
+            0,
+        )
+
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        self.assertEqual(graph.terminal_resolution, "failed")
+        self.assertEqual(graph.terminal_reason, "expired_reconcile")
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(
+                request_graph=graph,
+                outcome="not_attempted",
+                not_attempted_reason="expired_reconcile",
+            ).count(),
+            1,
+        )
+        timeout_attempt.refresh_from_db()
+        quota_state.refresh_from_db()
+        self.assertEqual(
+            timeout_attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.TIMEOUT_AMBIGUOUS,
+        )
+        self.assertEqual(quota_state.rpd_dispatched, 1)
+        self.assertEqual(quota_state.rpd_uncertain, 1)
+        self.assertFalse(
+            GeminiRequestAttempt.objects.filter(
+                request_graph=graph,
+                fsm_state__in=(
+                    GeminiRequestAttempt.FsmState.RESERVED,
+                    GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                ),
+            ).exists()
+        )
+
+    def test_expired_planned_attempt_is_cancelled_before_graph_failure(self):
+        now = timezone.now()
+        observer = runtime.begin_request(
+            request_id=uuid_for_test(),
+            role="management",
+            reasoning_task="conversation_reanalysis",
+            candidate_plan=_raw_plan("gemini-3.6-flash"),
+            deadline_seconds=1,
+            lane="analysis",
+        )
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        attempt = GeminiRequestAttempt.objects.create(
+            request_id=graph.request_id,
+            request_graph=graph,
+            role="management",
+            key_name="GEMINI_API",
+            project_group="gemini-project-1",
+            project_identity="gemini-project-1",
+            model="gemini-3.6-flash",
+            outcome="planned",
+            fsm_state=GeminiRequestAttempt.FsmState.PLANNED,
+            accounting_mode="shadow",
+            attempt_index=1,
+            candidate_index=1,
+        )
+        GeminiRequest._base_manager.filter(pk=graph.pk).update(
+            deadline_at=now - dt.timedelta(seconds=1),
+        )
+
+        self.assertEqual(runtime.reconcile_expired_request_graphs(now=now), 1)
+
+        graph.refresh_from_db()
+        attempt.refresh_from_db()
+        self.assertEqual(graph.terminal_resolution, "failed")
+        self.assertEqual(
+            attempt.fsm_state,
+            GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+        )
+        self.assertEqual(attempt.not_attempted_reason, "expired_reconcile")
+
+    def test_reaper_does_not_guess_between_ambiguous_successes(self):
+        now = timezone.now()
+        plan = _raw_plan("gemini-3.6-flash") + [{
+            "candidate_index": 2,
+            "key_name": "GEMINI_API2",
+            "key_value": "must-never-be-persisted",
+            "project_identity": "gemini-project-2",
+            "identity_status": "known",
+            "model": "gemini-3.6-flash",
+            "skip_reason": "",
+        }]
+        observer = runtime.begin_request(
+            request_id=uuid_for_test(),
+            role="management",
+            reasoning_task="conversation_reanalysis",
+            candidate_plan=plan,
+            deadline_seconds=1,
+            lane="analysis",
+        )
+        graph = GeminiRequest.objects.get(pk=observer.graph_id)
+        for index in (1, 2):
+            GeminiRequestAttempt.objects.create(
+                request_id=graph.request_id,
+                request_graph=graph,
+                role="management",
+                key_name=f"GEMINI_API{index if index > 1 else ''}",
+                project_group=f"gemini-project-{index}",
+                project_identity=f"gemini-project-{index}",
+                model="gemini-3.6-flash",
+                outcome="succeeded",
+                fsm_state=GeminiRequestAttempt.FsmState.SUCCEEDED,
+                accounting_mode="shadow",
+                attempt_index=index,
+                candidate_index=index,
+                provider_started_at=now - dt.timedelta(seconds=5),
+                dispatch_pacific_day=now.astimezone(runtime.PT).date(),
+                finished_at=now - dt.timedelta(seconds=4),
+                settled_at=now - dt.timedelta(seconds=4),
+                permit_released_at=now - dt.timedelta(seconds=4),
+            )
+        GeminiRequest._base_manager.filter(pk=graph.pk).update(
+            deadline_at=now - dt.timedelta(seconds=1),
+        )
+
+        self.assertEqual(runtime.reconcile_expired_request_graphs(now=now), 0)
+
+        graph.refresh_from_db()
+        self.assertEqual(graph.terminal_resolution, "")
+        self.assertIsNone(graph.winner_attempt_id)
+
+    def test_reaper_waits_for_effective_shadow_gate(self):
+        with patch.object(runtime, "shadow_runtime_active", return_value=False):
+            self.assertEqual(
+                runtime.reconcile_expired_request_graphs(now=timezone.now()),
+                0,
+            )
+
+    def test_expired_graph_with_success_evidence_is_never_marked_failed(self):
+        now = timezone.now()
+        plan = _raw_plan("gemini-3.6-flash") + [{
+            "candidate_index": 2,
+            "key_name": "GEMINI_API2",
+            "key_value": "must-never-be-persisted",
+            "project_identity": "gemini-project-2",
+            "identity_status": "known",
+            "model": "gemini-3.6-flash",
+            "skip_reason": "",
+        }]
+        cases = (
+            GeminiRequestAttempt.FsmState.SUCCEEDED,
+            GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+        )
+        graphs = []
+        for index, fsm_state in enumerate(cases, start=1):
+            observer = runtime.begin_request(
+                request_id=uuid_for_test(),
+                role="management",
+                reasoning_task="conversation_reanalysis",
+                candidate_plan=plan,
+                deadline_seconds=1,
+                lane="analysis",
+            )
+            graph = GeminiRequest.objects.get(pk=observer.graph_id)
+            attempt = GeminiRequestAttempt.objects.create(
+                request_id=graph.request_id,
+                request_graph=graph,
+                role="management",
+                key_name="GEMINI_API",
+                project_group="gemini-project-1",
+                project_identity="gemini-project-1",
+                model="gemini-3.6-flash",
+                outcome="succeeded",
+                fsm_state=fsm_state,
+                accounting_mode="shadow",
+                attempt_index=1,
+                candidate_index=1,
+                provider_started_at=now - dt.timedelta(seconds=5),
+                dispatch_pacific_day=now.astimezone(runtime.PT).date(),
+                finished_at=now - dt.timedelta(seconds=4),
+                settled_at=now - dt.timedelta(seconds=4),
+                permit_released_at=now - dt.timedelta(seconds=4),
+            )
+            GeminiRequest._base_manager.filter(pk=graph.pk).update(
+                deadline_at=now - dt.timedelta(seconds=index),
+            )
+            graphs.append((graph.pk, attempt.pk))
+
+        self.assertEqual(
+            runtime.reconcile_expired_request_graphs(now=now),
+            len(cases),
+        )
+        self.assertEqual(runtime.reconcile_expired_request_graphs(now=now), 0)
+
+        for graph_id, attempt_id in graphs:
+            with self.subTest(graph_id=graph_id):
+                graph = GeminiRequest.objects.get(pk=graph_id)
+                attempt = GeminiRequestAttempt.objects.get(pk=attempt_id)
+                self.assertEqual(graph.terminal_resolution, "succeeded")
+                self.assertEqual(
+                    graph.terminal_reason,
+                    "reconciled_success_evidence",
+                )
+                self.assertEqual(graph.winner_attempt_id, attempt.pk)
+                self.assertTrue(attempt.winner_claimed)
+                self.assertEqual(
+                    graph.candidate_outcomes["1"]["outcome"],
+                    "succeeded",
+                )
+                self.assertEqual(
+                    GeminiRequestAttempt.objects.filter(
+                        request_graph=graph,
+                        candidate_index=2,
+                        outcome="not_attempted",
+                        not_attempted_reason="winner_found",
+                    ).count(),
+                    1,
+                )
+                self.assertFalse(
+                    GeminiRequestAttempt.objects.filter(
+                        request_graph=graph,
+                        not_attempted_reason="expired_reconcile",
+                    ).exists()
+                )
+
+
+@override_settings(**SHADOW)
 class GeminiSourceLaneConcurrencyTests(TransactionTestCase):
     reset_sequences = True
 

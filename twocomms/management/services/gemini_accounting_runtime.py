@@ -2,8 +2,9 @@
 
 This module is deliberately observational.  ``off`` is the default and returns
 null objects before any accounting database access.  ``shadow`` records what
-the V2 admission policy would have decided, but the legacy gateway remains the
-only authority that can allow, deny, order or retry a provider call.
+the V2 admission policy would have decided.  The legacy gateway remains the
+authority for provider availability and model/key selection, while an owned
+immutable V2 graph forbids dispatching the same frozen candidate twice.
 
 No prompt, customer text, credential, environment alias or provider body is
 stored in ``GeminiRequest.candidate_plan``.  Provider attempts keep the legacy
@@ -213,6 +214,7 @@ def generic_candidate_plan(
                 for existing in seen_fingerprints
             )
         ) or bool(identity and identity in seen_projects)
+        effective_skip_reason = skip_reason or ("duplicate" if duplicate else "")
         candidate_index += 1
         rows.append({
             "candidate_index": candidate_index,
@@ -230,7 +232,7 @@ def generic_candidate_plan(
                 if identity
                 else "unknown"
             ),
-            "skip_reason": skip_reason,
+            "skip_reason": effective_skip_reason,
         })
         if fingerprint and not any(
             secrets.compare_digest(fingerprint, existing)
@@ -1674,6 +1676,305 @@ class RequestObserver:
             )
         except Exception:
             return None
+
+
+def _record_persisted_plan_remainder_locked(graph, *, reason: str, now) -> int:
+    """Close missing candidates when only the sanitized graph survived a crash.
+
+    Environment aliases are intentionally absent from ``candidate_plan``.  A
+    reconciled not-attempted row therefore keeps ``key_name`` blank and uses the
+    durable project identity/model pair; it never guesses an alias or secret.
+    The caller must hold the request-graph row lock.
+    """
+    from management.models import GeminiRequestAttempt
+
+    bounded_default = _safe_reason(reason)[:24] or "expired_reconcile"
+    existing_rows = list(
+        GeminiRequestAttempt.objects.filter(request_graph=graph).values_list(
+            "candidate_index", "attempt_index"
+        )
+    )
+    observed = {
+        int(candidate_index)
+        for candidate_index, _attempt_index in existing_rows
+        if int(candidate_index or 0) > 0
+    }
+    next_attempt_index = max(
+        (int(attempt_index or 0) for _candidate_index, attempt_index in existing_rows),
+        default=0,
+    )
+    outcomes = dict(graph.candidate_outcomes or {})
+    rows = []
+    for position, planned in enumerate(graph.candidate_plan or (), start=1):
+        if not isinstance(planned, dict):
+            continue
+        try:
+            candidate_index = max(
+                1, int(planned.get("candidate_index") or position)
+            )
+        except (TypeError, ValueError):
+            candidate_index = position
+        if candidate_index in observed:
+            continue
+        model = _safe_token(planned.get("model"), limit=80)
+        if not model:
+            continue
+        identity = _safe_token(planned.get("project_identity"), limit=80)
+        candidate_reason = (
+            _safe_reason(planned.get("initial_skip_reason"))[:24]
+            or bounded_default
+        )
+        next_attempt_index += 1
+        rows.append(GeminiRequestAttempt(
+            request_id=graph.request_id,
+            request_graph=graph,
+            role=RequestObserver._role_for_graph(graph),
+            key_name="",
+            project_group=identity,
+            project_identity=identity,
+            model=model,
+            outcome="not_attempted",
+            fsm_state=GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH,
+            accounting_mode=str(graph.accounting_mode or "shadow"),
+            shadow_decision=GeminiRequestAttempt.ShadowDecision.UNKNOWN,
+            shadow_deny_reason="not_dispatched",
+            decision="reconcile_expired",
+            logical_turn_id=graph.logical_turn_id,
+            source_message_id=graph.source_message_id,
+            client_id=graph.client_id,
+            lane=graph.lane,
+            attempt_index=next_attempt_index,
+            candidate_index=candidate_index,
+            not_attempted_reason=candidate_reason,
+            recovery_job_id=graph.recovery_job_id,
+            finished_at=now,
+            settled_at=now,
+            reservation_released_at=now,
+            permit_released_at=now,
+        ))
+        outcomes[str(candidate_index)] = {
+            "attempt_index": next_attempt_index,
+            "outcome": "not_attempted",
+            "failure_kind": "",
+            "reason": candidate_reason,
+        }
+        observed.add(candidate_index)
+    if rows:
+        GeminiRequestAttempt.objects.bulk_create(rows)
+        graph.candidate_outcomes = outcomes
+    return len(rows)
+
+
+def reconcile_expired_request_graphs(*, now=None, limit: int = 100) -> int:
+    """Idempotently terminalize expired graphs that have no active boundary.
+
+    A ``provider_started``/``reserved`` row is deliberately left untouched:
+    its quota/permit state must first be reconciled by the pair-level owner.
+    Already terminal timeout/failure rows remain conservative spend, while all
+    never-dispatched candidates receive bounded ``not_attempted`` evidence.
+    """
+    from management.models import GeminiRequest, GeminiRequestAttempt
+
+    now = now or timezone.now()
+    if not shadow_runtime_active(now=now):
+        return 0
+    try:
+        bounded_limit = min(500, max(1, int(limit or 100)))
+    except (TypeError, ValueError, OverflowError):
+        bounded_limit = 100
+    graph_ids = list(
+        GeminiRequest.objects.filter(
+            accounting_mode="shadow",
+            terminal_resolution="",
+            deadline_at__isnull=False,
+            deadline_at__lte=now,
+        )
+        .order_by("deadline_at", "id")
+        .values_list("id", flat=True)[:bounded_limit]
+    )
+    reconciled = 0
+    for graph_id in graph_ids:
+        try:
+            with transaction.atomic():
+                graph = (
+                    GeminiRequest.objects.select_for_update()
+                    .filter(pk=graph_id)
+                    .first()
+                )
+                if (
+                    graph is None
+                    or graph.terminal_resolution
+                    or graph.winner_attempt_id is not None
+                    or graph.deadline_at is None
+                    or graph.deadline_at > now
+                ):
+                    continue
+                if GeminiRequestAttempt.objects.select_for_update().filter(
+                    request_graph=graph,
+                    fsm_state__in=(
+                        GeminiRequestAttempt.FsmState.RESERVED,
+                        GeminiRequestAttempt.FsmState.PROVIDER_STARTED,
+                    ),
+                ).exists():
+                    continue
+                success_like = list(
+                    GeminiRequestAttempt.objects.select_for_update()
+                    .filter(
+                        request_graph=graph,
+                        fsm_state__in=(
+                            GeminiRequestAttempt.FsmState.SUCCEEDED,
+                            GeminiRequestAttempt.FsmState.SUCCEEDED_LATE,
+                        ),
+                    )
+                    .order_by("attempt_index", "id")[:3]
+                )
+                trustworthy_successes = [
+                    attempt
+                    for attempt in success_like
+                    if attempt.outcome == "succeeded"
+                    and attempt.provider_started_at is not None
+                    and attempt.settled_at is not None
+                    and attempt.permit_released_at is not None
+                ]
+                claimed = [
+                    attempt
+                    for attempt in trustworthy_successes
+                    if attempt.winner_claimed
+                ]
+                reply_matched = [
+                    attempt
+                    for attempt in trustworthy_successes
+                    if graph.reply_message_id
+                    and attempt.reply_message_id == graph.reply_message_id
+                ]
+                if len(claimed) == 1:
+                    succeeded_attempt = claimed[0]
+                elif len(reply_matched) == 1:
+                    succeeded_attempt = reply_matched[0]
+                elif len(trustworthy_successes) == 1 and len(success_like) == 1:
+                    succeeded_attempt = trustworthy_successes[0]
+                elif success_like:
+                    # More than one success, or incomplete success evidence,
+                    # cannot be repaired by guessing a winner.  Preserve the
+                    # graph for the dedicated success/receipt reconciler.
+                    continue
+                else:
+                    succeeded_attempt = None
+
+                planned_rows = list(
+                    GeminiRequestAttempt.objects.select_for_update().filter(
+                        request_graph=graph,
+                        fsm_state=GeminiRequestAttempt.FsmState.PLANNED,
+                    )
+                )
+                if planned_rows:
+                    outcomes = dict(graph.candidate_outcomes or {})
+                    for attempt in planned_rows:
+                        attempt.fsm_state = (
+                            GeminiRequestAttempt.FsmState.CANCELLED_PRE_DISPATCH
+                        )
+                        attempt.outcome = "cancelled_pre_dispatch"
+                        attempt.shadow_deny_reason = "not_dispatched"
+                        attempt.decision = "reconcile_expired"
+                        attempt.not_attempted_reason = "expired_reconcile"
+                        attempt.finished_at = now
+                        attempt.settled_at = now
+                        attempt.reservation_released_at = now
+                        attempt.permit_released_at = now
+                        attempt.save(update_fields=[
+                            "fsm_state",
+                            "outcome",
+                            "shadow_deny_reason",
+                            "decision",
+                            "not_attempted_reason",
+                            "finished_at",
+                            "settled_at",
+                            "reservation_released_at",
+                            "permit_released_at",
+                        ])
+                        outcomes[str(
+                            attempt.candidate_index or attempt.attempt_index
+                        )] = {
+                            "attempt_index": attempt.attempt_index,
+                            "outcome": "cancelled_pre_dispatch",
+                            "failure_kind": "",
+                            "reason": "expired_reconcile",
+                        }
+                    graph.candidate_outcomes = outcomes
+                if succeeded_attempt is not None:
+                    outcomes = dict(graph.candidate_outcomes or {})
+                    outcome_key = str(
+                        succeeded_attempt.candidate_index
+                        or succeeded_attempt.attempt_index
+                    )
+                    success_payload = {
+                        "attempt_index": succeeded_attempt.attempt_index,
+                        "outcome": "succeeded",
+                        "failure_kind": "",
+                    }
+                    existing_outcome = outcomes.get(outcome_key)
+                    existing_items = (
+                        existing_outcome
+                        if isinstance(existing_outcome, list)
+                        else [existing_outcome]
+                    )
+                    if not any(
+                        isinstance(item, dict)
+                        and item.get("attempt_index")
+                        == succeeded_attempt.attempt_index
+                        and item.get("outcome") == "succeeded"
+                        for item in existing_items
+                    ):
+                        if existing_outcome is None:
+                            outcomes[outcome_key] = success_payload
+                        elif isinstance(existing_outcome, list):
+                            outcomes[outcome_key] = [
+                                *existing_outcome,
+                                success_payload,
+                            ]
+                        else:
+                            outcomes[outcome_key] = [
+                                existing_outcome,
+                                success_payload,
+                            ]
+                    graph.candidate_outcomes = outcomes
+                    _record_persisted_plan_remainder_locked(
+                        graph,
+                        reason="winner_found",
+                        now=now,
+                    )
+                    winner_updates = ["winner_claimed"]
+                    succeeded_attempt.winner_claimed = True
+                    if graph.reply_message_id:
+                        succeeded_attempt.reply_message_id = graph.reply_message_id
+                        winner_updates.append("reply_message_id")
+                    succeeded_attempt.save(update_fields=winner_updates)
+                    graph.winner_attempt = succeeded_attempt
+                    graph.terminal_resolution = "succeeded"
+                    graph.terminal_reason = "reconciled_success_evidence"
+                else:
+                    _record_persisted_plan_remainder_locked(
+                        graph,
+                        reason="expired_reconcile",
+                        now=now,
+                    )
+                    graph.terminal_resolution = "failed"
+                    graph.terminal_reason = "expired_reconcile"
+                graph.resolved_at = now
+                graph.save(update_fields=[
+                    "candidate_outcomes",
+                    "winner_attempt",
+                    "terminal_resolution",
+                    "terminal_reason",
+                    "resolved_at",
+                    "updated_at",
+                ])
+                reconciled += 1
+        except (OperationalError, IntegrityError):
+            # Another worker may have settled the graph between the bounded id
+            # scan and row lock.  The next pass is safe and idempotent.
+            continue
+    return reconciled
 
 
 def models_Q_effective(now):

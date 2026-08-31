@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import re
 import secrets
 from datetime import timedelta
@@ -33,6 +34,9 @@ from management.models import (
 from management.services.bot_payment_truth import client_has_confirmed_purchase
 from management.services.call_ai_analysis import gemini_generate_json
 from management.services.ig_funnel_reset import current_message_floor
+
+
+logger = logging.getLogger(__name__)
 
 
 DEBOUNCE_SECONDS = 30
@@ -1858,6 +1862,25 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
     """Queue changed or prompt-stale conversations without invoking Gemini."""
     now = now or timezone.now()
     bounded_limit = max(1, min(int(limit), 5000))
+    # Provider-free housekeeping for request graphs orphaned by an interrupted
+    # background pool. It is deliberately coupled to the existing 10-minute
+    # durable analysis reconciler, so no new process/cron owner is introduced.
+    from management.services.gemini_accounting_runtime import (
+        reconcile_expired_request_graphs,
+    )
+
+    try:
+        request_graphs_reconciled = reconcile_expired_request_graphs(
+            now=now,
+            limit=min(bounded_limit, 500),
+        )
+    except Exception:
+        # Request-graph housekeeping must never suppress the independent
+        # material-analysis reconciliation pass.  The graph reconciler is
+        # idempotent, so an unexpected schema/data/runtime fault can be retried
+        # by the next bounded cycle after it has been surfaced in daemon logs.
+        logger.exception("expired Gemini request graph reconciliation failed")
+        request_graphs_reconciled = 0
     settings_obj = InstagramBotSettings.load()
     cursor = int(settings_obj.analysis_reconcile_cursor or 0)
     cutoff = settings_obj.analysis_reconcile_after
@@ -1986,6 +2009,7 @@ def reconcile_analysis_jobs(*, limit: int = 500, now=None) -> dict:
         analysis_reconcile_cursor=next_cursor
     )
     return {
+        "request_graphs_reconciled": request_graphs_reconciled,
         "queued": queued,
         "unchanged": unchanged,
         "historical_blocked": historical_blocked,
