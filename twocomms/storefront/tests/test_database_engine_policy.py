@@ -16,3 +16,16 @@ class DatabaseEnginePolicyTests(SimpleTestCase):
                 source,
                 f"Missing InnoDB default in {relative_path}",
             )
+            self.assertIn(
+                "'collation': 'utf8mb4_unicode_ci'",
+                source,
+                f"Missing unicode connection collation in {relative_path}",
+            )
+
+        mariadb_test_settings = (project_root / "test_settings_mariadb.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            '"collation": "utf8mb4_unicode_ci"',
+            mariadb_test_settings,
+        )

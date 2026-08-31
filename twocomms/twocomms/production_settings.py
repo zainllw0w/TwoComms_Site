@@ -279,6 +279,7 @@ if os.environ.get('DB_NAME') and os.environ.get('DB_USER'):
         # Базовые опции подключения к MySQL
         _options = {
             'charset': 'utf8mb4',
+            'collation': 'utf8mb4_unicode_ci',
             'use_unicode': True,
             # The shared server default is MyISAM; charset is already applied
             # by the driver, while this prevents new non-transactional tables.

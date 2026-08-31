@@ -869,6 +869,10 @@ elif DB_ENGINE.startswith('mysql') and DB_NAME and DB_USER:
             'CONN_HEALTH_CHECKS': True,
             'OPTIONS': {
                 'charset': 'utf8mb4',
+                # mysqlclient applies this together with charset *after* its
+                # init_command.  Putting collation only in init_command is
+                # ineffective because set_character_set() would overwrite it.
+                'collation': 'utf8mb4_unicode_ci',
                 'use_unicode': True,
                 'connect_timeout': 10,
                 'read_timeout': 30,

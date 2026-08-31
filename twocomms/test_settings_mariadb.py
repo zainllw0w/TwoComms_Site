@@ -202,6 +202,7 @@ DATABASES = {
         },
         "OPTIONS": {
             "charset": "utf8mb4",
+            "collation": "utf8mb4_unicode_ci",
             "use_unicode": True,
             "init_command": "SET SESSION default_storage_engine=INNODB",
             "sql_mode": (

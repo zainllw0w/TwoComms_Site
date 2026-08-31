@@ -50,7 +50,7 @@ class InstagramMariaDbLifecycleTests(SimpleTestCase):
             cursor.execute("SELECT @@character_set_connection, @@collation_connection")
             charset, collation = cursor.fetchone()
         self.assertEqual(charset.lower(), "utf8mb4")
-        self.assertIn("utf8mb4", collation.lower())
+        self.assertEqual(collation.lower(), "utf8mb4_unicode_ci")
 
 
 class InstagramMariaDbLifecycleConcurrencyTests(TransactionTestCase):

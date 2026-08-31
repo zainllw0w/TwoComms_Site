@@ -1788,6 +1788,17 @@ body.bot-drawer-open{overflow:hidden;}
   const csrf = (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value || '';
   const globalFeedback=document.getElementById('bot-global-feedback');
   function setGlobalFeedback(message,kind=''){if(!globalFeedback)return;globalFeedback.textContent=message||'';globalFeedback.className='bot-feedback'+(kind?(' '+kind):'');}
+  async function readJsonResponse(response,fallbackMessage){
+    const contentType=(response.headers.get('content-type')||'').toLowerCase();
+    if(!contentType.includes('application/json')){
+      if(response.redirected||response.status===401||response.status===403){
+        throw new Error('Сесія завершилася. Оновіть сторінку та увійдіть знову.');
+      }
+      throw new Error(fallbackMessage||'Сервер тимчасово повернув неочікувану відповідь. Оновіть сторінку.');
+    }
+    try{return await response.json();}
+    catch(_){throw new Error(fallbackMessage||'Не вдалося прочитати відповідь сервера.');}
+  }
   function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function safeHttpUrl(value){
     try{
@@ -4009,7 +4020,9 @@ body.bot-drawer-open{overflow:hidden;}
 
   // початкове завантаження лічильника клієнтів (для бейджа), без відкриття вкладки
   fetch('{% url "management_bot_clients_api" %}',{headers:{'X-Requested-With':'XMLHttpRequest'}})
-    .then(r=>r.json()).then(d=>{if(!d.success)throw new Error(d.error||'Не вдалося завантажити лічильник клієнтів.');setBadge(document.getElementById('badge-clients'),d.total||0);}).catch(error=>{setGlobalFeedback(error.message||'Не вдалося завантажити лічильник клієнтів.','error');});
+    .then(async response=>{const data=await readJsonResponse(response,'Не вдалося завантажити лічильник клієнтів.');if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося завантажити лічильник клієнтів.');return data;})
+    .then(data=>{setBadge(document.getElementById('badge-clients'),data.total||0);})
+    .catch(error=>{setGlobalFeedback(error.message||'Не вдалося завантажити лічильник клієнтів.','error');});
   if(initialTab!=='orders') Orders.load();
 })();
 </script>

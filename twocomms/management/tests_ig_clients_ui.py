@@ -327,6 +327,28 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
 
         self.assertNotIn(".catch(()=>{})", self.template)
 
+    def test_initial_clients_badge_never_surfaces_raw_json_parse_errors(self):
+        self.assertIn(
+            "async function readJsonResponse(response,fallbackMessage)",
+            self.template,
+        )
+        self.assertIn("contentType.includes('application/json')", self.template)
+        self.assertIn(
+            "const data=await readJsonResponse(response,'Не вдалося завантажити лічильник клієнтів.')",
+            self.template,
+        )
+        initial_start = self.template.index(
+            "// початкове завантаження лічильника клієнтів"
+        )
+        initial_end = self.template.index(
+            "if(initialTab!=='orders') Orders.load();",
+            initial_start,
+        )
+        self.assertNotIn(
+            ".then(r=>r.json()).then(d=>",
+            self.template[initial_start:initial_end],
+        )
+
     def test_relative_time_distinguishes_future_and_overdue_followups(self):
         for contract in (
             "function relativeTime(iso,{due=false}={})",
