@@ -2732,6 +2732,17 @@ def _handle_echo(
         settings=InstagramBotSettings.load(),
         source_message=msg,
     )
+    # ЭА.18: перехід стану і спостереження за ним — різні події. Раніше кожне
+    # повідомлення менеджера після фактичного takeover давало ще один
+    # `warning`-рядок «менеджер підключився». Зовнішній алерт дедуплікований
+    # правильно (він під `if takeover_started`), а внутрішній потік попереджень
+    # містив повтори, через що розбір інциденту важчий, а рівень `warning`
+    # обесцінюється.
+    #
+    # Ознака переходу береться не з окремого прапорця, а з `reply_permission_epoch`:
+    # він інкрементується РІВНО при переході (`takeover_started`) і всередині тієї
+    # самої транзакції. Тому порівняння епох race-free і не потребує міграції.
+    epoch_before = int(getattr(client, "reply_permission_epoch", 0) or 0)
     applied = attempt_permission_transition(transition_job.pk)
     if applied:
         if msg is not None and not persistence_only:
@@ -2744,7 +2755,23 @@ def _handle_echo(
                 role=InstagramBotMessage.Role.MANAGER,
                 media_context=_recover_current_message_media(msg),
             )
-        log("warning", "takeover", f"{recipient_igsid}: менеджер підключився")
+        else:
+            client.refresh_from_db()
+        transitioned = (
+            int(getattr(client, "reply_permission_epoch", 0) or 0) > epoch_before
+        )
+        if transitioned:
+            log(
+                "warning",
+                "takeover_transition",
+                f"{recipient_igsid}: менеджер підключився",
+            )
+        else:
+            log(
+                "debug",
+                "takeover_observed",
+                f"{recipient_igsid}: менеджер продовжує вести діалог",
+            )
 
 
 def _match_allowed(sender_id: str, limit: int = 15, window: int = 3600) -> bool:
@@ -2774,6 +2801,11 @@ _LOG_LEVELS = {
     "warning": logging.WARNING,
     "success": logging.INFO,
     "info": logging.INFO,
+    # ЭА.18: спостереження за вже відомим станом — не подія для консолі. Такі
+    # записи йдуть у файловий лог для розбору інциденту, але НЕ створюють рядок
+    # у `InstagramBotLog`, інакше повторні повідомлення менеджера знову дали б
+    # окремий рядок на кожне і обесцінили б рівень `warning`.
+    "debug": logging.DEBUG,
 }
 _INCIDENT_LOGGER = logging.getLogger("ig_bot")
 # Бюджет очікування звільнення ключів. Далі клієнт отримує детерміновану
@@ -2813,6 +2845,9 @@ def log(level: str, event: str, detail: str = "") -> None:
     except Exception:
         # Observability must never block message intake or payment recovery.
         pass
+    if level == "debug":
+        # Дивись коментар у `_LOG_LEVELS`: спостереження не потрапляє в консоль.
+        return
     try:
         InstagramBotLog.objects.create(level=level, event=event, detail=detail)
         if InstagramBotLog.objects.count() > LOG_KEEP_ROWS + 100:
