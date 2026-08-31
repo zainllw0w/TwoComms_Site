@@ -391,39 +391,85 @@ def should_send_now(sent_timestamps, *, now: datetime, max_per_minute: int = DEF
     return len(recent) < max_per_minute
 
 
+# Мінімальний інтервал у bounded safe mode. Використовується ЛИШЕ коли
+# durable-лічильник недоступний: тоді потік обмежується грубо, але обмежується.
+SAFE_MODE_MIN_INTERVAL_SECONDS = 20.0
+_safe_mode_last_allowed_at: list = [0.0]
+
+
+def _safe_mode_gate() -> tuple[bool, int]:
+    """Обмежений режим, коли durable-лічильник недоступний.
+
+    Раніше в цьому місці був `return True, 0` — fail-open. Тобто найгірший
+    момент (сховище ліміту зламалось) давав саме необмежений потік алертів.
+    Розділ 11 джерела вимагає протилежного: обмеженої частоти, а не свободи.
+
+    Обмеження процес-локальне і свідомо грубе: його задача — не дати всплеск, а
+    не порахувати точно. Повна відмова тут була б гіршою за всплеск: алерт про
+    інцидент не можна втратити повністю.
+    """
+    import time
+
+    elapsed = time.monotonic() - _safe_mode_last_allowed_at[0]
+    if elapsed < SAFE_MODE_MIN_INTERVAL_SECONDS:
+        return False, max(1, int(SAFE_MODE_MIN_INTERVAL_SECONDS - elapsed))
+    _safe_mode_last_allowed_at[0] = time.monotonic()
+    return True, 0
+
+
 def throttle_gate(
     cache_key: str = FLOW_CACHE_KEY,
     *,
     max_per_minute: int = DEFAULT_MAX_PER_MINUTE,
     now: datetime | None = None,
 ) -> tuple[bool, int]:
-    """Обгортка над `should_send_now` з мітками в кеші.
+    """Атомарний ліміт потоку алертів на одному рядку БД (ЭА.16).
 
-    Збій кеша не блокує відправку (fail-open): втратити алерт про інцидент
-    гірше, ніж надіслати один зайвий. Але збій пишеться в лог, щоб «тихо
-    вимкнений троттл» не став ще однією невидимою поломкою.
+    **Чому не кеш.** Попередня реалізація робила `cache.get()` і `cache.set()`
+    окремими операціями, а production-кеш — `FileBasedCache`: ні `incr` під
+    блокуванням, ні транзакції. Два одночасні виклики читали один знімок вікна і
+    обидва вважали, що місце є. Демон крутить drain кожні 1.5 секунди, тому
+    гонка була не теоретичною.
+
+    **Чому не fail-open.** Збій сховища раніше повертав «дозволено». Тепер він
+    переводить у `_safe_mode_gate()` — обмежену частоту. Ліміт, який зникає саме
+    тоді, коли щось зламалось, не є лімітом.
+
+    Черга не втрачається: відмова означає «пізніше», рядок лишається в
+    `pending`, і наступне вікно його забере. Саме тому відмова інкрементує
+    окремий лічильник `denied` — щоб «тихо задушений потік» був видимий.
     """
     from django.utils import timezone
 
     now = now or timezone.now()
+    limit = max(1, int(max_per_minute))
+    window = timedelta(minutes=1)
     try:
-        raw = cache.get(cache_key) or []
-        stamps = [item for item in raw if isinstance(item, datetime)]
+        from django.db import transaction
+
+        from management.models import IgAlertRateBucket
+
+        with transaction.atomic():
+            bucket, _created = (
+                IgAlertRateBucket.objects.select_for_update().get_or_create(
+                    bucket_key=str(cache_key or FLOW_CACHE_KEY)[:64],
+                    defaults={"window_started_at": now, "used": 0},
+                )
+            )
+            if now - bucket.window_started_at >= window:
+                bucket.window_started_at = now
+                bucket.used = 0
+            if bucket.used >= limit:
+                bucket.denied += 1
+                bucket.save(update_fields=["denied", "updated_at"])
+                elapsed = (now - bucket.window_started_at).total_seconds()
+                return False, max(1, int(window.total_seconds() - elapsed))
+            bucket.used += 1
+            bucket.save(update_fields=["window_started_at", "used", "updated_at"])
+            return True, 0
     except Exception as exc:  # noqa: BLE001
-        logger.warning("ig alert throttle cache read failed: %r", exc)
-        return True, 0
-    if not should_send_now(stamps, now=now, max_per_minute=max_per_minute):
-        oldest = min(stamps) if stamps else now
-        retry_after = max(1, int(60 - (now - oldest).total_seconds()))
-        return False, retry_after
-    try:
-        window_start = now - timedelta(minutes=1)
-        stamps = [item for item in stamps if item >= window_start]
-        stamps.append(now)
-        cache.set(cache_key, stamps[-(max_per_minute * 2):], 120)
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("ig alert throttle cache write failed: %r", exc)
-    return True, 0
+        logger.warning("ig alert throttle durable counter unavailable: %r", exc)
+        return _safe_mode_gate()
 
 
 def summarize_batch(event_type: str, items, *, limit: int = 5) -> str:

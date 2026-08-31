@@ -50,7 +50,15 @@ class ThrottlePolicyTests(TestCase):
         self.assertGreater(retry_after, 0)
 
     def test_broken_cache_does_not_block_alerts(self):
-        """Втратити алерт про інцидент гірше, ніж надіслати один зайвий."""
+        """Кеш більше не є сховищем ліміту, тому його збій ні на що не впливає.
+
+        ЭА.16 перевів лічильник на один рядок БД під `select_for_update()`, бо
+        `cache.get()` + `cache.set()` не атомарні, а production-кеш —
+        `FileBasedCache`. Тест лишається як регресія: збій кеша не має ні
+        блокувати алерт, ні відкривати шлюз. Контракт відмови самого
+        durable-лічильника перевіряється в `tests_ig_alert_rate_limit`
+        (`BoundedSafeModeTests`), і він уже НЕ fail-open.
+        """
         from unittest.mock import patch
 
         from management.services.ig_alerts import throttle_gate

@@ -62,6 +62,7 @@ __all__ = [
     "IgClientDegradationEpisode",
     "IgCustomerTurn",
     "IgTurnMessage",
+    "IgAlertRateBucket",
     "IgPermissionTransitionJob",
     "IgMetaEventLog",
     "BotDataDeletionRequest",
@@ -8015,3 +8016,45 @@ class IgTurnMessage(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"turn_message:{self.turn_id}:{self.ordinal}"
+
+
+class IgAlertRateBucket(models.Model):
+    """ЭА.16 — атомарний ліміт потоку алертів замість read-then-write у кеші.
+
+    **Що саме ламалось.** `ig_alerts.throttle_gate()` робив `cache.get()` і
+    `cache.set()` **окремими** операціями. Це не атомарно навіть в одному
+    процесі, а production-кеш — `FileBasedCache`, не Redis: у ньому немає ні
+    `incr` під блокуванням, ні транзакції. Тобто при паралельних викликах
+    (демон крутить drain кожні 1.5 с, а `notify_manager(deliver_immediately=True)`
+    взагалі йшов у Telegram напряму) вікно перевірялось за старим знімком і ліміт
+    перевищувався.
+
+    **Друга частина дефекту гірша.** При збої кеша функція повертала
+    `True` — fail-open. Тобто найгірший момент (кеш зламався) давав саме
+    необмежений потік. Розділ 11 джерела прямо вимагає bounded safe mode, а не
+    fail-open.
+
+    **Чому БД, а не Redis.** Проект живе на shared-хостингу, де Redis не
+    гарантований, а MariaDB — так. Один рядок під `select_for_update()` дає
+    справжню атомарність там, де вона потрібна, і не вводить нову залежність
+    інфраструктури. Ціна — один короткий row-lock на алерт, що на порядки
+    дешевше, ніж Telegram-запит, який він охороняє.
+    """
+
+    # Ключ бакета: `flow` для глобального потоку, окремі ключі — для лейнів,
+    # якщо колись знадобиться розділити бюджет.
+    bucket_key = models.CharField(max_length=64, unique=True)
+    window_started_at = models.DateTimeField(default=timezone.now)
+    used = models.PositiveIntegerField(default=0)
+    # Скільки разів ліміт відмовив — щоб «тихо задушений потік» не став ще однією
+    # невидимою поломкою (guardrail пункта).
+    denied = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Ліміт потоку алертів IG")
+        verbose_name_plural = _("Ліміти потоку алертів IG")
+        ordering = ["bucket_key"]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"{self.bucket_key}: {self.used} @ {self.window_started_at:%H:%M:%S}"
