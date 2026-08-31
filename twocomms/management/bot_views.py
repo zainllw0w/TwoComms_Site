@@ -55,8 +55,8 @@ from .services.bot_payment_truth import (
     current_manager_confirmation_review_q,
     current_payment_confirmation,
     historical_purchase_confirmation,
-    latest_payment_projection,
     latest_legacy_payment_truth_deal,
+    latest_payment_projection,
     latest_verified_payment_deal,
     verified_payment_q,
 )
@@ -669,19 +669,26 @@ def _display_interaction_type(client, interaction_type):
     types = IgConversationAnalysisSnapshot.InteractionType
     if interaction_type == types.SUPPORT_COMPLAINT:
         return interaction_type
-    case = None
-    if getattr(client, "pk", None):
+    case_type = ""
+    if hasattr(client, "latest_post_sale_type") and hasattr(
+        client, "latest_post_sale_status"
+    ):
+        annotated_status = str(client.latest_post_sale_status or "")
+        if annotated_status not in TERMINAL_POST_SALE_STATUSES:
+            case_type = str(client.latest_post_sale_type or "")
+    elif getattr(client, "pk", None):
         try:
             from management.services.ig_post_sale import open_service_case
 
             case = open_service_case(client)
+            case_type = str(case.case_type or "") if case is not None else ""
         except Exception:
-            case = None
-    if case is None:
+            case_type = ""
+    if not case_type:
         return interaction_type
-    if case.case_type == IgPostSaleCase.CaseType.EXCHANGE:
+    if case_type == IgPostSaleCase.CaseType.EXCHANGE:
         return types.EXCHANGE_REQUEST
-    if case.case_type == IgPostSaleCase.CaseType.RETURN:
+    if case_type == IgPostSaleCase.CaseType.RETURN:
         return types.RETURN_REQUEST
     return interaction_type
 
@@ -4428,25 +4435,26 @@ def _client_card(c, *, follow_settings=None, follow_now=None) -> dict:
         # Preserve the exact pre-materiality projection until the independent
         # selector rollout is explicitly enabled. Shadow ledger writes must
         # not change a card, CTA or follow-up decision.
-        latest_analysis = getattr(c, "_latest_customer_analysis", None)
-        if isinstance(latest_analysis, (list, tuple)):
-            latest_analysis = latest_analysis[0] if latest_analysis else None
-        if latest_analysis is None:
+        missing_prefetch = object()
+        customer_analysis = getattr(c, "_latest_customer_analysis", missing_prefetch)
+        if customer_analysis is missing_prefetch:
             try:
                 latest_analysis = c.analysis_snapshots.exclude(
                     interaction_type=IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
                 ).order_by("-id").first()
             except Exception:
                 latest_analysis = None
+        else:
+            latest_analysis = customer_analysis[0] if customer_analysis else None
+        all_analysis = getattr(c, "_latest_analysis", missing_prefetch)
+        if latest_analysis is None and all_analysis is not missing_prefetch:
+            latest_analysis = all_analysis[0] if all_analysis else None
         if latest_analysis is None:
-            latest_analysis = getattr(c, "_latest_analysis", None)
-            if isinstance(latest_analysis, (list, tuple)):
-                latest_analysis = latest_analysis[0] if latest_analysis else None
-        if latest_analysis is None:
-            try:
-                latest_analysis = c.analysis_snapshots.order_by("-id").first()
-            except Exception:
-                latest_analysis = None
+            if all_analysis is missing_prefetch:
+                try:
+                    latest_analysis = c.analysis_snapshots.order_by("-id").first()
+                except Exception:
+                    latest_analysis = None
     else:
         prefetched = []
         seen_snapshot_ids = set()
@@ -4465,10 +4473,22 @@ def _client_card(c, *, follow_settings=None, follow_now=None) -> dict:
     try:
         verified_deal = latest_verified_payment_deal(c)
         truth_projection = latest_payment_projection(c)
+        missing_legacy_prefetch = object()
+        prefetched_legacy_truth = getattr(
+            c,
+            "_legacy_payment_truth_deals",
+            missing_legacy_prefetch,
+        )
+        if prefetched_legacy_truth is missing_legacy_prefetch:
+            legacy_truth_deal = latest_legacy_payment_truth_deal(c)
+        elif prefetched_legacy_truth:
+            legacy_truth_deal = prefetched_legacy_truth[0]
+        else:
+            legacy_truth_deal = None
         truth_deal = (
             truth_projection.deal
             if truth_projection
-            else (latest_legacy_payment_truth_deal(c) or verified_deal)
+            else (legacy_truth_deal or verified_deal)
         )
         payment_status = (
             truth_projection.truth
@@ -4699,6 +4719,18 @@ def bot_clients_api(request):
     from django.db.models import Q
 
     from .models import IgClient, IgDeal
+
+    # The overview badge does not need the expensive CRM card projection.  It
+    # used to build up to 100 full cards (including analysis/payment prefetches)
+    # on every page load even when the Clients tab was never opened.
+    if request.GET.get("summary") == "1":
+        return JsonResponse({
+            "success": True,
+            "clients": [],
+            "total": IgClient.objects.filter(hidden_at__isnull=True).count(),
+            "summary_only": True,
+        })
+
     follow_settings = InstagramBotSettings.load()
 
     view = (request.GET.get("view") or "all").strip().lower()
@@ -4806,27 +4838,26 @@ def bot_clients_api(request):
         "follow_state_projection",
         "analysis_job",
     )
-    from management.services.ig_analysis_materiality import (
-        RESET_FLOOR_ANNOTATION,
-        selector_enforced,
-    )
+    from management.services.ig_analysis_materiality import RESET_FLOOR_ANNOTATION
 
-    if selector_enforced():
-        reset_after = (
-            IgFunnelResetAudit.objects.filter(client_id=OuterRef("pk"))
-            .order_by("-id")
-            .values("reset_after_message_id")[:1]
-        )
-        client_rows = client_rows.annotate(**{
-            RESET_FLOOR_ANNOTATION: Coalesce(
-                Subquery(
-                    reset_after,
-                    output_field=PositiveBigIntegerField(),
-                ),
-                Value(0),
+    # `_client_potential_payload()` applies the reset boundary in both legacy
+    # and enforced selector modes.  Annotating it unconditionally avoids one
+    # IgFunnelResetAudit query per card when the selector is still in shadow.
+    reset_after = (
+        IgFunnelResetAudit.objects.filter(client_id=OuterRef("pk"))
+        .order_by("-id")
+        .values("reset_after_message_id")[:1]
+    )
+    client_rows = client_rows.annotate(**{
+        RESET_FLOOR_ANNOTATION: Coalesce(
+            Subquery(
+                reset_after,
                 output_field=PositiveBigIntegerField(),
             ),
-        })
+            Value(0),
+            output_field=PositiveBigIntegerField(),
+        ),
+    })
 
     client_rows = client_rows.prefetch_related(
         Prefetch(
@@ -4845,6 +4876,13 @@ def bot_clients_api(request):
             "deals",
             queryset=IgDeal.objects.filter(verified_payment_q()).order_by("-paid_at", "-id"),
             to_attr="_verified_payment_deals",
+        ),
+        Prefetch(
+            "deals",
+            queryset=IgDeal.objects.exclude(
+                payment_truth=IgDeal.PaymentTruth.UNVERIFIED,
+            ).order_by("-payment_truth_updated_at", "-id")[:1],
+            to_attr="_legacy_payment_truth_deals",
         ),
         Prefetch(
             "payment_projections",
@@ -4965,12 +5003,9 @@ def bot_clients_api(request):
         )
     from django.core.paginator import Paginator
 
-    default_page_size = 100
-    try:
-        page_size = int(request.GET.get("page_size") or default_page_size)
-    except (TypeError, ValueError):
-        page_size = default_page_size
-    page_size = max(20, min(page_size, 200))
+    # This is a live-polled workspace, not a bulk export.  Keep the server-side
+    # cap fixed even if an old client asks for the former 100/200-row pages.
+    page_size = 20
     paginator = Paginator(qs, page_size)
     page_obj = paginator.get_page(request.GET.get("page") or 1)
     clients = list(page_obj.object_list)

@@ -2019,7 +2019,7 @@ body.bot-drawer-open{overflow:hidden;}
   function poll(){
     if(polling) return Promise.resolve(); polling=true;
     return fetch('{% url "management_bot_status_api" %}?after_id='+lastId, {headers:{'X-Requested-With':'XMLHttpRequest'}})
-      .then(async response=>{const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося оновити стан бота.');return data;})
+      .then(async response=>{const data=await readJsonResponse(response,'Не вдалося оновити стан бота.');if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося оновити стан бота.');return data;})
       .then(d=>{lastStatusOnline=!!d.status.daemon_online;render(d.status);appendLog(d.log);if(globalFeedback&&globalFeedback.dataset.source==='poll'){setGlobalFeedback('');delete globalFeedback.dataset.source;}})
       .catch(error=>{setGlobalFeedback(error.message||'Не вдалося оновити стан бота.','error');if(globalFeedback)globalFeedback.dataset.source='poll';}).finally(()=>{ polling=false; });
   }
@@ -2047,13 +2047,13 @@ body.bot-drawer-open{overflow:hidden;}
   function scheduleStatusPoll(){
     if(statusTimer) clearTimeout(statusTimer);
     // Не вантажимо сервер: рідше коли вкладка прихована або бот офлайн/зупинено.
-    let delay=2500;
-    if(document.hidden) delay=15000;
-    else if(lastStatusOnline===false) delay=8000;
+    let delay=5000;
+    if(document.hidden) delay=30000;
+    else if(lastStatusOnline===false) delay=10000;
     statusTimer=setTimeout(()=>{ poll().finally(scheduleStatusPoll); }, delay);
   }
   poll().finally(scheduleStatusPoll);
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) poll(); });
+  document.addEventListener('visibilitychange',scheduleStatusPoll);
 
   /* ============ Notification manual review ============ */
   const notificationReview=document.getElementById('bot-notification-review');
@@ -2370,13 +2370,18 @@ body.bot-drawer-open{overflow:hidden;}
     let currentView='all';
     let currentPage=1;let pageInfo=null;
     let convId=null,convLastId=0,convOldestId=0,convHasOlder=false,convInFlight=false;
+    let detailRequestGeneration=0,detailAbortController=null,renderedDetailId=null;
     let convPollFailures=0;
     const CLIENT_CONVERSATION_POLL_MS=6500;
-    const CLIENTS_POLL_MS=5000;
+    const CLIENTS_PAGE_SIZE=20;
+    const CLIENTS_POLL_MS=15000;
+    const CLIENTS_POLL_MAX_MS=120000;
     let listRequestGeneration=0;
     let listAbortController=null;
     let listPollTimer=null;
     let listPollFailures=0;
+    let stableListPolls=0;
+    let lastListSnapshotSignature='';
     let pendingTopCount=0;
     let hasRenderedClients=false;
     const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -2464,6 +2469,8 @@ body.bot-drawer-open{overflow:hidden;}
     function setLiveStatus(kind,text){if(!liveStatusEl)return;const next=text||'Наживо';if(liveStatusEl.dataset.state===kind&&liveStatusEl.textContent===next)return;liveStatusEl.dataset.state=kind;liveStatusEl.classList.toggle('is-stale',kind==='stale');liveStatusEl.classList.toggle('is-reconnecting',kind==='reconnecting');liveStatusEl.textContent=next;}
     function markListRefreshFailure(){listPollFailures+=1;if(listPollFailures>=2)setLiveStatus('stale','Зв’язок перевіряється');}
     function markListRefreshSuccess(){if(listPollFailures>=2){setLiveStatus('reconnecting','Зв’язок відновлено');window.setTimeout(()=>setLiveStatus('live','Наживо'),1600);}else setLiveStatus('live','Наживо');listPollFailures=0;}
+    function noteListSnapshot(data,{background=false}={}){const signature=JSON.stringify({clients:data.clients||[],pagination:data.pagination||{},total:data.total||0});stableListPolls=background&&lastListSnapshotSignature===signature?stableListPolls+1:0;lastListSnapshotSignature=signature;}
+    function clientsPollDelay(){const failureFactor=Math.pow(2,Math.min(listPollFailures,3));const stableFactor=stableListPolls>=4?4:(stableListPolls>=2?2:1);return Math.min(CLIENTS_POLL_MAX_MS,CLIENTS_POLL_MS*Math.max(failureFactor,stableFactor));}
     function isListAwayFromTop(){return Boolean((listEl&&listEl.scrollTop>24)||(window.matchMedia('(max-width: 880px)').matches&&listEl&&listEl.getBoundingClientRect().top<0));}
     function syncNewTopAction(){if(!newTopEl)return;const away=isListAwayFromTop();if(!away)pendingTopCount=0;newTopEl.hidden=!(pendingTopCount>0&&away);if(newTopCountEl)newTopCountEl.textContent=String(pendingTopCount);}
     function markLiveActivity(row){if(!row)return;row.classList.remove('has-live-activity');void row.offsetWidth;row.classList.add('has-live-activity');const timer=activityTimers.get(row);if(timer)window.clearTimeout(timer);activityTimers.set(row,window.setTimeout(()=>{row.classList.remove('has-live-activity');activityTimers.delete(row);},900));}
@@ -2484,9 +2491,10 @@ body.bot-drawer-open{overflow:hidden;}
       while(listEl.firstChild)listEl.removeChild(listEl.firstChild);if((clients||[]).length)listEl.appendChild(fragment);else listEl.appendChild(node('div','bot-empty','Ще немає клієнтів.'));if(animate)animateClientMoves(before);if(activityCount){pendingTopCount+=activityCount;syncNewTopAction();}if(focusedClientId){const restoredRow=listEl.querySelector('[data-client-id="'+CSS.escape(String(focusedClientId))+'"]');if(restoredRow&&document.activeElement!==restoredRow)restoredRow.focus({preventScroll:true});else if(!restoredRow&&listHeading)listHeading.focus({preventScroll:true});}
     }
     async function load(q,{background=false}={}){
-      const requestGeneration=++listRequestGeneration;if(listAbortController)listAbortController.abort();listAbortController=new AbortController();const controller=listAbortController;const params=new URLSearchParams();params.set('view', currentView);params.set('page', String(currentPage));if(q)params.set('q', q);if(requestedClientId)params.set('client_id',String(requestedClientId));
-      try{const response=await fetch(base+'?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'},signal:controller.signal});const d=await response.json();if(!response.ok||!d.success)throw new Error();if(requestGeneration!==listRequestGeneration)return false;setBadge(document.getElementById('badge-clients'),d.total||0);pageInfo=d.pagination||null;if(pageInfo)currentPage=pageInfo.page;if(totalEl)totalEl.textContent=pageInfo?('Показано '+pageInfo.start_item+'–'+pageInfo.end_item+' з '+pageInfo.total_items):((d.total||0)+' усього');renderPager();reconcileClients(d.clients||[],{animate:background&&hasRenderedClients});hasRenderedClients=true;if(background)markListRefreshSuccess();let requestedOpen=null;if(requestedClientId&&!background){const requestedRow=listEl.querySelector('[data-client-id="'+CSS.escape(String(requestedClientId))+'"]');if(requestedRow)requestedOpen=()=>requestedRow.click();}if(requestedOpen)requestAnimationFrame(requestedOpen);return true;
-      }catch(error){if(requestGeneration!==listRequestGeneration||error&&error.name==='AbortError')return false;if(background){markListRefreshFailure();return false;}pageInfo=null;renderPager();if(!hasRenderedClients)listEl.appendChild(node('div','bot-empty','Не вдалося завантажити список клієнтів.'));return false;}finally{if(requestGeneration===listRequestGeneration&&listAbortController===controller)listAbortController=null;}
+      if(!background)scheduleClientsPoll();
+      const requestGeneration=++listRequestGeneration;if(listAbortController)listAbortController.abort();listAbortController=new AbortController();const controller=listAbortController;const params=new URLSearchParams();params.set('view', currentView);params.set('page', String(currentPage));params.set('page_size',String(CLIENTS_PAGE_SIZE));if(q)params.set('q', q);if(requestedClientId)params.set('client_id',String(requestedClientId));
+      try{const response=await fetch(base+'?'+params.toString(),{headers:{'X-Requested-With':'XMLHttpRequest'},signal:controller.signal});const d=await readJsonResponse(response,'Не вдалося завантажити список клієнтів.');if(!response.ok||!d.success)throw new Error(d.error||'Не вдалося завантажити список клієнтів.');if(requestGeneration!==listRequestGeneration)return false;noteListSnapshot(d,{background});setBadge(document.getElementById('badge-clients'),d.total||0);pageInfo=d.pagination||null;if(pageInfo)currentPage=pageInfo.page;if(totalEl)totalEl.textContent=pageInfo?('Показано '+pageInfo.start_item+'–'+pageInfo.end_item+' з '+pageInfo.total_items):((d.total||0)+' усього');renderPager();reconcileClients(d.clients||[],{animate:background&&hasRenderedClients});hasRenderedClients=true;if(background)markListRefreshSuccess();if(globalFeedback&&globalFeedback.dataset.source==='clients-list'){setGlobalFeedback('');delete globalFeedback.dataset.source;}let requestedOpen=null;if(requestedClientId&&!background){const requestedRow=listEl.querySelector('[data-client-id="'+CSS.escape(String(requestedClientId))+'"]');if(requestedRow)requestedOpen=()=>requestedRow.click();}if(requestedOpen)requestAnimationFrame(requestedOpen);return true;
+      }catch(error){if(requestGeneration!==listRequestGeneration||error&&error.name==='AbortError')return false;if(background){markListRefreshFailure();return false;}if(hasRenderedClients){setGlobalFeedback((error&&error.message)||'Не вдалося оновити список клієнтів. Показано останні успішні дані.','error');if(globalFeedback)globalFeedback.dataset.source='clients-list';return false;}pageInfo=null;renderPager();listEl.replaceChildren(node('div','bot-empty',(error&&error.message)||'Не вдалося завантажити список клієнтів.'));return false;}finally{if(requestGeneration===listRequestGeneration&&listAbortController===controller)listAbortController=null;}
     }
     function currentQuery(){ return searchEl ? searchEl.value.trim() : ''; }
     function actionSuccessText(action, data){
@@ -2891,8 +2899,9 @@ body.bot-drawer-open{overflow:hidden;}
     }
     OrderAssignmentDrawer.setRenderer(renderAssignmentDrawer);
     async function detail(id){
-      conversationEl.replaceChildren(node('div','bot-client-pane-empty','Завантаження переписки…'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Завантаження контексту…'));
-      try{const response=await fetch(base+id+'/',{headers:{'X-Requested-With':'XMLHttpRequest'}});const d=await response.json();if(!response.ok||!d.success)throw new Error();renderConversation(d);renderContext(d,id);OrderAssignmentDrawer.refresh(d);}catch(_){conversationEl.replaceChildren(node('div','bot-client-pane-empty','Не вдалося завантажити переписку.'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Не вдалося завантажити картку клієнта.'));}
+      const requestedDetailId=Number(id);const requestGeneration=++detailRequestGeneration;if(detailAbortController)detailAbortController.abort();detailAbortController=new AbortController();const controller=detailAbortController;const preserveLastGood=renderedDetailId===requestedDetailId;
+      if(!preserveLastGood){conversationEl.replaceChildren(node('div','bot-client-pane-empty','Завантаження переписки…'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Завантаження контексту…'));}
+      try{const response=await fetch(base+requestedDetailId+'/',{headers:{'X-Requested-With':'XMLHttpRequest'},signal:controller.signal});const d=await readJsonResponse(response,'Не вдалося завантажити картку клієнта.');if(!response.ok||!d.success)throw new Error(d.error||'Не вдалося завантажити картку клієнта.');if(requestGeneration!==detailRequestGeneration||Number(activeId)!==requestedDetailId)return false;renderConversation(d);renderContext(d,requestedDetailId);OrderAssignmentDrawer.refresh(d);renderedDetailId=requestedDetailId;if(globalFeedback&&globalFeedback.dataset.source==='client-detail'){setGlobalFeedback('');delete globalFeedback.dataset.source;}return true;}catch(error){if(requestGeneration!==detailRequestGeneration||error&&error.name==='AbortError')return false;if(preserveLastGood){setGlobalFeedback((error&&error.message)||'Не вдалося оновити картку клієнта. Показано останні успішні дані.','error');if(globalFeedback)globalFeedback.dataset.source='client-detail';return false;}conversationEl.replaceChildren(node('div','bot-client-pane-empty',(error&&error.message)||'Не вдалося завантажити переписку.'));contextEl.replaceChildren(node('div','bot-client-pane-empty','Не вдалося завантажити картку клієнта.'));return false;}finally{if(requestGeneration===detailRequestGeneration&&detailAbortController===controller)detailAbortController=null;}
     }
     function appendConvMessages(items){
       const mc=document.getElementById('bot-msgs'); if(!mc||!items||!items.length) return;
@@ -2973,8 +2982,8 @@ body.bot-drawer-open{overflow:hidden;}
     if(mobileNav)mobileNav.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const buttons=Array.from(mobileNav.querySelectorAll('[data-client-pane]'));let index=buttons.indexOf(document.activeElement);if(event.key==='Home')index=0;else if(event.key==='End')index=buttons.length-1;else index=(index+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;event.preventDefault();buttons[index].focus();buttons[index].click();});
     if(listEl)listEl.addEventListener('scroll',syncNewTopAction,{passive:true});
     if(newTopEl)newTopEl.addEventListener('click',()=>{pendingTopCount=0;syncNewTopAction();const firstRow=listEl&&listEl.querySelector('[data-client-id]');if(firstRow){firstRow.scrollIntoView({behavior:reduceMotion.matches?'auto':'smooth',block:'start'});}else if(listEl){listEl.scrollTo({top:0,behavior:reduceMotion.matches?'auto':'smooth'});}});
-    function scheduleClientsPoll(delay=CLIENTS_POLL_MS){if(listPollTimer)window.clearTimeout(listPollTimer);listPollTimer=window.setTimeout(async()=>{listPollTimer=null;if(clientsPanelIsVisible())await load(currentQuery(),{background:true});scheduleClientsPoll();},delay);}
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&loaded.clients)scheduleClientsPoll(0);});
+    function scheduleClientsPoll(delay=clientsPollDelay()){if(listPollTimer)window.clearTimeout(listPollTimer);listPollTimer=null;if(document.hidden||!loaded.clients)return;const boundedDelay=Math.max(CLIENTS_POLL_MS,Number(delay)||CLIENTS_POLL_MS);listPollTimer=window.setTimeout(async()=>{listPollTimer=null;if(clientsPanelIsVisible())await load(currentQuery(),{background:true});scheduleClientsPoll();},boundedDelay);}
+    document.addEventListener('visibilitychange',()=>{if(document.hidden){if(listPollTimer)window.clearTimeout(listPollTimer);listPollTimer=null;return;}if(loaded.clients)scheduleClientsPoll();});
     scheduleClientsPoll();
     async function refreshClient(id){if(!id||Number(id)!==Number(activeId))return;await detail(id);await load(currentQuery());}
     return {load:load,detail:detail,refreshClient:refreshClient};
@@ -4044,7 +4053,7 @@ body.bot-drawer-open{overflow:hidden;}
   activate(initialTab, false);
 
   // початкове завантаження лічильника клієнтів (для бейджа), без відкриття вкладки
-  fetch('{% url "management_bot_clients_api" %}',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+  fetch('{% url "management_bot_clients_api" %}?summary=1',{headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(async response=>{const data=await readJsonResponse(response,'Не вдалося завантажити лічильник клієнтів.');if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося завантажити лічильник клієнтів.');return data;})
     .then(data=>{setBadge(document.getElementById('badge-clients'),data.total||0);})
     .catch(error=>{setGlobalFeedback(error.message||'Не вдалося завантажити лічильник клієнтів.','error');});

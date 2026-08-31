@@ -5,6 +5,7 @@ JSON-API списку карток і детальної (переписка, к
 """
 from decimal import Decimal
 from datetime import timedelta
+import json
 import os
 from pathlib import Path
 import re
@@ -17,7 +18,7 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import connection
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
@@ -42,7 +43,11 @@ from management.ig_bot_models import (
     IgPostSaleCase,
 )
 from management.bot_access import META_REVIEWER_GROUP_NAME
-from management.bot_views import _group_signal_rows, _review_media_groups
+from management.bot_views import (
+    _group_signal_rows,
+    _review_media_groups,
+    bot_clients_api,
+)
 
 User = get_user_model()
 
@@ -138,15 +143,38 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
 
     def test_clients_background_poll_keeps_running_with_an_open_conversation(self):
         for contract in (
-            "const CLIENTS_POLL_MS=5000",
+            "const CLIENTS_PAGE_SIZE=20",
+            "const CLIENTS_POLL_MS=15000",
+            "const CLIENTS_POLL_MAX_MS=120000",
             "function clientsPanelIsVisible()",
             "clientsPanel.classList.contains('active')",
             "loaded.clients&&!document.hidden",
             "load(currentQuery(),{background:true})",
+            "params.set('page_size',String(CLIENTS_PAGE_SIZE))",
+            "function clientsPollDelay()",
+            "stableListPolls>=4?4",
+            "Math.min(CLIENTS_POLL_MAX_MS",
+            "if(document.hidden||!loaded.clients)return",
         ):
             self.assertIn(contract, self.template)
 
         self.assertNotIn("if(loaded.clients && !activeId)", self.template)
+        self.assertNotIn("scheduleClientsPoll(0)", self.template)
+
+    def test_clients_and_global_status_polling_have_bounded_visible_intervals(self):
+        status_start = self.template.index("function scheduleStatusPoll()")
+        status_end = self.template.index(
+            "/* ============ Notification manual review ============ */",
+            status_start,
+        )
+        status_source = self.template[status_start:status_end]
+        self.assertIn("let delay=5000", status_source)
+        self.assertIn("if(document.hidden) delay=30000", status_source)
+        self.assertNotIn("delay=2500", status_source)
+        self.assertIn(
+            "document.addEventListener('visibilitychange',scheduleStatusPoll)",
+            status_source,
+        )
 
     def test_clients_list_requests_cancel_stale_work_and_preserve_last_good_rows(self):
         for contract in (
@@ -155,7 +183,22 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             "listAbortController=new AbortController()",
             "signal:controller.signal",
             "if(requestGeneration!==listRequestGeneration)return false",
+            "const d=await readJsonResponse(response,'Не вдалося завантажити список клієнтів.')",
             "if(background){markListRefreshFailure();return false;}",
+            "if(hasRenderedClients){setGlobalFeedback(",
+            "globalFeedback.dataset.source='clients-list'",
+        ):
+            self.assertIn(contract, self.template)
+
+    def test_client_detail_refresh_is_json_safe_and_preserves_last_good_card(self):
+        for contract in (
+            "let detailRequestGeneration=0,detailAbortController=null,renderedDetailId=null",
+            "const preserveLastGood=renderedDetailId===requestedDetailId",
+            "const d=await readJsonResponse(response,'Не вдалося завантажити картку клієнта.')",
+            "if(requestGeneration!==detailRequestGeneration||Number(activeId)!==requestedDetailId)return false",
+            "if(preserveLastGood){setGlobalFeedback(",
+            "globalFeedback.dataset.source='client-detail'",
+            "Показано останні успішні дані.",
         ):
             self.assertIn(contract, self.template)
 
@@ -335,6 +378,10 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
         self.assertIn("contentType.includes('application/json')", self.template)
         self.assertIn(
             "const data=await readJsonResponse(response,'Не вдалося завантажити лічильник клієнтів.')",
+            self.template,
+        )
+        self.assertIn(
+            "management_bot_clients_api\" %}?summary=1",
             self.template,
         )
         initial_start = self.template.index(
@@ -1293,21 +1340,21 @@ class ClientsApiTests(TestCase):
             reverse("management_bot_clients_api"), {"page": 2}
         ).json()
 
-        self.assertEqual(len(first["clients"]), 100)
+        self.assertEqual(len(first["clients"]), 20)
         self.assertEqual(first["total"], 206)
         self.assertEqual(first["pagination"], {
             "page": 1,
-            "page_size": 100,
+            "page_size": 20,
             "total_items": 206,
-            "total_pages": 3,
+            "total_pages": 11,
             "start_item": 1,
-            "end_item": 100,
+            "end_item": 20,
             "has_previous": False,
             "has_next": True,
         })
-        self.assertEqual(len(second["clients"]), 100)
-        self.assertEqual(second["pagination"]["start_item"], 101)
-        self.assertEqual(second["pagination"]["end_item"], 200)
+        self.assertEqual(len(second["clients"]), 20)
+        self.assertEqual(second["pagination"]["start_item"], 21)
+        self.assertEqual(second["pagination"]["end_item"], 40)
         self.assertTrue(second["pagination"]["has_previous"])
         self.assertTrue(second["pagination"]["has_next"])
         self.assertFalse(
@@ -1323,7 +1370,7 @@ class ClientsApiTests(TestCase):
 
         response = self.client.get(
             reverse("management_bot_clients_api"),
-            {"page": 999, "page_size": 20},
+            {"page": 999, "page_size": 200},
         ).json()
         invalid = self.client.get(
             reverse("management_bot_clients_api"),
@@ -1335,8 +1382,73 @@ class ClientsApiTests(TestCase):
         self.assertEqual(response["pagination"]["start_item"], 41)
         self.assertEqual(response["pagination"]["end_item"], 46)
         self.assertFalse(response["pagination"]["has_next"])
+        self.assertEqual(response["pagination"]["page_size"], 20)
         self.assertEqual(invalid["pagination"]["page"], 1)
-        self.assertEqual(invalid["pagination"]["page_size"], 100)
+        self.assertEqual(invalid["pagination"]["page_size"], 20)
+
+    def test_clients_summary_uses_count_only_projection(self):
+        hidden = IgClient.get_or_create_for_sender("ig-summary-hidden")
+        hidden.hidden_at = timezone.now()
+        hidden.save(update_fields=["hidden_at", "updated_at"])
+
+        request = RequestFactory().get(
+            reverse("management_bot_clients_api"),
+            {"summary": "1"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        request.user = self.admin
+        with CaptureQueriesContext(connection) as queries:
+            response = bot_clients_api(request)
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data["summary_only"])
+        self.assertEqual(data["clients"], [])
+        self.assertEqual(data["total"], 1)
+        sql = "\n".join(row["sql"].lower() for row in queries.captured_queries)
+        self.assertNotIn("management_igconversationanalysissnapshot", sql)
+        self.assertNotIn("management_igdeal", sql)
+        self.assertLessEqual(len(queries), 2, sql)
+
+    def test_clients_twenty_row_projection_has_constant_query_budget(self):
+        def query_count():
+            request = RequestFactory().get(
+                reverse("management_bot_clients_api"),
+                {"page_size": 20},
+                HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+            )
+            request.user = self.admin
+            with CaptureQueriesContext(connection) as queries:
+                response = bot_clients_api(request)
+            self.assertEqual(response.status_code, 200)
+            return json.loads(response.content), queries.captured_queries
+
+        baseline_data, baseline_queries = query_count()
+        self.assertEqual(len(baseline_data["clients"]), 1)
+
+        IgClient.objects.bulk_create([
+            IgClient(igsid=f"ig-query-budget-{index:03d}")
+            for index in range(25)
+        ])
+        expanded_data, expanded_queries = query_count()
+
+        self.assertEqual(len(expanded_data["clients"]), 20)
+        self.assertEqual(expanded_data["pagination"]["page_size"], 20)
+        self.assertLessEqual(
+            len(expanded_queries),
+            len(baseline_queries) + 1,
+            "\n".join(row["sql"] for row in expanded_queries),
+        )
+        self.assertLessEqual(
+            len(expanded_queries),
+            12,
+            "\n".join(row["sql"] for row in expanded_queries),
+        )
+        expanded_sql = [row["sql"].lower() for row in expanded_queries]
+        self.assertLessEqual(
+            sum("management_igfunnelresetaudit" in row for row in expanded_sql),
+            1,
+        )
 
     @override_settings(SITE_BASE_URL="https://shop.example.test")
     def test_client_detail_uses_storefront_urlconf_for_signed_manual_order(self):
