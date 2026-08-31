@@ -626,6 +626,11 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
         else proposal.payment_attempt
     )
     if generation is not None:
+        from management.services.ig_checkout_generation import (
+            _retry_source_is_safe,
+        )
+
+        retry_source_safe = _retry_source_is_safe(generation, attempt)
         if generation.state == generation.State.PAID_WINNER:
             return "paid"
         if generation.state in {
@@ -639,21 +644,12 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
             return "cancellation_ambiguous"
         if (
             generation.state == generation.State.INVOICE_CREATED
-            and (
-                not generation.provider_invoice_id
-                or attempt is None
-                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
-            )
+            and not retry_source_safe
         ):
             return "cancellation_ambiguous"
         if (
             generation.state == generation.State.EXPIRED
-            and (
-                not generation.provider_invoice_id
-                or attempt is None
-                or attempt.status != attempt.Status.EXPIRED
-                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
-            )
+            and not retry_source_safe
         ):
             return "cancellation_ambiguous"
         if (
@@ -663,15 +659,7 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
                 or (
                     generation.expires_at <= timezone.now()
                     and generation.state == generation.State.INVOICE_CREATED
-                    and bool(generation.provider_invoice_id)
-                    and attempt is not None
-                    and attempt.status in {
-                        attempt.Status.INITIATED,
-                        attempt.Status.PROCESSING,
-                    }
-                    and not (attempt.event_state or {}).get(
-                        "invoice_creation_ambiguous"
-                    )
+                    and retry_source_safe
                 )
             )
         ):
@@ -680,16 +668,7 @@ def _checkout_state(proposal, generation=_GENERATION_UNSET):
             generation.State.FAILED,
             generation.State.CANCELLED,
         }:
-            expected_attempt_status = (
-                attempt.Status.FAILED
-                if generation.state == generation.State.FAILED and attempt is not None
-                else attempt.Status.CANCELLED if attempt is not None else ""
-            )
-            if (
-                attempt is None
-                or attempt.status != expected_attempt_status
-                or (attempt.event_state or {}).get("invoice_creation_ambiguous")
-            ):
+            if not retry_source_safe:
                 return "cancellation_ambiguous"
             return (
                 "generation_retryable"

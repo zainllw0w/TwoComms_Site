@@ -111,6 +111,7 @@ def _terminalize_payment_attempt_once(
             reason=reason,
             now=now,
             require_due=require_due,
+            terminal_source=source,
         )
         return AttemptTerminalizationResult(
             attempt_id,

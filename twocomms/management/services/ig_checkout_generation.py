@@ -269,6 +269,60 @@ def _provider_boundary_uncertain(generation, attempt) -> bool:
             and generation.state
             not in {generation.State.FAILED, generation.State.CANCELLED}
         )
+        or (
+            generation.state in {
+                generation.State.INVOICE_CREATED,
+                generation.State.EXPIRED,
+                generation.State.FAILED,
+                generation.State.CANCELLED,
+            }
+            and not _retry_source_is_safe(generation, attempt)
+        )
+    )
+
+
+def _provider_identity_matches(generation, attempt) -> bool:
+    generation_identity = str(generation.provider_invoice_id or "")
+    attempt_identity = str(
+        getattr(attempt, "monobank_invoice_id", "") or ""
+    )
+    return bool(
+        generation_identity
+        and attempt_identity
+        and secrets.compare_digest(generation_identity, attempt_identity)
+    )
+
+
+def _cancelled_pre_dispatch_proof_matches(generation, attempt) -> bool:
+    if (
+        attempt is None
+        or generation.provider_request_digest
+        or not generation.provider_call_token
+    ):
+        return False
+    if generation.provider_invoice_id or attempt.monobank_invoice_id:
+        return False
+    if attempt.invoice_url or attempt.invoice_payload or attempt.payment_history:
+        return False
+    proof = (attempt.event_state or {}).get("provider_boundary")
+    if not isinstance(proof, dict):
+        return False
+    try:
+        proof_generation_id = int(proof.get("generation_id") or 0)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    expected_token_digest = hashlib.sha256(
+        str(generation.provider_call_token or "").encode()
+    ).hexdigest()
+    return bool(
+        proof.get("state") == "cancelled_pre_dispatch"
+        and proof.get("source") == "checkout_session_reset"
+        and bool(str(proof.get("observed_at") or ""))
+        and proof_generation_id == int(generation.pk)
+        and secrets.compare_digest(
+            str(proof.get("provider_call_token_digest") or ""),
+            expected_token_digest,
+        )
     )
 
 
@@ -278,17 +332,29 @@ def _retry_source_is_safe(generation, attempt) -> bool:
     ):
         return False
     if generation.state == generation.State.FAILED:
-        return attempt.status == PaymentAttempt.Status.FAILED
+        return bool(
+            attempt.status == PaymentAttempt.Status.FAILED
+            and (
+                _provider_identity_matches(generation, attempt)
+                or _cancelled_pre_dispatch_proof_matches(generation, attempt)
+            )
+        )
     if generation.state == generation.State.CANCELLED:
-        return attempt.status == PaymentAttempt.Status.CANCELLED
+        return bool(
+            attempt.status == PaymentAttempt.Status.CANCELLED
+            and (
+                _provider_identity_matches(generation, attempt)
+                or _cancelled_pre_dispatch_proof_matches(generation, attempt)
+            )
+        )
     if generation.state == generation.State.EXPIRED:
         return bool(
-            generation.provider_invoice_id
+            _provider_identity_matches(generation, attempt)
             and attempt.status == PaymentAttempt.Status.EXPIRED
         )
     if generation.state == generation.State.INVOICE_CREATED:
         return bool(
-            generation.provider_invoice_id
+            _provider_identity_matches(generation, attempt)
             and attempt.status in {
                 PaymentAttempt.Status.INITIATED,
                 PaymentAttempt.Status.PROCESSING,
@@ -1229,6 +1295,7 @@ def terminalize_generation_attempt(
     reason,
     now=None,
     require_due=False,
+    terminal_source="",
 ):
     """Generation-scoped local/provider terminalization without proposal death."""
     now = now or timezone.now()
@@ -1250,7 +1317,45 @@ def terminalize_generation_attempt(
             return {"outcome": "protected_payment", "attempt_id": attempt.pk}
         if require_due and generation.expires_at > now:
             return {"outcome": "not_due", "attempt_id": attempt.pk}
-        if _provider_boundary_uncertain(generation, attempt):
+        cancelled_pre_dispatch = bool(
+            terminal_status == PaymentAttempt.Status.CANCELLED
+            and str(terminal_source or "") == "checkout_session_reset"
+            and generation.state in {
+                generation.State.PLANNED,
+                generation.State.PROVIDER_INFLIGHT,
+            }
+            and bool(generation.provider_call_token)
+            and not generation.provider_request_digest
+            and not generation.provider_invoice_id
+            and not attempt.monobank_invoice_id
+            and not attempt.invoice_url
+            and not attempt.invoice_payload
+            and not attempt.payment_history
+            and not (attempt.event_state or {}).get("invoice_creation_ambiguous")
+        )
+        if cancelled_pre_dispatch:
+            event_state = dict(attempt.event_state or {})
+            event_state["provider_boundary"] = {
+                "state": "cancelled_pre_dispatch",
+                "generation_id": generation.pk,
+                "provider_call_token_digest": hashlib.sha256(
+                    str(generation.provider_call_token or "").encode()
+                ).hexdigest(),
+                "source": "checkout_session_reset",
+                "observed_at": now.isoformat(),
+            }
+            attempt.event_state = event_state
+            attempt.save(update_fields=["event_state", "updated"])
+            _event(
+                generation,
+                "terminalized",
+                f"cancelled-pre-dispatch:{attempt.pk}",
+                payload={
+                    "provider_boundary_state": "cancelled_pre_dispatch",
+                    "attempt_reference": attempt.reference,
+                },
+            )
+        elif _provider_boundary_uncertain(generation, attempt):
             if generation.state not in {
                 generation.State.AMBIGUITY_REVIEW,
                 generation.State.LATE_PROVIDER_REVIEW,
