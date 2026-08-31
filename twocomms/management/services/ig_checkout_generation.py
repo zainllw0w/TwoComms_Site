@@ -293,6 +293,139 @@ def _provider_identity_matches(generation, attempt) -> bool:
     )
 
 
+_TRUSTED_PROVIDER_TERMINAL_SOURCES = frozenset({
+    "webhook",
+    "provider_pull",
+    "return",
+    "ig_reconcile",
+})
+
+
+def _canonical_provider_terminal_status(value) -> str:
+    normalized = str(value or "").strip().casefold()
+    return "cancelled" if normalized == "canceled" else normalized
+
+
+def _build_provider_terminal_proof(
+    generation,
+    attempt,
+    *,
+    provider_status,
+    provider_payload,
+    source,
+    now,
+):
+    normalized = _canonical_provider_terminal_status(provider_status)
+    source = str(source or "").strip()
+    if (
+        normalized
+        not in {"failure", "rejected", "reversed", "cancelled", "expired"}
+        or source not in _TRUSTED_PROVIDER_TERMINAL_SOURCES
+        or not generation.provider_call_token
+        or not _provider_identity_matches(generation, attempt)
+        or not isinstance(provider_payload, dict)
+    ):
+        return None
+    envelope = provider_payload.get("result")
+    if not isinstance(envelope, dict):
+        envelope = provider_payload
+    merchant = envelope.get("merchantPaymInfo") or {}
+    if not isinstance(merchant, dict):
+        merchant = {}
+    observed_status = _canonical_provider_terminal_status(
+        envelope.get("status") or envelope.get("statusCode")
+    )
+    observed_invoice_id = str(
+        envelope.get("invoiceId") or envelope.get("invoice_id") or ""
+    )
+    observed_reference = str(
+        envelope.get("reference") or merchant.get("reference") or ""
+    )
+    observed_currency = str(
+        envelope.get("ccy") or envelope.get("currencyCode") or ""
+    )
+    if (
+        observed_status != normalized
+        or not observed_invoice_id
+        or not secrets.compare_digest(
+            observed_invoice_id,
+            str(generation.provider_invoice_id or ""),
+        )
+        or not observed_reference
+        or not secrets.compare_digest(observed_reference, str(attempt.reference))
+        or observed_currency not in {"980", "UAH"}
+    ):
+        return None
+    evidence = {
+        "status": normalized,
+        "invoice_id": observed_invoice_id,
+        "reference": observed_reference,
+        "currency": observed_currency,
+        "source": source,
+    }
+    evidence_digest = hashlib.sha256(
+        json.dumps(
+            evidence,
+            ensure_ascii=True,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    return {
+        "state": "provider_terminal",
+        "provider_status": normalized,
+        "source": source,
+        "generation_id": generation.pk,
+        "provider_call_token_digest": hashlib.sha256(
+            str(generation.provider_call_token or "").encode()
+        ).hexdigest(),
+        "provider_invoice_id_digest": hashlib.sha256(
+            observed_invoice_id.encode()
+        ).hexdigest(),
+        "evidence_digest": evidence_digest,
+        "observed_at": now.isoformat(),
+    }
+
+
+def _provider_terminal_proof_matches(generation, attempt, allowed_statuses) -> bool:
+    if (
+        attempt is None
+        or not generation.provider_call_token
+        or not _provider_identity_matches(generation, attempt)
+    ):
+        return False
+    proof = (attempt.event_state or {}).get("provider_terminal")
+    if not isinstance(proof, dict):
+        return False
+    try:
+        proof_generation_id = int(proof.get("generation_id") or 0)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    expected_token_digest = hashlib.sha256(
+        str(generation.provider_call_token or "").encode()
+    ).hexdigest()
+    expected_identity_digest = hashlib.sha256(
+        str(generation.provider_invoice_id or "").encode()
+    ).hexdigest()
+    status = _canonical_provider_terminal_status(proof.get("provider_status"))
+    return bool(
+        proof.get("state") == "provider_terminal"
+        and status in set(allowed_statuses)
+        and proof.get("source") in _TRUSTED_PROVIDER_TERMINAL_SOURCES
+        and proof_generation_id == int(generation.pk)
+        and bool(str(proof.get("observed_at") or ""))
+        and len(str(proof.get("evidence_digest") or "")) == 64
+        and secrets.compare_digest(
+            str(proof.get("provider_call_token_digest") or ""),
+            expected_token_digest,
+        )
+        and secrets.compare_digest(
+            str(proof.get("provider_invoice_id_digest") or ""),
+            expected_identity_digest,
+        )
+    )
+
+
 def _cancelled_pre_dispatch_proof_matches(generation, attempt) -> bool:
     if (
         attempt is None
@@ -335,7 +468,11 @@ def _retry_source_is_safe(generation, attempt) -> bool:
         return bool(
             attempt.status == PaymentAttempt.Status.FAILED
             and (
-                _provider_identity_matches(generation, attempt)
+                _provider_terminal_proof_matches(
+                    generation,
+                    attempt,
+                    {"failure", "rejected", "reversed"},
+                )
                 or _cancelled_pre_dispatch_proof_matches(generation, attempt)
             )
         )
@@ -343,7 +480,11 @@ def _retry_source_is_safe(generation, attempt) -> bool:
         return bool(
             attempt.status == PaymentAttempt.Status.CANCELLED
             and (
-                _provider_identity_matches(generation, attempt)
+                _provider_terminal_proof_matches(
+                    generation,
+                    attempt,
+                    {"cancelled"},
+                )
                 or _cancelled_pre_dispatch_proof_matches(generation, attempt)
             )
         )
@@ -351,6 +492,14 @@ def _retry_source_is_safe(generation, attempt) -> bool:
         return bool(
             _provider_identity_matches(generation, attempt)
             and attempt.status == PaymentAttempt.Status.EXPIRED
+            and (
+                generation.expires_at <= timezone.now()
+                or _provider_terminal_proof_matches(
+                    generation,
+                    attempt,
+                    {"expired"},
+                )
+            )
         )
     if generation.state == generation.State.INVOICE_CREATED:
         return bool(
@@ -1296,6 +1445,8 @@ def terminalize_generation_attempt(
     now=None,
     require_due=False,
     terminal_source="",
+    provider_status="",
+    provider_payload=None,
 ):
     """Generation-scoped local/provider terminalization without proposal death."""
     now = now or timezone.now()
@@ -1303,10 +1454,12 @@ def terminalize_generation_attempt(
         graph = _lock_generation_graph(attempt_id)
         if graph is None:
             return None
-        _deal, proposal, generation, attempt = graph
+        deal, proposal, generation, attempt = graph
         if (
             attempt.order_id
             or generation.winner_slot == 1
+            or deal.order_id
+            or proposal.winner_invoice_generation_id
             or generation.state in {
                 generation.State.WINNER_CLAIMED,
                 generation.State.PAID_WINNER,
@@ -1317,6 +1470,30 @@ def terminalize_generation_attempt(
             return {"outcome": "protected_payment", "attempt_id": attempt.pk}
         if require_due and generation.expires_at > now:
             return {"outcome": "not_due", "attempt_id": attempt.pk}
+        if (
+            str(terminal_source or "") == "checkout_session_reset"
+            and generation.state == generation.State.INVOICE_CREATED
+            and _provider_identity_matches(generation, attempt)
+        ):
+            return {
+                "outcome": "provider_active",
+                "attempt_id": attempt.pk,
+                "provider_invoice_id": generation.provider_invoice_id,
+            }
+        provider_terminal_requested = bool(str(provider_status or "").strip())
+        provider_terminal_proof = _build_provider_terminal_proof(
+            generation,
+            attempt,
+            provider_status=provider_status,
+            provider_payload=provider_payload,
+            source=terminal_source,
+            now=now,
+        )
+        if provider_terminal_proof is not None:
+            event_state = dict(attempt.event_state or {})
+            event_state["provider_terminal"] = provider_terminal_proof
+            attempt.event_state = event_state
+            attempt.save(update_fields=["event_state", "updated"])
         cancelled_pre_dispatch = bool(
             terminal_status == PaymentAttempt.Status.CANCELLED
             and str(terminal_source or "") == "checkout_session_reset"
@@ -1355,7 +1532,10 @@ def terminalize_generation_attempt(
                     "attempt_reference": attempt.reference,
                 },
             )
-        elif _provider_boundary_uncertain(generation, attempt):
+        elif (
+            _provider_boundary_uncertain(generation, attempt)
+            or (provider_terminal_requested and provider_terminal_proof is None)
+        ):
             if generation.state not in {
                 generation.State.AMBIGUITY_REVIEW,
                 generation.State.LATE_PROVIDER_REVIEW,
@@ -1603,6 +1783,7 @@ def _mark_resource_review(
     payload,
     source,
     now,
+    reason="paid_generation_resource_unavailable",
 ):
     _persist_paid_without_order(
         attempt,
@@ -1624,7 +1805,7 @@ def _mark_resource_review(
     generation.active_slot = None
     generation.paid_at = now
     generation.terminal_at = now
-    generation.review_reason = "paid_generation_resource_unavailable"
+    generation.review_reason = str(reason or "paid_generation_resource_unavailable")[:96]
     generation.save(update_fields=[
         "state", "active_slot", "paid_at", "terminal_at", "review_reason",
         "updated_at",
@@ -1653,13 +1834,16 @@ def _mark_resource_review(
         generation,
         "resource_review",
         str(attempt.pk),
-        payload={"requires_stock_or_refund_review": True},
+        payload={
+            "requires_stock_or_refund_review": True,
+            "reason_code": generation.review_reason,
+        },
     )
     _queue_paid_review(
         proposal,
         generation,
         attempt,
-        reason="paid_generation_resource_unavailable",
+        reason=generation.review_reason,
     )
 
 
@@ -1914,6 +2098,22 @@ def apply_verified_generation_payment(
                 marker = str(getattr(exc, "marker", "") or "")[:64]
                 if marker:
                     event_state[marker] = True
+                promo_retry_count = 0
+                if marker == "promo_consumption_pending":
+                    try:
+                        prior_promo_retry_count = int(
+                            event_state.get("promo_consumption_retry_count") or 0
+                        )
+                    except (TypeError, ValueError, OverflowError):
+                        prior_promo_retry_count = 0
+                    promo_retry_count = max(
+                        0,
+                        prior_promo_retry_count,
+                    ) + 1
+                    event_state["promo_consumption_retry_count"] = promo_retry_count
+                    if promo_retry_count >= 2:
+                        event_state.pop("promo_consumption_pending", None)
+                        event_state["promo_consumption_manual_review"] = True
                 attempt.status = PaymentAttempt.Status.PROCESSING
                 attempt.event_state = event_state
                 attempt.error_reason = str(exc)[:500]
@@ -1922,6 +2122,17 @@ def apply_verified_generation_payment(
                     "status", "event_state", "error_reason", "last_status_at",
                     "updated",
                 ])
+                if marker == "promo_consumption_pending" and promo_retry_count >= 2:
+                    _mark_resource_review(
+                        deal,
+                        proposal,
+                        generation,
+                        attempt,
+                        payload=payload,
+                        source=source,
+                        now=now,
+                        reason="promo_consumption_persistence_failed",
+                    )
                 return None, False
             _mark_resource_review(
                 deal,
@@ -1966,6 +2177,9 @@ def apply_generation_provider_status(
             terminal_status=terminal,
             reason=f"provider_{normalized}",
             require_due=False,
+            terminal_source=source,
+            provider_status=normalized,
+            provider_payload=payload,
         )
     elif normalized in {"created", "processing", "hold"}:
         with transaction.atomic():

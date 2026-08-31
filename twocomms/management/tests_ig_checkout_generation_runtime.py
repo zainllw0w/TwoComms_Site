@@ -135,6 +135,78 @@ class CheckoutGenerationRuntimeTests(TestCase):
             .first()
         )
 
+    def _create_authenticated_promo_invoice(self, *, code):
+        from product_catalog.models import ProductInventoryPolicy
+        from productcolors.models import Color, ProductColorVariant
+
+        user = get_user_model().objects.create_user(
+            username=f"promo-owner-{code.casefold()}"
+        )
+        self.client.force_login(user)
+        promo = PromoCode.objects.create(
+            code=code,
+            discount_type="percentage",
+            discount_value=Decimal("10.00"),
+            max_uses=10,
+            one_time_per_user=True,
+        )
+        color = Color.objects.create(
+            name=f"{code} color",
+            primary_hex="#222222",
+        )
+        variant = ProductColorVariant.objects.create(
+            product=self.product,
+            color=color,
+            stock=2,
+        )
+        ProductInventoryPolicy.objects.create(
+            product=self.product,
+            source=ProductInventoryPolicy.Source.CATALOG_VARIANT,
+        )
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[{**self._item(), "color_variant_id": variant.pk}],
+            allow_promo=True,
+        )
+        self._open(proposal)
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            return_value={
+                "invoiceId": f"v2-{code.casefold()}",
+                "pageUrl": f"https://pay.example/v2-{code.casefold()}",
+            },
+        ):
+            response = self.client.post(
+                reverse(
+                    "ig_checkout_proposal",
+                    kwargs={"proposal_id": proposal.public_id},
+                ),
+                self._delivery_payload(promo_code=promo.code),
+                HTTP_ACCEPT="application/json",
+            )
+        self.assertEqual(response.status_code, 200, response.content)
+        generation = IgCheckoutInvoiceGeneration.objects.get(proposal=proposal)
+        return proposal, generation, generation.payment_attempt, promo, variant
+
+    def _apply_exact_provider_terminal(self, generation, *, status="failure"):
+        from management.services.ig_checkout_generation import (
+            apply_generation_provider_status,
+        )
+
+        attempt = generation.payment_attempt
+        return apply_generation_provider_status(
+            attempt.pk,
+            status,
+            payload={
+                "status": status,
+                "invoiceId": attempt.monobank_invoice_id,
+                "merchantPaymInfo": {"reference": attempt.reference},
+                "ccy": 980,
+            },
+            source="provider_pull",
+        )
+
     def _provider_create_with_webhook_winner(self, *, timeout_after_webhook):
         from storefront.views.monobank import _apply_payment_attempt_status
 
@@ -708,8 +780,8 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(replacement.np_office, attempt.np_office)
 
     def test_cancelled_generation_all_grants_show_masked_server_retry_only(self):
-        from management.services.ig_checkout_terminalization import (
-            terminalize_payment_attempt,
+        from management.services.ig_checkout_generation import (
+            apply_generation_provider_status,
         )
 
         proposal = create_or_update_proposal(
@@ -739,14 +811,25 @@ class CheckoutGenerationRuntimeTests(TestCase):
             ).status_code,
             302,
         )
-        outcome = terminalize_payment_attempt(
+        apply_generation_provider_status(
             original.pk,
-            terminal_status=PaymentAttempt.Status.CANCELLED,
-            reason="provider_cancelled",
-            source="checkout_session_reset",
-            require_due=False,
+            "cancelled",
+            payload={
+                "status": "cancelled",
+                "invoiceId": original.monobank_invoice_id,
+                "merchantPaymInfo": {"reference": original.reference},
+                "ccy": 980,
+            },
+            source="provider_pull",
         )
-        self.assertEqual(outcome.outcome, "terminalized")
+        generation.refresh_from_db()
+        original.refresh_from_db()
+        self.assertEqual(generation.state, generation.State.CANCELLED)
+        self.assertEqual(original.status, PaymentAttempt.Status.CANCELLED)
+        self.assertEqual(
+            original.event_state["provider_terminal"]["provider_status"],
+            "cancelled",
+        )
         url = reverse(
             "ig_checkout_proposal",
             kwargs={"proposal_id": proposal.public_id},
@@ -796,6 +879,64 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(
             replacement.instagram_checkout_generation.payment_choice,
             generation.payment_choice,
+        )
+
+    def test_local_reset_preserves_active_provider_invoice_and_never_reissues(self):
+        from management.services.ig_checkout_terminalization import (
+            terminalize_payment_attempt,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        generation = self._create_invoice(
+            proposal,
+            invoice_id="v2-active-local-reset",
+        )
+        attempt = generation.payment_attempt
+        outcome = terminalize_payment_attempt(
+            attempt.pk,
+            terminal_status=PaymentAttempt.Status.CANCELLED,
+            reason="checkout_session_reset",
+            source="checkout_session_reset",
+            require_due=False,
+        )
+        self.assertEqual(outcome.outcome, "provider_active")
+        generation.refresh_from_db()
+        attempt.refresh_from_db()
+        proposal.refresh_from_db()
+        self.assertEqual(generation.state, generation.State.INVOICE_CREATED)
+        self.assertEqual(generation.active_slot, 1)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PROCESSING)
+        self.assertEqual(
+            proposal.current_invoice_generation_id,
+            generation.pk,
+        )
+        self.assertEqual(proposal.payment_attempt_id, attempt.pk)
+        url = reverse(
+            "ig_checkout_proposal",
+            kwargs={"proposal_id": proposal.public_id},
+        )
+        page = self.client.get(url)
+        self.assertEqual(page.context["checkout_state"], "pending")
+        self.assertEqual(page.context["payment_url"], attempt.invoice_url)
+        with patch(
+            "storefront.views.monobank._monobank_api_request"
+        ) as provider:
+            replay = self.client.post(
+                url,
+                {"reissue_generation": str(generation.generation)},
+                HTTP_ACCEPT="application/json",
+            )
+        provider.assert_not_called()
+        self.assertEqual(replay.status_code, 200)
+        self.assertTrue(replay.json()["reused"])
+        self.assertEqual(replay.json()["invoice_url"], attempt.invoice_url)
+        self.assertEqual(
+            IgCheckoutInvoiceGeneration.objects.filter(proposal=proposal).count(),
+            1,
         )
 
     def test_retry_identity_matrix_requires_exact_match_or_predispatch_proof(self):
@@ -954,6 +1095,63 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(empty_post.status_code, 400)
         self.assertEqual(empty_post.json()["error"], "provider_ambiguous")
 
+    def test_forged_local_provider_terminal_evidence_is_rejected(self):
+        from management.services.ig_checkout_generation import (
+            apply_generation_provider_status,
+        )
+
+        proposal = create_or_update_proposal(
+            client=self.client_row,
+            pay_type="online_full",
+            item_specs=[self._item()],
+        )
+        generation = self._create_invoice(
+            proposal,
+            invoice_id="v2-forged-terminal-source",
+        )
+        attempt = generation.payment_attempt
+        apply_generation_provider_status(
+            attempt.pk,
+            "cancelled",
+            payload={
+                "status": "cancelled",
+                "invoiceId": attempt.monobank_invoice_id,
+                "merchantPaymInfo": {"reference": attempt.reference},
+                "ccy": 980,
+            },
+            source="local_forged",
+        )
+        generation.refresh_from_db()
+        attempt.refresh_from_db()
+        proposal.refresh_from_db()
+        self.assertEqual(generation.state, generation.State.PROVIDER_AMBIGUOUS)
+        self.assertEqual(proposal.status, proposal.Status.MANAGER_REVIEW)
+        self.assertNotIn("provider_terminal", attempt.event_state or {})
+        url = reverse(
+            "ig_checkout_proposal",
+            kwargs={"proposal_id": proposal.public_id},
+        )
+        with patch(
+            "storefront.views.monobank._monobank_api_request"
+        ) as provider:
+            page = self.client.get(url)
+            status = self.client.get(
+                reverse(
+                    "ig_checkout_status",
+                    kwargs={"proposal_id": proposal.public_id},
+                )
+            )
+            posted = self.client.post(
+                url,
+                {"reissue_generation": str(generation.generation)},
+                HTTP_ACCEPT="application/json",
+            )
+        provider.assert_not_called()
+        self.assertEqual(page.context["checkout_state"], "cancellation_ambiguous")
+        self.assertEqual(status.json()["state"], "cancellation_ambiguous")
+        self.assertEqual(posted.status_code, 400)
+        self.assertEqual(posted.json()["error"], "provider_ambiguous")
+
     def test_direct_200_policy_creates_prepay_200_attempt(self):
         message = InstagramBotMessage.objects.create(
             client=self.client_row,
@@ -1028,9 +1226,6 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(Order.objects.count(), 1)
 
     def test_late_paid_loser_never_creates_second_order_or_downgrades_winner(self):
-        from management.services.ig_checkout_generation import (
-            terminalize_generation_attempt,
-        )
         from storefront.views.monobank import _apply_payment_attempt_status
 
         proposal = create_or_update_proposal(
@@ -1039,11 +1234,7 @@ class CheckoutGenerationRuntimeTests(TestCase):
             item_specs=[self._item()],
         )
         first = self._create_invoice(proposal, invoice_id="v2-old")
-        terminalize_generation_attempt(
-            first.payment_attempt_id,
-            terminal_status=PaymentAttempt.Status.FAILED,
-            reason="provider_failure",
-        )
+        self._apply_exact_provider_terminal(first, status="failure")
         proposal.refresh_from_db()
         second = self._create_invoice(proposal, invoice_id="v2-new")
         winner_order, _created = _apply_payment_attempt_status(
@@ -1072,9 +1263,6 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(winner_order.pk, Order.objects.get().pk)
 
     def test_old_negative_callback_cannot_downgrade_paid_winner(self):
-        from management.services.ig_checkout_generation import (
-            terminalize_generation_attempt,
-        )
         from storefront.views.monobank import _apply_payment_attempt_status
 
         proposal = create_or_update_proposal(
@@ -1083,11 +1271,7 @@ class CheckoutGenerationRuntimeTests(TestCase):
             item_specs=[self._item()],
         )
         first = self._create_invoice(proposal, invoice_id="v2-negative-old")
-        terminalize_generation_attempt(
-            first.payment_attempt_id,
-            terminal_status=PaymentAttempt.Status.FAILED,
-            reason="provider_failure",
-        )
+        self._apply_exact_provider_terminal(first, status="failure")
         proposal.refresh_from_db()
         second = self._create_invoice(proposal, invoice_id="v2-negative-winner")
         _apply_payment_attempt_status(
@@ -1110,9 +1294,6 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(second.state, second.State.PAID_WINNER)
 
     def test_late_old_success_with_released_stock_enters_review_not_order(self):
-        from management.services.ig_checkout_generation import (
-            terminalize_generation_attempt,
-        )
         from product_catalog.models import ProductInventoryPolicy
         from productcolors.models import Color, ProductColorVariant
         from storefront.views.monobank import _apply_payment_attempt_status
@@ -1135,11 +1316,7 @@ class CheckoutGenerationRuntimeTests(TestCase):
         )
         first = self._create_invoice(proposal, invoice_id="v2-stock-old")
         first_reservation = first.inventory_reservations.get()
-        terminalize_generation_attempt(
-            first.payment_attempt_id,
-            terminal_status=PaymentAttempt.Status.FAILED,
-            reason="provider_failure",
-        )
+        self._apply_exact_provider_terminal(first, status="failure")
         first_reservation.refresh_from_db()
         self.assertEqual(first_reservation.state, first_reservation.State.RELEASED)
         proposal.refresh_from_db()
@@ -1795,6 +1972,193 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(blocked.status_code, 400)
         retry.assert_not_called()
 
+    def test_authenticated_v2_promo_transient_reconciles_once_without_webhook(self):
+        from django.db.models.signals import pre_save
+        from management.services.ig_checkout_reconciliation import (
+            reconcile_ig_checkout,
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        proposal, generation, attempt, promo, variant = (
+            self._create_authenticated_promo_invoice(code="AUTHPROMORETRY")
+        )
+        paid_minor = int(Decimal(attempt.payment_amount) * 100)
+
+        def reject_usage(sender, instance, **kwargs):
+            raise RuntimeError("synthetic authenticated promo persistence failure")
+
+        dispatch_uid = "test-auth-v2-promo-first-persistence-failure"
+        pre_save.connect(
+            reject_usage,
+            sender=PromoCodeUsage,
+            weak=False,
+            dispatch_uid=dispatch_uid,
+        )
+        try:
+            order, created = _apply_payment_attempt_status(
+                attempt,
+                "success",
+                payload={"status": "success", "paidAmount": paid_minor},
+                source="webhook",
+            )
+        finally:
+            pre_save.disconnect(
+                sender=PromoCodeUsage,
+                dispatch_uid=dispatch_uid,
+            )
+        self.assertIsNone(order)
+        self.assertFalse(created)
+        attempt.refresh_from_db()
+        generation.refresh_from_db()
+        variant.refresh_from_db()
+        self.assertTrue(
+            (attempt.event_state or {}).get("promo_consumption_pending")
+        )
+        self.assertEqual(
+            (attempt.event_state or {}).get("promo_consumption_retry_count"),
+            1,
+        )
+        self.assertEqual(generation.state, generation.State.WINNER_CLAIMED)
+        self.assertEqual(variant.stock, 1)
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(PromoCodeUsage.objects.filter(promo_code=promo).count(), 0)
+
+        provider_payload = {
+            "status": "success",
+            "invoiceId": attempt.monobank_invoice_id,
+            "merchantPaymInfo": {"reference": attempt.reference},
+            "ccy": 980,
+            "paidAmount": paid_minor,
+        }
+        with patch(
+            "storefront.views.monobank._monobank_api_request",
+            return_value=provider_payload,
+        ) as provider:
+            reconcile_ig_checkout(limit=20, pull_ambiguous=True)
+        provider.assert_called_once()
+        attempt.refresh_from_db()
+        generation.refresh_from_db()
+        proposal.refresh_from_db()
+        variant.refresh_from_db()
+        self.assertIsNotNone(attempt.order_id)
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertEqual(
+            PromoCodeUsage.objects.filter(
+                promo_code=promo,
+                order_id=attempt.order_id,
+            ).count(),
+            1,
+        )
+        self.assertFalse(
+            (attempt.event_state or {}).get("promo_consumption_pending")
+        )
+        self.assertEqual(generation.state, generation.State.PAID_WINNER)
+        self.assertEqual(proposal.status, proposal.Status.PAID)
+        self.assertEqual(variant.stock, 1)
+        self.assertEqual(IgPaymentEvent.objects.filter(deal=proposal.deal).count(), 1)
+        self.assertEqual(
+            IgPaymentProjection.objects.filter(deal=proposal.deal).count(),
+            1,
+        )
+        with patch(
+            "storefront.views.monobank._monobank_api_request"
+        ) as provider:
+            reconcile_ig_checkout(limit=20, pull_ambiguous=True)
+        provider.assert_not_called()
+        self.assertEqual(Order.objects.count(), 1)
+        self.assertEqual(PromoCodeUsage.objects.filter(promo_code=promo).count(), 1)
+
+    def test_authenticated_v2_promo_repeated_failure_enters_manual_review(self):
+        from django.db.models.signals import pre_save
+        from management.services.ig_checkout_reconciliation import (
+            reconcile_ig_checkout,
+        )
+        from storefront.views.monobank import _apply_payment_attempt_status
+
+        proposal, generation, attempt, promo, variant = (
+            self._create_authenticated_promo_invoice(code="AUTHPROMOREVIEW")
+        )
+        paid_minor = int(Decimal(attempt.payment_amount) * 100)
+
+        def reject_usage(sender, instance, **kwargs):
+            raise RuntimeError("persistent authenticated promo write failure")
+
+        dispatch_uid = "test-auth-v2-promo-repeated-persistence-failure"
+        pre_save.connect(
+            reject_usage,
+            sender=PromoCodeUsage,
+            weak=False,
+            dispatch_uid=dispatch_uid,
+        )
+        try:
+            _apply_payment_attempt_status(
+                attempt,
+                "success",
+                payload={"status": "success", "paidAmount": paid_minor},
+                source="webhook",
+            )
+            provider_payload = {
+                "status": "success",
+                "invoiceId": attempt.monobank_invoice_id,
+                "merchantPaymInfo": {"reference": attempt.reference},
+                "ccy": 980,
+                "paidAmount": paid_minor,
+            }
+            with patch(
+                "storefront.views.monobank._monobank_api_request",
+                return_value=provider_payload,
+            ) as provider:
+                reconcile_ig_checkout(limit=20, pull_ambiguous=True)
+            provider.assert_called_once()
+        finally:
+            pre_save.disconnect(
+                sender=PromoCodeUsage,
+                dispatch_uid=dispatch_uid,
+            )
+        attempt.refresh_from_db()
+        generation.refresh_from_db()
+        proposal.refresh_from_db()
+        variant.refresh_from_db()
+        self.assertFalse(
+            (attempt.event_state or {}).get("promo_consumption_pending")
+        )
+        self.assertTrue(
+            (attempt.event_state or {}).get("promo_consumption_manual_review")
+        )
+        self.assertEqual(
+            (attempt.event_state or {}).get("promo_consumption_retry_count"),
+            2,
+        )
+        self.assertEqual(generation.state, generation.State.RESOURCE_REVIEW)
+        self.assertEqual(
+            generation.review_reason,
+            "promo_consumption_persistence_failed",
+        )
+        self.assertEqual(proposal.status, proposal.Status.MANAGER_REVIEW)
+        self.assertEqual(attempt.status, PaymentAttempt.Status.PAID)
+        self.assertEqual(variant.stock, 1)
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(PromoCodeUsage.objects.filter(promo_code=promo).count(), 0)
+        self.assertEqual(IgPaymentEvent.objects.filter(deal=proposal.deal).count(), 1)
+        self.assertEqual(
+            IgPaymentProjection.objects.filter(deal=proposal.deal).count(),
+            1,
+        )
+        self.assertTrue(
+            IgBotNotification.objects.filter(
+                dedupe_key=(
+                    "ig-checkout-generation-review:"
+                    f"{generation.pk}:promo_consumption_persistence_failed"
+                )
+            ).exists()
+        )
+        with patch(
+            "storefront.views.monobank._monobank_api_request"
+        ) as provider:
+            reconcile_ig_checkout(limit=20, pull_ambiguous=True)
+        provider.assert_not_called()
+        self.assertEqual(Order.objects.count(), 0)
+
     def test_late_pending_status_cannot_downgrade_winner(self):
         from management.services.ig_checkout_generation import (
             apply_generation_provider_status,
@@ -1899,9 +2263,6 @@ class CheckoutGenerationRuntimeTests(TestCase):
         self.assertEqual(status.json()["ui_state"], "cancellation_ambiguous")
 
     def test_authenticated_stale_promo_generation_enters_resource_review(self):
-        from management.services.ig_checkout_generation import (
-            terminalize_generation_attempt,
-        )
         from storefront.views.monobank import _apply_payment_attempt_status
 
         user = get_user_model().objects.create_user(username="s2b-promo-owner")
@@ -1942,11 +2303,7 @@ class CheckoutGenerationRuntimeTests(TestCase):
                 generation=1,
             )
             first_owner = first.promo_reservation_generation
-            terminalize_generation_attempt(
-                first.payment_attempt_id,
-                terminal_status=PaymentAttempt.Status.FAILED,
-                reason="provider_failure",
-            )
+            self._apply_exact_provider_terminal(first, status="failure")
             proposal.refresh_from_db()
             second_response = self.client.post(
                 url,

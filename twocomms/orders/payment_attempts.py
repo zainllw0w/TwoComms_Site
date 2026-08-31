@@ -235,7 +235,7 @@ def materialize_payment_attempt(attempt_id, *, status, payload=None, source='web
                     ),
                     marker=(
                         "promo_consumption_pending"
-                        if anonymous_bearer_reservation
+                        if anonymous_bearer_reservation or v2_owned_reservation
                         else ""
                     ),
                 )
