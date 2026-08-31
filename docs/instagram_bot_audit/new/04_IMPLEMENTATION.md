@@ -272,6 +272,10 @@ shared-хостинге. `daemon spawned` в логе **не является** 
 | ЭА.11 (routing по project-group) | явный mapping шести подтверждённых независимых проектов | Неверная identity ломает квоты и cooldown |
 | ЭА.17 (агрегация алертов) | ЭА.2, ЭА.16 | Агрегировать нечем без `incident_id` и единого outbox |
 | ЭА.24 (приёмка) | все пункты ЭА | Инварианты проверяются только на реальном окне деградации |
+| Э2.2B Phase 5–7 (send gate, ACK, canary) | **ЭА.21** (Meta idempotency/`UNKNOWN`), ЭА.16 (outbox), ЭА.6/ЭА.8 (один технический текст) | Оба владеют переходом `→ SENDING` и учётом исходящих; иначе финальный CAS переписывается дважды |
+| Э2.2B Phase 0/1 (prerequisite-ремонты) | ничего | Это исправление уже задеплоенного кода; блокирует само себя, если не сделать первым |
+| Э2.2B `IgTurnReplyCandidate` | Э0.4 (объект решения об отправке) | Candidate — durable persistence решения Э0.4, а не второй тип решения |
+| Э4.1 (узел воронки), когда разблокируется | Э2.2B revision-binding | Superseded revision не имеет права оставить открытый узел воронки |
 
 ### Что сознательно отложено
 
@@ -293,6 +297,7 @@ policy-решения владельца, юридической проверк�
 | **ЭА** | **Аварийная стабилизация деградации** | **Активный ущерб клиентам с production-доказательствами** |
 | **Э1a** | Э1.0–Э1.4: политика, транспорт, postback | Приоритет владельца; инфраструктура без customer-visible изменений |
 | **Э2a** | Э2.1, Э2.2 + Э3.7: путь доставки и resolver варианта | Обязательный блокер перед карточками, видимыми клиенту |
+| **Э2.2B** | Semantic bundle, revisions и stale-draft barrier | P1 free-text safety. Phase 0/1 — сейчас (чинит уже задеплоенный код); Phase 2–4 параллельно ЭА; Phase 5–7 только после ЭА.21. Не блокирует детерминированные postback/cards, но обязателен перед новыми auto-flow на multipart-контексте |
 | **Э1b** | Э1.5–Э1.13: карточки + unified VisualPlan | Приоритет владельца; после закрытия блокеров |
 | **Э2b** | Остальные поломки доставки | Система отчитывается об успехе при неудаче |
 | **Э3** | Истина данных и контекста | Агент перестаёт отвечать на основании неверного |
@@ -307,12 +312,18 @@ policy-решения владельца, юридической проверк�
 только про порядок выполнения, чтобы не потерять приоритет владельца и
 одновременно не выпустить карточку в сломанный путь.
 
-### Completion dashboard для следующего агента (scope-сверка 2026-08-31)
+### Completion dashboard для следующего агента (scope-сверка 2026-08-31, code `10b3829e6`)
 
 ```text
-done 341   open 822   partial 31   blocked 18   declined 10
-raw done ratio: 341 / (341 + 822 + 31 + 18) = 28.1%
+done 338   open 853   partial 31   blocked 18   declined 10
+raw done ratio: 338 / (338 + 853 + 31 + 18) = 27.3%
 ```
+
+Счёт пересчитан скриптом по фактическим checkbox-ам файла после scope-сверки и
+после ревизии Э2.2B. Ревизия Э2.2B от 2026-08-31 добавила открытые пункты по
+границам владения с ЭА.16/ЭА.21, второму due-предикату по continuation TTL,
+каноническому порядку блокировок и переиспользованию префикса промпта; `done` от
+docs-срезов не растёт.
 
 Raw ratio специально консервативен и не равен product maturity: один docs-пункт
 и 48-hour production gate имеют одинаковый вес. Первая Gemini production wave
@@ -325,6 +336,7 @@ Raw ratio специально консервативен и не равен pro
 | Visual transport | deployed/preview proven | Э1.2 и `10` |
 | Visual orchestration | open priority | Э1.13 и `10` |
 | Resolver/media revision | deployed | Э3.7 |
+| Semantic message bundle | plan ready; Phase 0/1 в работе | Э2.2B и `11_MESSAGE_SERIES_COALESCING_IMPLEMENTATION.md` |
 | Funnel registry | blocked NO-GO | Э4 + visual action contract `10` |
 | Typed Memory | schema deployed, consumer off | Э3.12 + Э5 |
 | Last-100 analytics | open | Э8.6/Э8.7 |
@@ -3759,7 +3771,17 @@ authoritative transition`; stale/duplicate/UNKNOWN безопасны; text fall
 
 ## Э2.2 — Burst клиента даёт несколько ответов
 
-> **Статус 2026-08-29 — закрыто.** Блокер Э0.6 снят: единица работы теперь ход.
+> **Статус 2026-08-29 — базовый bounded-burst закрыт.** Блокер Э0.6 снят:
+> единица работы теперь ход.
+>
+> **Production-коррекция 2026-08-31:** слово «закрыт» относится только к
+> сообщениям, успевшим попасть в один `OPEN` turn до фиксированного
+> шестисекундного deadline. Оно **не** закрывает смысловое продолжение после
+> claim, media из поглощённой строки, новое inbound во время Gemini/typing и
+> atomic stale-draft gate перед Meta send. Реальный кейс `фото → Вітаю → Отримав
+> сертифікат` воспроизвёл именно эту границу. Продолжение — отдельный обязательный
+> workstream **Э2.2B**; полный контракт и production timeline находятся в
+> `11_MESSAGE_SERIES_COALESCING_IMPLEMENTATION.md`.
 >
 > `_claim_next()` брал по одной строке, поэтому burst «хочу худі» → «чорне» →
 > «розмір L» за десять секунд давал **три** выполнения модели на один контекст.
@@ -3834,6 +3856,206 @@ authoritative transition`; stale/duplicate/UNKNOWN безопасны; text fall
 поведение).
 
 - [x] **Коммит + push + деплой**
+
+## Э2.2B — Смысловая серия сообщений: revision, ACK и stale-draft barrier
+
+> **Статус 2026-08-31 — план готов и прошёл ревизию; реализация начата с
+> prerequisite-ремонтов.** Канонический подробный handoff:
+> `11_MESSAGE_SERIES_COALESCING_IMPLEMENTATION.md` (см. его §4.2 — границы
+> владения с ЭА и обязательный порядок относительно ЭА.21).
+>
+> Это не переоткрытие базового достижения Э2.2. Э2.2 доказал, что три строки,
+> успевшие попасть в одно fixed window, дают один claim. Э2.2B закрывает более
+> широкое и фактически наблюдаемое понятие: одна пользовательская мысль может
+> продолжиться после claim, во время Gemini, через отдельное фото или после
+> безопасного greeting ACK.
+
+- Production evidence: `11` → раздел 3
+- Класс: DEFECT + архитектурный GAP, **P1**; financial/duplicate side effects —
+  zero-tolerance safety gate
+- Блокеры: Э0.6 (`CustomerTurn`), Э2.10 (единый бюджет), Э3.6 (provenance),
+  существующая Meta `UNKNOWN` delivery boundary
+- **Порядок внутри пункта обязателен:** Phase 0/1 (prerequisite-ремонты) идут
+  сейчас и ни от чего не зависят; Phase 2–4 (schema, shadow policy, bundle
+  snapshot) не трогают send-path; Phase 5–7 (supersession, atomic send gate, ACK,
+  canary) выполняются **только после ЭА.21**, потому что ЭА.21 владеет
+  идемпотентным outbound-интентом и семантикой `UNKNOWN` в том же переходе
+  `→ SENDING`. Иначе финальный CAS переписывается дважды и в промежутке
+  существуют два источника истины об отправке.
+- Блокирует: доверительный диалог, корректную обработку media/payment evidence и
+  безопасное ускорение ordinary replies
+
+### Почему текущих 6 секунд недостаточно
+
+Production client `#336` отправил фото сертификата, затем `Вітаю`, затем
+`Отримав сертифікат )`:
+
+```text
+15:57:42.294 provider  фото
+15:57:45.251 local     фото записано
+15:57:44.460 provider  greeting
+15:57:46.382 local     greeting записан
+15:57:48.294           fixed deadline от provider time фото
+15:57:49.794           turn claimed
+15:57:52.229–54.601    Gemini сформировал generic greeting
+15:57:55.040 provider  клиент отправил смысловое продолжение
+15:57:55.233 local     старый ход уже перешёл в send_state=sending
+15:57:56.245 local     continuation только теперь пришло webhook-ом
+15:57:57.106           generic reply подтверждён Meta
+```
+
+Отмена была уже небезопасна: Meta request начался до local ingress. Второй ход
+затем отдельно получил `HTTP 400 INVALID_ARGUMENT` и manager fallback — это
+другой failure class, который coalescing не должен маскировать.
+
+Агрегат за 180 дней также не поддерживает одно глобальное число: среди 381
+последовательной user→user пары в 6 секунд вошли только 138 (36.2%), в 20 секунд
+— 257 (67.5%); медиана continuation после greeting — 18.86 с, после media —
+19 с. Ждать 19 секунд всем нельзя, поэтому решение — не «увеличить debounce».
+
+### Каноническое решение
+
+1. `IgCustomerTurn` становится единственным durable owner; row-anchor
+   `resolve_logical_turn_key()` остаётся только historical fallback.
+2. Quiet/hard timers считаются по **local ingress clock**; provider timestamp
+   сохраняется для chronology и user-perceived latency.
+3. Один fixed window заменяется typed wait policy: самостоятельный текст быстро,
+   greeting/media/check/hold — bounded wait или stable ACK.
+4. ACK не является substantive reply и не закрывает continuation expectation.
+5. Все text/media parts хода образуют immutable bundle snapshot одной revision.
+6. Новое уникальное inbound до provider boundary повышает revision и лишает
+   старый candidate права send.
+7. Final permission/lease/episode/revision CAS выполняется непосредственно при
+   `SEND_RESERVED → SENDING`.
+8. После `SENDING` старый send не отзывается и не повторяется; continuation идёт
+   в linked corrective turn.
+9. Client cadence — rolling bounded modifier, не permanent flag.
+10. User typing/online не используется: официальный Instagram webhook такого
+    надёжного сигнала не даёт; `typing_on` — действие самого бота.
+11. Native reply-to обычного DM default-off до capability proof; default — один
+    общий ответ или явное `По фото…`.
+12. На hot path нет дополнительного LLM-классификатора и нового daemon.
+
+### Обязательные prerequisite-ремонты
+
+Проверено по коду на `071a4b5b2`: `mark_turn_processed()` вызывается **только** в
+деградационной ветке `_claim_next()` (`instagram_bot.py:11159`, когда строка хода
+исчезла). На нормальном пути хода нет перехода в `PROCESSED`, поэтому
+`record_completed_customer_turn()` не срабатывает ни для одного реального хода —
+это живой дефект телеметрии материальности, а не только косметика lifecycle.
+`window_deadline` равен `min(now + 6 с, now + 20 с)` и не продлевается при
+attach, то есть `MAX_TURN_WAIT` — мёртвая константа.
+
+- [ ] Терминальный обычный execution переводит turn `CLAIMED → PROCESSED` с
+      typed reason; сейчас 7/7 автоматически исполненных production-turns после
+      миграции остались `CLAIMED`
+- [ ] Добавить lease-aware reconciliation `CLAIMED`, не массовое слепое обновление
+- [ ] `resolve_logical_turn_key()` использует `IgTurnMessage.turn_id`
+- [ ] `turn_phases()` выводит фазу ожидания из **фактической** wait policy
+      (сегодня `TURN_DEBOUNCE`), а не из мёртвого `MAX_TURN_WAIT`; тест
+      согласованности падает при расхождении объявленного и реального максимума.
+      Правка формулируется как связь, а не как новое число: после Phase 3
+      значением станет `max(silent hard cap)` включённых классов
+- [ ] Канонический порядок блокировок `client → turn` в ingress и worker
+- [ ] Зафиксировать production replay `media + greeting + continuation` как RED
+      fixture с provider/local clocks
+
+### Schema и state machine
+
+- [ ] Expand `IgCustomerTurn`: revision, local first/last ingress, quiet/hard
+      deadlines, continuation TTL, wait class/policy version, lifecycle state
+- [ ] Durable snapshot `(turn, revision)` со всеми ordered message/media IDs,
+      floor/episode/permission fingerprints и digest, без дублирования private URL
+- [ ] Durable reply candidate `(turn, revision, kind)` со статусами generating,
+      ready, superseded, send-reserved, sending, sent, ambiguous — как durable
+      persistence решения **Э0.4**, а не второй тип решения об отправке
+- [ ] Unique outbound intent на `(turn, revision, kind)` — расширением
+      идемпотентного intent-а **ЭА.21**, без второй таблицы outbound-состояния;
+      нарушение ключа трактуется как штатный `intent_already_claimed`
+- [ ] Второй due-предикат по истёкшему continuation TTL и индекс
+      `(lifecycle_state, continuation_expected_until)`: без него ход после ACK
+      закрывать нечем и `ACKED_WAITING` копится так же, как сегодня `CLAIMED`
+- [ ] MariaDB-compatible indexes/constraints и InnoDB proof
+
+### Behavior
+
+- [ ] Deterministic typed wait-classifier без Gemini
+- [ ] Sliding quiet от последнего **local** ingress + bounded hard deadline от
+      первого local ingress
+- [ ] Stable ACK intents: greeting/received/verification only; без товара, цены,
+      оплаты, сертификата, funnel/commerce side effects
+- [ ] ACK проходит через outbound outbox **ЭА.16** и считается в бюджете «один
+      технический текст на ход» (**ЭА.6/ЭА.8**); при открытом
+      `IgProviderIncident` ACK не отправляется — единственный customer-visible
+      текст принадлежит эпизоду деградации (**ЭА.3**)
+- [ ] `HOLD_PHRASE` не вызывает текстовый ответ и оставляет continuation state без
+      занятого worker
+- [ ] Все media из всех строк bundle попадают в один multimodal snapshot
+- [ ] Один bounded regeneration после supersession; затем wait-latest-once
+- [ ] Устойчивый префикс промпта (system instruction + prior history + профиль)
+      переиспользуется кэшем контекста Gemini, чтобы bounded restart не стоил
+      полного prompt-а; порядок блоков фиксируется policy version
+- [ ] Atomic stale-draft barrier непосредственно перед Meta I/O
+- [ ] Commerce/payment/follow/recovery reservations привязаны к revision и
+      отменяются до provider boundary
+- [ ] Позднее continuation после `SENDING` создаёт corrective turn без blind retry
+
+### Initial timing proposal
+
+Значения ниже включаются сначала только в shadow; daemon tick добавляет до 1.5 с:
+
+| Класс | Quiet | Silent cap | После cap |
+|---|---:|---:|---|
+| полный текст | 0.75 с | 3 с | substantive path |
+| короткий fragment | 1.5 с | 6 с | combine/clarify |
+| greeting-only | 2.5 с | 4 с | stable greeting ACK + 60 с continuation TTL |
+| expected media | 2 с | 6 с | media как ответ |
+| unsolicited media | 3 с | 8 с | stable receipt/clarify + TTL |
+| payment evidence | 4 с | 8 с | verification ACK, без payment conclusion |
+| hold phrase | 0 | 0 | no text reply, 90 с continuation TTL |
+| opt-out/manager/postback | 0 | 0 | immediate deterministic path |
+
+Эти числа не являются стандартом Meta. Менять одну timing class за релиз; hard
+global cap >20 с автоматически не повышать.
+
+**Класс хода определяется всем составом bundle, не первым сообщением.** `Вітаю`
+(cap 4 с) плюс пришедшее следом фото (cap 8 с) — один ход с потолком 8 с:
+`hard_deadline = first_local_ingress + cap(класс с наибольшим потолком)`,
+монотонно не убывает, ограничен глобальными 20 с, и вычисляется до первого
+`collect_until`. Наивная фиксация потолка по первой строке урезала бы окно ровно
+в том сценарии, из-за которого написан Э2.2B. Полное правило — `11` §8.2.
+
+### QA и rollout
+
+- [ ] Unit/state-machine/concurrency/fault-injection matrix из `11` зелёная
+- [ ] SQLite structural tests и отдельный MariaDB locking proof
+- [ ] Shadow не отправляет customer-visible сообщения и показывает hypothetical
+      merge/split/supersession/latency
+- [ ] Internal allowlist → low-risk text → greeting/media canary
+- [ ] Payment/certificate/order effects не включаются общим процентом canary
+- [ ] Hard stop: один false merge с financial effect, missed takeover/opt-out,
+      stale send при уже локально сохранённом inbound или `UNKNOWN` без reconciliation
+- [ ] Малый последовательный production test; никакого широкого crawler smoke
+- [ ] Production evidence: SHA, migration/InnoDB, daemon PID/heartbeat, turn
+      states, request/attempt graph, Meta receipt и side-effect audit
+
+**Готово когда:** обычный цельный вопрос не ждёт старые 6 секунд без причины;
+3–5 быстрых fragments дают одну substantive generation/отправку; greeting/photo/
+check continuation не порождает преждевременный generic/financial ответ; любой
+локально пришедший inbound до Meta boundary аннулирует stale candidate; после
+boundary нет blind retry; все raw IDs/media и revision доказуемо связаны с одним
+receipt; ни один turn не остаётся бессрочно `CLAIMED`.
+
+**Метрики:** substantive replies/turn, ACK/turn, false merge/split, final-fragment
+→ receipt p50/p95, provider→local lag, superseded generations, stale sends
+blocked, late-after-send corrective turns, provider calls/fragment, duplicate/
+UNKNOWN delivery, conflicting commerce effects.
+
+**Откат:** `IG_SEMANTIC_TURNS_MODE=off` только для новых turns; pre-provider
+reservations отменяются, `SENDING/UNKNOWN` reconciled, raw/snapshot/attempt
+evidence остаётся. Feature flag не удаляет уже отправленное сообщение.
+
+- [ ] **Коммит + push + деплой + production acceptance**
 
 ## Э2.3 — Цепочка «сбой кэша → квота → молчание инбокса»
 
@@ -7772,6 +7994,7 @@ request/attempt telemetry, но не добавляет provider call и не в
 
 Э2  Поломки доставки   → Э2.1 усечение ответа
                          Э2.2 burst → несколько ответов
+                         Э2.2B semantic bundle, revision и stale-draft barrier
                          Э2.3 цепочка кэш→квота→молчание
                          Э2.4 роль менеджера
                          Э2.5 протокол передачи
