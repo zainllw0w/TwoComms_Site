@@ -5,7 +5,8 @@
 Статус: **runtime S1 задеплоен; первый soak завершился ранним SIGKILL, после
 авторизованной S1b selector-коррекции 48-часовой gate запущен заново. Исправленный
 Routing S2, schema S3a, S3b shadow writer, checkout Slice 1 + dormant series
-Slice 2a, materiality Slice 1, Analysis V2 A2 и privacy/correctness hardening
+Slice 2a + generation runtime S2b, materiality Slice 1, Analysis V2 A2 и
+privacy/correctness hardening
 старой API-панели с Gemini V2 read API + model-first cockpit объединены только в локальной
 integration-ветке, не задеплоены и поэтому не считаются production-complete**.
 
@@ -37,9 +38,9 @@ production-проверки соответствующего пункта. На�
 | S1b runtime snapshot | selector/app restart выполнен под exact bot maintenance; health/home/catalog последовательно вернули 200; все lswsgi env показывают `3/0`; process group после старта master+2, верхняя цель master+3 | process/RSS цифры являются snapshots, не steady-state p95 |
 | S1b memory snapshot | comparable RSS `950732→588240 KiB`, PSS `666577→390312 KiB`, private `583960→298036 KiB` | не выдавать snapshot за fPMEM или PMEM p95 proof |
 | Active soak | baseline `2026-08-30T15:48:03+03:00`; deadline `2026-09-01T15:48:03+03:00`; automation active | gate закрывается только полной выборкой после deadline |
-| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0183`, `orders.0057–0058` не применять до release gate |
+| Production migrations | migration set не менялся в S1; `0176_gemini_model_quota_usage` остаётся применённой, engine-registry gap закрыт в deployed code | локальные `0177–0184`, `orders.0057–0058` не применять до release gate |
 | Runtime routing | production остаётся на legacy routing из `e62bedf5`; corrected S2 существует только в локальной integration-ветке | до deploy настроить private-media root, завершить soak и повторить preflight |
-| Local integration code candidate | `738573e66`; Routing S2 + schema S3a + S3b shadow runtime + checkout terminalization Slice 1 + dormant checkout series Slice 2a + materiality Slice 1 + Analysis V2 A2 + V2 read API + model-first cockpit; поверх него допустим только этот docs-only snapshot commit | SHA локальный, не GitHub/main/production; не использовать как running truth |
+| Local integration code candidate | `e45c8f20e`; Routing S2 + S2 correctness amendment + schema S3a/S3b + checkout terminalization/series/generation S2b + materiality Slice 1 + Analysis V2 A2 + V2 read API + model-first cockpit; поверх него допустим только docs-only snapshot commit | SHA локальный, не GitHub/main/production; не использовать как running truth |
 | Ключи | владелец подтвердил: шесть ключей принадлежат шести отдельным Google-проектам | явный безопасный mapping `project_identity`, без вывода ключей и project IDs |
 | Cron ownership | один stdlib watchdog, один sequential Instagram coordinator; durable tasks и Nova Poshta используют общий heavy-process lock | cadence/LVE steady state подтвердить soak-выборкой |
 | Removed owners | automatic metadata cron = 0; legacy Instagram periodic owner lines = 0 | manual metadata остаётся только явной диагностикой |
@@ -135,7 +136,7 @@ snapshots, не fPMEM, не p95 и не 48-часовое доказательс
 `2026-09-01T15:48:03+03:00`. Автоматизация мониторинга активна. До дедлайна все
 soak/fault/PMEM/p95 checkboxes остаются открытыми.
 
-Последний read-only sample `2026-08-31T00:00:09+03:00`: supervisor и child
+Последний read-only sample `2026-08-31T06:22:28+03:00`: supervisor и child
 identity совпадают с deployed SHA `e62bedf5`; `healthy=true`, `restart_count=0`,
 process/main heartbeat fresh, main `idle`, lswsgi process count `3`. Это
 промежуточная точка, не завершение
@@ -186,12 +187,15 @@ migration, cron и runtime preflight. Model-scoped permits, rolling/input TPM и
 | Checkout Series Slice 2a | dormant `orders.0058`: nullable series/generation/winner identity, exact physical defaults/CHECK/UNIQUE/indexes, strict pure key helpers, no runtime writer; final independent PASS. Integration focused `77` tests (`2` skips); disposable Maria kill/resume, malformed shapes/default/CHECK и irreversible reverse proof | не применён; `IG_ASSISTED_CHECKOUT_V2=off`; TTL/provider/Order behavior unchanged |
 | Gemini V2 read API | admin-only provider-free `quotas/routes/attempts`; permanent 4×6 matrix, off/unknown fail-closed, executable chains/pin, encrypted keyset cursor, redacted request/attempt/reply graph, query budgets `≤6/≤2/≤4`; final independent PASS. Model-first cockpit уже реализован отдельным локальным slice и прошёл evaluation round 2. Integration combined API/UI `51` tests | не задеплоен; production по-прежнему показывает legacy panel/runtime |
 | Analysis V2 A2 | default-off immutable Result + generic Proposal, one existing provider result, nullable evidence-bound probability, PII-free HMAC/opaque refs, shadow-only projector/no business mutations, diagnostics-only current selector; retry-safe `0183`, final independent PASS. Integration focused `44`; broad `375` (`3` skips); fresh Maria kill/resume, both InnoDB, six INSERT/UPDATE/DELETE guards including raw PII/identity claims | не применён; mode `off`, extended prompt canary отдельно off, consumer switch отсутствует |
+| S2 correctness amendment | expired classified quota blocks корректно возвращаются в `available_assumed`; frozen candidate plan совпадает с dispatch; один DB-unique graph на `(source_message,lane)`; exact candidate admission; stale boundary не пересекает HTTP; единый lock order; legacy hedge выключен при shadow. Merged integration gate: `572` runtime/routing + `31` migration-enabled tests; real Maria unique/concurrency/kill-resume PASS; final independent review функционально PASS | не задеплоен; shadow остаётся `off`, enforcement отсутствует |
+| Checkout generation S2b | `management.0184`; 12h proposal без stock hold, 25m generation/provider validity, default full payment, direct-question 200+COD, exact amount/identity/HMAC terminal proof, winner-before-Order, ambiguity/reissue/privacy/promo reconciliation, append-only evidence. Final dual review PASS. Merged integration: `325` checkout/payment + `20` migration tests; four Maria kill points/InnoDB/CHECK/triggers/winner-loser race PASS | не применён; `IG_ASSISTED_CHECKOUT_V2=off`, никаких consent/reminder sends |
 
 **Следующий конкретный шаг:** automation продолжает S1b soak до
-`2026-09-01T15:48:03+03:00`; параллельно строить checkout generation runtime как `management.0184` с
-dependency на `orders.0058` + `management.0183`. До закрытия soak не менять
-production SHA и не применять новые migrations; S3b/Analysis shadow не включать
-до explicit environment preflight и ближайшей последующей Pacific midnight.
+`2026-09-01T15:48:03+03:00`; параллельно строится typed-memory shadow как
+`management.0185` с dependency на merged `management.0184`. До закрытия soak не
+менять production SHA и не применять новые migrations; S3b/Analysis/Memory
+shadow не включать до explicit environment preflight и ближайшей последующей
+Pacific midnight.
 
 ---
 
