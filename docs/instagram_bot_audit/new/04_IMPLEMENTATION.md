@@ -14,10 +14,33 @@
 > `09_GEMINI_QUOTA_ROUTING_PLAN.md`. Определения `NO_MODEL`, `ORDINARY_LIVE`,
 > `COMPLEX_LIVE`, `DURABLE_ANALYSIS`, event-driven health, quota ledger,
 > analysis/memory и связей с будущими подворонками поддерживаются только там.
-> Production release `e7258a059` уже содержит Router V2, event-driven health,
-> 4×6 cockpit, accounting shadow и additive migrations 0177–0185/0057–0058.
+> Production code release `28707634c` содержит Router V2, event-driven health,
+> 4×6 cockpit, accounting shadow, single-boundary background rotation,
+> request-graph recovery и additive migrations 0177–0185/0057–0058.
 > Analysis/Memory/Assisted Checkout остаются off, а funnel/analytics/
 > consent/reminders всё ещё открыты; подробный актуальный статус хранится в `09`.
+
+> **Канонический контракт customer-facing visual orchestration:**
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md). Этот файл
+> определяет, когда использовать text / quick reply / button template / single
+> card / carousel, как выглядят payment и ТТН, как работает combined opt-in и
+> какие revision/receipt/UNKNOWN/fallback правила обязательны. `04` владеет
+> порядком и статусами; `09` — Gemini/quota/analysis/platform policy; `10` —
+> визуальным UX. Подробные правила не копировать между тремя файлами.
+
+> **Актуальная code-boundary 2026-08-31:** local/GitHub/production/supervisor =
+> `28707634cf4f26ea47f7844676134414ee6b5dd8`. Deployed foundation включает
+> Router V2, event-driven health, 4×6 cockpit, accounting shadow, Generic/Button
+> Templates, Quick Replies, receipt-first/echo registry и owner-account preview
+> `2801–2806`. Это доказательство транспорта и provider rendering, но не
+> завершение product/payment/consent/funnel flow. Analysis V2, Typed Memory и
+> Assisted Checkout остаются off; funnel registry `0186` — отдельный NO-GO.
+> Production proof этого среза: real 3.6 analysis success/winner, 10 orphan
+> request graphs terminalized без provider replay, false-purchase projection
+> исправлена идемпотентно, clients API возвращает 20 rows/≈130 KB/21 SQL с
+> middleware вместо 100 rows/≈564 KB/405 SQL. Финальный docs-only SHA всегда
+> сверять командой `git rev-parse HEAD`: документ не может содержать собственный
+> самоссылочный commit hash.
 
 ---
 
@@ -245,7 +268,7 @@ policy-решения владельца, юридической проверк�
 | **ЭА** | **Аварийная стабилизация деградации** | **Активный ущерб клиентам с production-доказательствами** |
 | **Э1a** | Э1.0–Э1.4: политика, транспорт, postback | Приоритет владельца; инфраструктура без customer-visible изменений |
 | **Э2a** | Э2.1, Э2.2 + Э3.7: путь доставки и resolver варианта | Обязательный блокер перед карточками, видимыми клиенту |
-| **Э1b** | Э1.5–Э1.12: карточки по воронке | Приоритет владельца; после закрытия блокеров |
+| **Э1b** | Э1.5–Э1.13: карточки + unified VisualPlan | Приоритет владельца; после закрытия блокеров |
 | **Э2b** | Остальные поломки доставки | Система отчитывается об успехе при неудаче |
 | **Э3** | Истина данных и контекста | Агент перестаёт отвечать на основании неверного |
 | **Э4** | Реестр узлов воронки + видимость | Основа для интеллекта и для контроля админом |
@@ -259,6 +282,31 @@ policy-решения владельца, юридической проверк�
 только про порядок выполнения, чтобы не потерять приоритет владельца и
 одновременно не выпустить карточку в сломанный путь.
 
+### Completion dashboard для следующего агента (code release `28707634c`)
+
+```text
+done 309   open 869   partial 31   blocked 18   declined 6
+raw done ratio: 309 / (309 + 869 + 31 + 18) = 25.2%
+```
+
+Raw ratio специально консервативен и не равен product maturity: один docs-пункт
+и 48-hour production gate имеют одинаковый вес. Первая Gemini production wave
+может быть 100% deployed, а весь `04` всё равно остаётся большим roadmap.
+
+| Трек | Текущий статус | Канонический handoff |
+|---|---|---|
+| Gemini/quota/runtime | first wave deployed, full V2 open | `09` completion dashboard |
+| Visual transport | deployed/preview proven | Э1.2 и `10` |
+| Visual orchestration | open priority | Э1.13 и `10` |
+| Resolver/media revision | deployed | Э3.7 |
+| Funnel registry | blocked NO-GO | Э4 + `09/10` blockers |
+| Typed Memory | schema deployed, consumer off | Э5 + `09 §5.7` |
+| Last-100 analytics | open | `09 §7` |
+| Consent/reminders/discount | open/legacy partial | Э1.1/Э6 + `09 §8` |
+
+После каждого implementation slice обновлять counts и evidence status здесь;
+не ставить done по наличию branch/schema/preview без production DoD.
+
 ### Почему ЭА вставлен перед приоритетом владельца
 
 Приоритет администратора на блок карточек **сохраняется полностью**. ЭА вставлен
@@ -267,7 +315,7 @@ policy-решения владельца, юридической проверк�
 
 Что зафиксировано на сервере 27 августа:
 
-- клиент `_zhenya_963` получил **три идентичных** извинения «за технічну затримку»
+- анонимизированный production-клиент `client_id=334` получил **три идентичных** извинения «за технічну затримку»
   за 5 минут 53 секунды, плюс четвёртое сообщение с **двойным** извинением подряд;
 - у клиента 335 — тот же паттерн, то есть дефект системный;
 - за день: **не менее 101** перезапуска демона и 3 алерта `daemon_lock_stale`;
@@ -329,6 +377,16 @@ regression-слой, не известен storage engine и нет поняти
 > `IG_UGC_IDENTITY_HMAC_KEYRING` в текущем состоянии нет: чистая тестовая БД на
 > SQLite создаётся без внешних секретов, `migrate` от нуля проходит. Пункт
 > отмечен выполненным по факту проверки, а не по факту правки.
+>
+> **Reopened fresh-MariaDB gate 2026-08-31 (`FRESH-MARIADB-WEBPUSH-001`).**
+> Новый disposable MariaDB 11.4 full migration graph применил
+> `management.0181–0185`, но затем остановился в
+> `storefront.0097_mariadb_generated_uniqueness`: assertion не признал
+> фактический unique HASH contract WebPush endpoint. Production migration уже
+> применена и runtime не затронут; focused accounting runner fail-closed
+> подтвердил `0181` и четыре InnoDB accounting tables, включая реальную гонку
+> reaper/late-success. Однако прежнее утверждение «fresh MariaDB graph зелёный»
+> больше нельзя использовать как универсальное доказательство.
 
 - Находка: `02_ANALYSIS.md` → `NEW-TEST-001`
 - Класс: DEFECT + TEST-INFRA
@@ -372,6 +430,12 @@ divergence, а precondition окружения. Разбирать их разд
       воспроизводимая fixture + трасса до validator
 - [x] **Не переписывать** ожидания тестов под текущий ответ; если контракт домена
       изменился — это отдельное решение
+- [ ] RED: воспроизвести endpoint index metadata на чистой MariaDB 11.4 и
+      зафиксировать различие `INDEX_TYPE`/uniqueness/expression без production DDL
+- [ ] Сделать version-tolerant, но fail-closed assertion либо forward-only
+      repair migration; уже применённую `0097` не переписывать
+- [ ] Повторить полный disposable MariaDB graph от нуля до current leaf; focused
+      accounting path не считать заменой общему migration gate
 
 **Готово когда:** чистая SQLite создаётся без внешних секретов и создаёт
 `ProductFitOption`; MariaDB generated expression и индекс проверены;
@@ -847,7 +911,7 @@ OneToOne не сломаны; дедупликация работает по н�
 
 **Зачем этап и почему перед приоритетом владельца.** Причина одна: источник
 содержит production-доказательства **активного ущерба**, а не гипотезу. Клиент
-`_zhenya_963` (client_id=334) получил три идентичных «технічна затримка» за 5 мин
+Анонимизированный production-клиент `client_id=334` получил три идентичных «технічна затримка» за 5 мин
 53 с плюс четвёртое сообщение с двойным извинением подряд; client_id=335 показал
 тот же паттерн (дефект системный); за сутки ≥101 перезапуск демона и 3 алерта
 `daemon_lock_stale`; в окне 12:20–13:20 UTC — 23×429, 7×503, 35 таймаутов чтения.
@@ -2798,6 +2862,19 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
 
 # Э1 — Приоритет владельца: Meta Opt-In и интерактивные карточки
 
+> **Production baseline перед продолжением Э1.** Низкоуровневый transport
+> (`send_template`, `send_button_template`, quick replies, fallback, receipt и
+> outgoing echo registry) задеплоен. Два preview postback прошли как `NO_MODEL`
+> без consent/commerce mutations. Customer-state-changing orchestration Э1.4–
+> Э1.12 остаётся открытой и реализуется по `10_VISUAL_MESSAGING.md`.
+
+> **Приоритет незакрытого большого плана после первой production wave:**
+> (1) quota enforcement после двух Pacific shadow days; (2) VisualPlan и
+> combined consent; (3) catalog/payment/ТТН visuals; (4) исправленный funnel
+> registry; (5) last-100 analytics; (6) reminders/discount enablement;
+> (7) Analysis V2/Typed Memory canaries. Наличие schema/preview не заменяет
+> code + tests + deploy + production proof.
+
 **Зачем этап первым:** прямое указание администратора проекта. Помимо этого есть
 техническое обоснование: opt-in снимает главный блокер всего post-purchase
 контура (`NEW-CRIT-001`), а карточки закрывают несколько дорогих находок дешевле,
@@ -2845,6 +2922,7 @@ Messenger и Instagram. Набор доступных инструментов �
 | Возможность | Статус для Instagram | Ограничения |
 |---|---|---|
 | `attachment.payload.template_type = "generic"` | **доступно** | 10 элементов на сообщение; заголовок ≤ 80 симв.; подзаголовок ≤ 80 симв.; элемент обязан иметь хотя бы одно поле кроме `title` |
+| `attachment.payload.template_type = "button"` | **доступно** | текст ≤ 640 символов; 1–3 кнопки `web_url`/`postback`; deployed transport `send_button_template()` |
 | Кнопки в элементе | **доступно** | **только** `web_url` и `postback`; максимум **3** кнопки на элемент |
 | `quick_replies` | **доступно** | максимум 13; ≤ 20 символов на кнопку |
 | Рендер в web-версии Instagram | **недоступно** | шаблон не отображается в браузерной версии — карточка не должна быть единственным носителем смысла |
@@ -2884,17 +2962,32 @@ Messenger и Instagram. Набор доступных инструментов �
 
 ## Э1.1 — Протокол согласия: сбор, хранение, использование токена
 
-> **Коррекция контракта:** внутреннее business consent и фактическая Meta
-> transport capability — две разные сущности. После verified 200/full payment
-> внутри открытого окна можно запросить прозрачное согласие по отдельным темам
-> `order_updates` и `bonuses`, сохранив exact copy/version и revocation. Это
-> согласие само по себе **не** разрешает автоматический send вне окна. Вне окна
-> нужен доказанный Meta capability/token; `HUMAN_AGENT` ботом не используется.
-> Полный контракт — раздел 8 `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> **Решение владельца 2026-08-31:** внутреннее business consent и фактическая
+> Meta transport capability — разные сущности. После verified 200/full payment
+> внутри открытого окна показывается **одна** customer-facing CTA без кнопки
+> отказа. Disclosure явно перечисляет ТТН/статусы и бонусы/новинки; один tap
+> атомарно создаёт два независимо аудируемых grants: `order_updates` и
+> `bonuses`, с общим `bundle_id`, exact localized copy/version и revocation.
+> Игнорирование CTA означает отсутствие grant; withdrawal остаётся доступен
+> через STOP/отписку/management action.
+>
+> Нажатие postback является inbound и открывает стандартное Meta-window на 24h
+> от provider timestamp. `20h` — наш внутренний proactive safe deadline внутри
+> этого окна, а не срок Meta. Business consent **не** разрешает closed-window
+> auto-send; вне окна нужен доказанный Meta capability/token. Полный policy —
+> section 8 `09`; visual/copy/state contract — section 9
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md).
 
 - [ ] Ввести business-consent record отдельно от platform token/capability.
 - [ ] После verified 200/full payment показывать CTA только при реально открытом
       Meta window.
+- [ ] Initial payload содержит ровно одну видимую кнопку `Так, отримувати`; в
+      initial card нет decline/cancel action.
+- [ ] Один idempotent tap в одной transaction создаёт два append-only grants
+      (`order_updates`, `bonuses`); повторный tap не создаёт duplicates.
+- [ ] Для каждого inbound/postback хранить две границы:
+      `meta_window_deadline = provider_ts + 24h` и
+      `safe_send_deadline = provider_ts + 20h`.
 - [ ] Payment success page содержит Return-to-Direct CTA; web click сам по себе
       не считается новым messaging window.
 
@@ -2909,10 +3002,12 @@ Messenger и Instagram. Набор доступных инструментов �
 
 **Шаги — модель и хранение:**
 
-- [ ] Создать отдельный `IgBusinessConsent`: `client_id`, topic
-      (`order_updates|bonuses`), exact copy/version, `granted_at`,
-      `source_message_id`, `revoked_at`, revision/evidence. В этой таблице нет
-      provider token, и её наличие само по себе не разрешает closed-window send
+- [ ] Создать append-only `IgBusinessConsentEvent`: `client_id`, order/episode,
+      `bundle_id`, topic (`order_updates|bonuses`), decision
+      (`granted|withdrawn`), exact localized copy digest/version, provider
+      timestamp, source visual/interaction/message, policy revision и
+      idempotency key. Current state — отдельная projection per `(client, topic)`.
+      В этой таблице нет provider token, и grant не разрешает closed-window send
 - [!] Создать отдельный `IgNotificationTransportCapability` только после
       подтверждения поддерживаемого Meta-механизма: provider token/capability,
       scope/topic, expiry, App Review status и source evidence. Этот blocker не
@@ -2921,7 +3016,16 @@ Messenger и Instagram. Набор доступных инструментов �
       промптах и Telegram-карточках; redacted в operator/debug output. Нужен
       автоматический regression-тест redaction до включения capability
 
-**Шаги — приём согласия:**
+**Шаги — приём business consent:**
+
+- [ ] Versioned signed postback проверяет client/source visual/current revision,
+      expiry и nonce; action исполняется до Gemini как `NO_MODEL`.
+- [ ] Atomic interaction event + два grants + projection; payment/order/funnel
+      truth не меняются самим consent tap.
+- [ ] STOP/`відписатися`/`unsubscribe` создаёт append-only withdrawal и отменяет
+      pending marketing/reminder tasks до provider I/O.
+
+**Шаги — будущая provider capability (отдельный `[!]` gate):**
 
 - [!] Обработать webhook `messaging_optins`. Сейчас ключ `optin` попадает только
       в счётчик `bump("control")` в `_webhook_observation_summary` и дальше
@@ -2933,12 +3037,12 @@ Messenger и Instagram. Набор доступных инструментов �
 
 **Шаги — использование:**
 
-- [!] Расширить объект решения из Э0.4 новым входом: наличие и тема действующего
-      opt-in. Eligibility становится: `внутри окна` ИЛИ `есть токен по этой теме`
-      ИЛИ `сервисный ответ человека`
-- [!] Жёсткие правила: только по теме согласия; только фактические события
-      (прибыло, вручено, срок хранения); никакого промо; каждое использование
-      логировать с причиной
+- [ ] Расширить объект решения из Э0.4: effective topic grants, Meta-window,
+      internal safe deadline и отдельно доказанная transport capability.
+      Неизвестная capability всегда `block|defer`, не `allow`.
+- [ ] `order_updates` разрешает только authoritative order/shipment events;
+      `bonuses` — только approved marketing policy. Одно customer CTA не
+      превращает эти backend scopes в одну неразличимую тему.
 - [!] Запрет: токен **не** используется для реактивации (`NEW-LTV-002`) без
       отдельного согласия на эту тему
 - [!] Тест: попытка отправить не по теме согласия блокируется **до** provider I/O
@@ -2951,15 +3055,17 @@ Messenger и Instagram. Набор доступных инструментов �
 - [!] Никогда не создавать ситуацию «событие есть, `MANAGER_REVIEW`, клиент не
       знает ничего»
 
-**Готово когда:** согласие внутри окна создаёт токен; событие доставки вне окна
-доходит до клиента с токеном; отзыв прекращает отправку; попытка не по теме
-блокируется; клиент без согласия получает деградированный режим, а не молчание.
+**Готово когда:** один combined CTA tap создаёт ровно два auditable grants;
+повтор идемпотентен; STOP отзывает grants и pending tasks; proactive send после
+20h блокируется даже при ещё открытом 24h окне; consent без provider capability
+не разрешает closed-window send; попытка не по теме блокируется до provider I/O.
+Capability-token часть остаётся `[!]`, пока нет доказательства Meta.
 
 **Метрика:** доля давших согласие от спрошенных; доля post-delivery сообщений,
 доставленных по токену; доля отзывов; доля заблокированных попыток не по теме.
 
-**Откат:** feature-флаг на использование токенов. При выключении — только
-деградированный режим.
+**Откат:** отдельные flags на business-consent CTA и provider capability.
+Отключение UI не удаляет audit grants; withdrawal продолжает работать.
 
 - [!] **Коммит + push + деплой**
 
@@ -2972,6 +3078,15 @@ Messenger и Instagram. Набор доступных инструментов �
 **Проблема кратко:** все исходящие сообщения — чистый текст
 (`{"message": {"text": part}}`). Возможность отправить карточку в проекте
 отсутствует как таковая.
+
+> **Статус foundation 2026-08-31 — deployed.** `send_template()` и
+> `send_button_template()` поддерживают Generic/Button Template, definite-
+> rejection fallback, receipt-first и outgoing echo registry. Исправлена
+> коллизия двух helpers `_quick_reply_payload`, из-за которой исходящие quick
+> replies молча деградировали до текста. Owner-account preview `2801–2806`
+> подтвердил native quick reply, button template, single card и carousel; все
+> шесть deliveries имеют provider message ID. Это закрывает transport Э1.2,
+> но не реальную orchestration Э1.5–Э1.12.
 
 **Шаги — отправка:**
 
@@ -3022,6 +3137,7 @@ receipt-first работают так же, как для текста.
 |---|---|
 | `title` | 80 символов |
 | `subtitle` | 80 символов |
+| button-template `text` | 640 символов |
 | кнопок на элемент | 3 |
 | текст кнопки | 20 символов |
 | элементов в карусели | 10 (у нас — 3, см. Э1.5) |
@@ -3100,15 +3216,22 @@ exchange:12:start
       текстовой проекцией (`«вибрав розмір L»`) — для CRM и истории модели
 - [x] Детерминированный роутер payload **до** claim в обычную очередь
 - [~] Проверка генерации по паттерну `_candidate_identity_matches`
-- [x] Применение изменения состояния (закрыть узел, поставить размер,
-      подтвердить подписку)
-- [x] Ответ: готовая следующая карточка, либо короткий текст из словаря, либо
-      передача в обычный путь с **уже обновлённым** состоянием
+- [~] Применение изменения состояния: parcel actions и существующий commerce
+      candidate selection работают детерминированно; product/variant/size,
+      combined consent, payment и generic funnel actions по signed postback V2
+      ещё не реализованы end-to-end
+- [~] Ответ: короткий deterministic text и quick replies работают; единый путь
+      `VisualPlan → next card/button/carousel → receipt` остаётся Э1.13/`10`
 - [ ] **Идемпотентность обязательна.** Ключ: payload + `provider_message_id`
       postback-события. Двойное нажатие «Оплатити» не создаёт два proposal
 - [ ] Postback **не** попадает в debounce-окно из Э2.2: кнопка — завершённое
       действие, ждать продолжения бессмысленно
 - [x] Устаревшее нажатие → мягкий отказ с актуальными вариантами, не ошибка
+
+> **Production evidence:** preview payload привязан к client и обрабатывается
+> до Gemini; два реальных owner-account tap получили `NO_MODEL`, не создали
+> consent/purchase/takeover mutations. Это regression evidence transport/router,
+> а не proof product/payment/consent FSM.
 
 **Готово когда:** нажатие создаёт видимую CRM-строку с проекцией; состояние
 меняется без вызова модели; двойное нажатие не даёт двойного эффекта; устаревшая
@@ -3127,6 +3250,11 @@ exchange:12:start
 - Класс: GAP
 - Блокеры: Э1.2, Э1.4, **`NEW-CAT-002`** (медиа по варианту — см. ниже)
 
+> **Source of truth:** sections 5–6
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md). Этот пункт
+> хранит implementation status/dependencies; cardinality, rhythm, signed action
+> и fallback contract не дублировать здесь.
+
 **Критический блокер, который нельзя обойти.** `select_catalog_media()` не
 привязана к `color_variant_id`/fit/size (`NEW-CAT-002`). В тексте это скрытая
 проблема, в карточке она становится **видимой**: клиент видит фото чёрного,
@@ -3135,9 +3263,14 @@ exchange:12:start
 
 **Шаги — карусель подобранных товаров:**
 
-- [ ] Реализовать карусель **до 3 элементов** (не 10). Meta допускает 10, но
-      choice-overload и неудобство горизонтальной прокрутки в Instagram говорят
-      против. Три + кнопка «Показати ще»
+- [ ] Различать category и product carousel. Если клиент уже сказал «футболки
+      Харькова», category известна: сразу product carousel по этому фильтру.
+      Category carousel нужна только при broad browse и неизвестном garment.
+- [ ] Реализовать обязательную cardinality matrix: `0` → честный text + способы
+      ослабить фильтр; `1` → single product card; `2–3` → carousel; `4+` →
+      stable page из 3 + явное `Показати ще`. Meta limit 10 — не UX-цель
+- [ ] Полный ordered candidate digest/cursor сохраняется до первой page;
+      `Показати ще` создаёт новую visual revision, не молча отбрасывает остаток
 - [ ] Структура элемента: фото **точного варианта**, `title` из `display_short`,
       `subtitle` вида «Оверсайз/класика · від 1 250 ₴»
 - [ ] Кнопки: `[Обрати]` postback `product:<gen>:pick:<product_id>`,
@@ -3152,10 +3285,10 @@ exchange:12:start
       наявності: S, M, L», кнопки-размеры postback `size:<gen>:set:<S|M|L>`
 - [ ] **Только доступные размеры.** `_disabled_sizes()` уже знает отключённые.
       Кнопка недоступного размера — худшая ошибка: клиент нажал и получил отказ
-- [ ] **При более 3 размерах кнопками не показывать.** У нас бывает XS–3XL.
-      Вариант: quick replies (лимит выше) либо кнопка «Таблиця розмірів» +
-      текстовый список. **Никогда** не показывать три из шести: клиент решит,
-      что остальных нет
+- [ ] `2–3` доступных размера: compact buttons/quick replies; `4–13`: все
+      доступные размеры quick replies + `Таблиця розмірів`; `>13` или нужны
+      замеры: size-grid card + полный text flow. **Никогда** не показывать три
+      из шести: клиент решит, что остальных нет
 
 **Шаги — размерная сетка:**
 
@@ -3183,6 +3316,12 @@ exchange:12:start
 - Блокеры: Э1.2, Э1.4
 - **Самая ценная карточка блока** — стоит на шаге, где деньги
 
+> **Source of truth:** section 10
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md). Первая payment
+> card не содержит `Я оплатил`: provider webhook/reconciliation подтверждает
+> оплату автоматически. Отдельная `Перевірити оплату` допустима только в
+> pending/recovery context и никогда сама не ставит `paid`.
+
 > **Коммерческий контракт:** proposal/access link живёт 12 часов, но не держит
 > stock 12 часов. Inventory/promo reservation и новый provider invoice живут
 > 25 минут (`validity=1500`); live invoice переиспользуется, ambiguous attempt
@@ -3206,10 +3345,13 @@ exchange:12:start
       проверка в конструкторе
 - [ ] Отправлять **только** при `can_issue_link=True`. Карточка оплаты при
       незакрытых обязательных узлах — обещание, которое не выполнится
-- [ ] Нажатие «Оплатити» фиксировать как `PAYLINK_VIEWED`
-      (`IgFunnelStepEvent.Type` — событие уже существует, сейчас скорее всего не
-      заполняется). Это закрывает узел `link_opened` и различает «не увидел» от
-      «увидел и не оплатил» — нужно для точных напоминаний (`NEW-LINK-001`)
+- [ ] Разделять три события: `PAYLINK_RENDERED` после receipt карточки;
+      provider-reported click — только если Meta когда-либо даст такое evidence;
+      `PAYLINK_VIEWED` — **только** idempotent first-party signed checkout GET.
+      Meta `web_url` tap не создаёт messaging webhook и не доказывает view
+- [ ] Initial card не содержит customer payment claim. Если клиент сам пишет
+      «оплатил» или после Return-to-Direct нажимает `Перевірити оплату`, backend
+      создаёт claim/reconciliation signal, но не order/Purchase/TTН/payment truth
 - [ ] Одобренная скидка отображается явно: `subtitle` «... · знижка -5%»,
       `title` с итоговой суммой. Это честнее текста и убирает проблему
       `ADD-CODE-010` (текст заявляет неверный порог)
@@ -3220,7 +3362,9 @@ exchange:12:start
 «нет, не то», и это может быть прочитано как отказ.
 
 **Готово когда:** сумма совпадает с authoritative; URL только реальный; карточка
-не отправляется при незакрытых узлах; `PAYLINK_VIEWED` фиксируется при нажатии.
+не отправляется при незакрытых узлах; receipt/card render, first-party view и
+provider payment — три разные persisted events; customer claim не может
+поставить `paid`.
 
 **Метрика:** доля нажатий «Оплатити» от отправленных карточек; доля нажатий
 «Змінити» (сигнал, что резюме ловит ошибки); конверсия оплаты до/после.
@@ -3236,15 +3380,21 @@ exchange:12:start
 - Блокеры: Э1.2, Э1.4; для отправки вне окна — доказанная Meta transport
   capability (business opt-in сам по себе недостаточен)
 
+> **Source of truth:** sections 9 и 11
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md). Combined consent
+> показывается отдельным payment-success step, а не второй независимой кнопкой
+> ТТН-карточки. Один CTA создаёт backend grants `order_updates` + `bonuses`;
+> shipment card остаётся чисто transactional и строится только из authoritative
+> shipment truth.
+
 **Шаги — ТТН создана (заменяет фиксированный текст):**
 
 - [ ] Карточка: баннер «Замовлення в дорозі», `title` «Замовлення №1234 у
       дорозі», `subtitle` «ТТН 20450012345678 · 1–3 робочі дні»
-- [ ] Кнопки: `[Відстежити]` web_url на Новую Почту,
-      `[Повідомити про прибуття]` postback `optin:<gen>:delivery`
-- [ ] **Вторая кнопка — это сбор согласия из Э1.1**, встроенный в естественный
-      контекст. Клиент только что узнал, что посылка выехала; предложение сообщить
-      о прибытии выглядит как сервис. Это лучший из трёх рассмотренных моментов
+- [ ] Кнопка `[Відстежити]` — allowlisted web_url Новой Почты. Повторный CTA
+      consent в shipment card не добавляется, если grants уже существуют
+- [ ] Если grants ещё отсутствуют, combined CTA допустима только отдельным
+      visual step при открытом окне; TTН event не подменяет inbound/capability
 
 **Шаги — прибыло в отделение (реализует `NEW-DELIVERY-001`):**
 
@@ -3264,8 +3414,9 @@ exchange:12:start
       адаптированный под товар) → и только при позитивном ответе карточка с
       UGC-предложением (Э1.8)
 
-**Готово когда:** ТТН-карточка содержит кнопку согласия; карточка прибытия не
-обещает неподтверждённый срок; после вручения первым идёт текст, не карточка.
+**Готово когда:** combined consent собран отдельным versioned CTA; ТТН-card
+содержит только authoritative shipment data и tracking action; карточка
+прибытия не обещает неподтверждённый срок; после вручения первым идёт текст.
 
 **Метрика:** доля согласий, полученных с ТТН-карточки; доля забранных посылок
 среди получивших напоминание против не получивших.
@@ -3324,6 +3475,9 @@ exchange:12:start
 - Класс: GAP
 - Блокеры: Э1.2, Э1.4
 
+> Visual/card rhythm и exact format — sections 5, 11–13
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md).
+
 **Правило для этой группы.** Карточка уместна для **закрытого набора вариантов**;
 текст — для объяснения и сопереживания. Подробнее: `01_FINDINGS.md`, часть шестая,
 раздел «Правило, без которого блок навредит».
@@ -3349,7 +3503,9 @@ exchange:12:start
 
 - [ ] Карточка с брендированной инфографикой, `subtitle` «Прання до 30°, без
       прасування принта», кнопка `[Детальніше]`
-- [ ] Отправлять **проактивно** вместе с ТТН — тогда вопрос не возникнет вообще
+- [ ] Не отправлять второй card в том же turn, что ТТН. Уход — compact text в
+      shipment message либо отдельный следующий уместный turn; visual budget
+      `one VisualPlan / customer turn` обязателен
 - [ ] Обоснование востребованности: `_CURRENT_TURN_RISK` уже содержит `пран`,
       `стир`, `догляд` — значит такие вопросы уже приходят. Побочный эффект:
       правильный уход снижает претензии по качеству печати
@@ -3370,8 +3526,11 @@ exchange:12:start
 - Класс: GAP (архитектурное ограничение)
 - **Не отдельная задача, а обязательное правило для Э1.2–Э1.9**
 
-**Правило:** модель может **выбрать** тип карточки и дать сопроводительный текст,
-но **не** формирует payload кнопок, URL и суммы.
+**Правило:** модель может предложить presentation intent и сопроводительный
+текст, но deterministic `VisualOrchestrator` выбирает допустимый kind и строит
+immutable `VisualPlan`. Модель **не** формирует payload, URL, product/variant ID,
+сумму, stock, ТТН, discount или consent action. Полный контракт — section 7
+`10_VISUAL_MESSAGING.md`.
 
 **Почему критично:**
 
@@ -3412,7 +3571,8 @@ exchange:12:start
 
 **Шаги — реализовать как проверки:**
 
-- [ ] Не более одной карточки на ход
+- [ ] Не более одного логического `VisualPlan` на customer turn; carousel — один
+      delivery, а не несколько независимых сообщений
 - [ ] Не подряд: после карточки следующий ход — текст, если клиент не нажал
       кнопку. Нажал — можно следующую (он в режиме выбора)
 - [ ] **Никогда на приветствие.** Первый ответ — живой текст
@@ -3421,6 +3581,8 @@ exchange:12:start
       («Ось те, що є у вашому розмірі:») меняет восприятие
 - [ ] Режим решения определяет уместность (см. Э4.6 / `ADD-AGENT-004`): в `browse`
       и `decide` карточки полезны; в `reassure` и `service` — только после текста
+- [ ] После двух последовательных selection taps дать natural text summary;
+      card-turn share >50% считать guardrail violation
 
 **Готово когда:** приветствие без карточки; две карточки подряд невозможны без
 нажатия между ними; каждая карточка имеет сопроводительный текст; доля ходов с
@@ -3449,6 +3611,8 @@ exchange:12:start
 - [ ] Размерные сетки — **по каждому крою отдельно** (оверсайз и классика имеют
       разные замеры)
 - [ ] Баннер для кастомного принта / примеры работ
+- [ ] Payment visual per locale (`uk/ru/en`) + neutral fallback. Он только
+      presentation: amount/order/expiry/link всегда остаются в text/projection
 
 **Технические требования:**
 
@@ -3458,6 +3622,8 @@ exchange:12:start
 - [ ] Текст на картинке минимальный: он не переводится и не адаптируется под язык
       клиента. Всё важное — в `title`/`subtitle`
 - [ ] Версионирование: замена ассета не должна ломать уже отправленные карточки
+- [ ] Registry key/locale/version/alt/aspect/digest; first-party immutable HTTPS
+      URL. Missing locale/asset деградирует до neutral/text, не ломает send
 
 **Готово когда:** все семь типов ассетов существуют, доступны по HTTPS,
 проверены визуально в реальном Instagram-клиенте (не только в тесте).
@@ -3465,6 +3631,58 @@ exchange:12:start
 **Метрика:** не применимо.
 
 - [ ] **Коммит + push** (URL ассетов в конфигурации)
+
+## Э1.13 — Unified `VisualPlan`: подключить красивые preview-форматы к реальной воронке
+
+- Класс: GAP + ARCHITECTURE
+- Блокеры: Э0.4, Э1.3, Э1.4, Э2.1/Э2.2, Э3.7
+- Блокирует: Э1.5–Э1.9 production enablement, Э4 visual journal, payment/ТТН
+- Полный контракт: [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md)
+
+**Почему отдельный приоритетный шаг:** preview доказал provider transport, но
+боевой path всё ещё отправляет catalog media отдельно и финальный text через
+`send_text()`. Нет одного deterministic mapping
+`commerce/lifecycle/checkout decision → visual kind → receipt → postback → next
+state`. Без него каждый новый card-flow создаст собственную частичную FSM.
+
+**Шаги — foundation (behavior off/shadow):**
+
+- [ ] Pure typed `VisualPlan`: kind, policy/copy version, locale, client/
+      episode/line, authority revision, source/correlation key, candidate digest,
+      page, cards/actions, fallback/projection, expiry и reason codes
+- [ ] Durable `IgVisualDelivery` FSM:
+      `planned → reserved → provider_started → sent|rejected|unknown|fallback_sent|cancelled`
+- [ ] Append-only `IgVisualInteraction` для provider event ID, signed payload,
+      observed revision, outcome и reason; idempotency на double tap
+- [ ] Signed opaque postback V2 `twc:2:<visual>:<action>:<nonce>:<sig>`;
+      revalidate client/source/current episode/line/revision/expiry/action set
+- [ ] `UNKNOWN` после provider boundary не создаёт fallback/retry; definite
+      template rejection может отправить заранее подготовленный fallback
+- [ ] Dual-write shadow из существующих commerce/lifecycle/checkout решений;
+      customer behavior не меняется до parity
+
+**Шаги — orchestration:**
+
+- [ ] Deterministic `VisualOrchestrator` применяет matrix из `10`: text,
+      quick reply, button template, single card, carousel, payment, shipment
+- [ ] Model output ограничен presentation intent/text proposal; product/price/
+      stock/URL/ТТН/discount/consent action всегда строит backend
+- [ ] Один customer turn → один logical VisualPlan; carousel — один delivery
+- [ ] Product/size/payment/consent/ТТН actions переходят в `NO_MODEL` router
+- [ ] Transcript получает одну projection, operator UI — visual/receipt/
+      interaction lineage без secrets/raw provider/customer text
+- [ ] Funnel registry получает generic action proposals/typed transitions, а не
+      второй visual-specific stage machine
+
+**Готово когда:** каждый cardinality path `0/1/2–3/4+`, payment, combined
+consent и shipment проходит `decision → VisualPlan → receipt → signed tap →
+authoritative transition`; stale/duplicate/UNKNOWN безопасны; text fallback
+сохраняет смысл; production proof снят на owner account за feature canary.
+
+**Откат:** flags per visual domain; `off` возвращает текущий text behavior, но
+не удаляет telemetry/consent/payment/shipment truth и не replay-ит UNKNOWN.
+
+- [ ] **Коммит + push + deploy отдельными waves из section 14 `10`**
 
 ---
 
@@ -4169,6 +4387,21 @@ timestamp, текста и URL вложения. Код сам документ�
 > живут в структурированных полях заказа.
 >
 > Полное решение — typed memory envelope — остаётся за Э5.1.
+>
+> **Reopened freshness guard (`LEGACY-MEMORY-STALE-001`, 2026-08-31).** Legacy
+> `memory_note()` sanitizes text, но не проверяет age/episode/watermark. На
+> production summary длиной 626 символов от 2026-06-19 попадает в prompt current
+> episode, открытого 2026-08-05. До Typed Memory enablement минимальный fail-safe:
+> не включать legacy summary, если `memory_updated_at < current_episode.opened_at`
+> или reset/current floor новее summary. Это не заменяет typed facts, а убирает
+> доказанно stale cross-episode context.
+>
+> **Закрыто в production `28707634c`.** `memory_note()` fail-closed подавляет
+> missing timestamp, summary старше current episode и summary не новее reset.
+> Production exact-data proof после correction: legacy note для текущего
+> тестового эпизода не загружается; buyer=false, stage=`checkout`, дополнительных
+> Gemini calls этот guard не создаёт. Focused memory/state regression входит в
+> общий зелёный прогон `579` tests.
 
 - Находка: `NEW-MEM-001`, шаг 1
 - Класс: DEFECT, **P0**
@@ -4196,6 +4429,8 @@ prompt-injection фраза может пережить исходное окн�
 - [x] Отдельно: `SUMMARY_INSTRUCTION` прямо просит включить телефон и отделение —
       это PII в неструктурированном поле, попадающем в каждый промпт. Убрать эти
       поля из инструкции суммаризации (см. также `NEW-MINOR-003`)
+- [x] RED/GREEN: legacy summary старше current episode/reset не попадает в
+      prompt; fresh same-episode summary остаётся; no extra Gemini call
 
 **Готово когда:** RED-тест зелёный; PII не запрашивается в summary.
 
@@ -4204,11 +4439,13 @@ prompt-injection фраза может пережить исходное окн�
 
 **Откат:** флаг на способ подачи summary.
 
-- [ ] **Коммит + push + деплой**
+- [x] **Коммит + push + деплой** (`9e3dedd80` в production code release
+      `28707634c`; exact-data proof выполнен)
 
 ## Э3.2 — Stage и audit event пишутся неатомарно
 
-> **Статус 2026-08-28 — закрыто. Блокер Э0.2 снят срезом на production.**
+> **Статус:** atomic stage/event writer закрыт, но production correction path
+> повторно открыт находкой `FALSE-PURCHASE-PROJECTION-001` (2026-08-31).
 >
 > `set_stage` писал стадию, а создание `IgClientStageEvent` стояло в отдельном
 > `try/except`, который **проглатывал** исключение. `ig_funnel_fsm` трактовал
@@ -4238,6 +4475,25 @@ prompt-injection фраза может пережить исходное окн�
 > оставшихся легитимных writer'а (payment review ×2, checkout, episodes) пишут
 > стадию и событие вместе внутри уже открытой транзакции с блокировкой, поэтому
 > перевод их на `apply_stage` — отдельный шаг, а не побочный эффект этого.
+
+> **Production reproduction.** False historical purchase review был корректно
+> superseded и buyer truth стал false, но raw `client.stage=done` и current
+> active episode сохранились. Каждый daemon start вызывает historical migration
+> backfill `0106` через `reconcile_ig_commercial_episodes`; он переписывает
+> existing episode state/outcome после более нового append-only correction event
+> и повторно materializes corrected review. Результат: live prompt одновременно
+> содержит legacy `<records>`, `Завершено (100% воронки)` и warning об unverified
+> payment. UI buyer badge false, prompt/business projection противоречат.
+>
+> **Закрыт reopened production path (`9e3dedd80`, code release `28707634c`).**
+> Recurring command больше не импортирует historical migration `0106`; новый
+> runtime reconciler материализует только отсутствующие actionable sources и
+> не переписывает projection. Correction tombstone запрещает повторный attach,
+> replay восстанавливает stage из current episode facts и остаётся
+> идемпотентным. Production repair: review остаётся superseded; buyer=false,
+> purchases=0, current episode сохранён, stage `done→checkout`, linked corrected
+> episodes `1→0`. Два последующих reconcile pass обработали `0/0/0`, повторный
+> dry-run сохранил тот же state; customer/provider sends не выполнялись.
 
 - Находка: `NEW-STAGE-001`
 - Класс: DEFECT, **P0**
@@ -4270,6 +4526,20 @@ FSM.
 - [ ] Запретить прямые writers статическим тестом — **только после** полной
       инвентаризации легитимных setup/test путей
 - [x] Payment/fulfillment стадии по-прежнему требуют verified fact
+- [x] Correction tombstone `false_historical_purchase_corrected` сильнее legacy
+      backfill: corrected review не materialize/attach повторно; episode с newer
+      correction event historical backfill не переписывает
+- [x] Заменить recurring import старой migration при daemon start на runtime-safe
+      reconciler: materialize only missing components, never overwrite current
+      episode state/outcome/snapshots/pointer
+- [x] False-purchase correction детерминированно восстанавливает stage из
+      pre-transition stage event/current authoritative facts, append-only пишет
+      correction stage event; не угадывает buyer/paid
+- [x] Data repair exact client: corrected episodes detached; current active
+      episode остаётся current; stage `checkout`, buyer false; повтор reconcile
+      идемпотентен
+- [x] Regression: daemon reload/backfill после correction не возвращает review,
+      stage или false purchase и не меняет prompt projection
 
 **Готово когда:** RED-тест зелёный; каждый production writer создаёт ровно одно
 событие; `MODEL_HARD_STAGES` / `FACT_ONLY_STAGES` соблюдаются.
@@ -4278,7 +4548,8 @@ FSM.
 
 **Откат:** флаг на транзакционную обёртку.
 
-- [ ] **Коммит + push + деплой**
+- [x] **Коммит + push + деплой** (`9e3dedd80`; production exact-data replay,
+      double reconcile и prompt/memory projection proof)
 
 ## Э3.3 — Определение языка читает сообщения до reset-границы
 
@@ -4518,7 +4789,8 @@ generic-медиа при наличии exact.
 **Откат:** флаг на resolver; при выключении — прежние три пути (но тогда Э1.5
 нельзя выкатывать).
 
-- [ ] **Коммит + push + деплой**
+- [x] **Коммит + push + деплой** — resolver/media revision foundation входит в
+      current code release `28707634c`; боевые cards всё равно gated Э1.13
 
 ## Э3.8 — Каталог не кэширует ошибку как пустой результат
 
@@ -5088,6 +5360,16 @@ non-erasure случаев).
 > `payment_follow`, `post_purchase_ltv`, `exchange_return`, `support_case`,
 > `ugc_reward`) используют тот же интерфейс. Не создавать второй funnel/memory
 > механизм параллельно `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> VisualPlan из [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md)
+> только отображает current typed nodes и отправляет signed actions; он не
+> становится владельцем funnel state.
+
+> **Статус registry `0186`: `[!]` NO-GO, не в current main.** Перед merge/deploy
+> закрыть quoted/fail-closed JSON paths, element-level positive unique evidence
+> IDs, index direction validation, current artifact digest, reset continuation
+> после 500 rows, opaque/HMAC line/recipient IDs, Decimal canonicalization,
+> digest no-op query budget, real recipient/gift producer и direct-SQL
+> MariaDB/SQLite regressions. Наличие отдельной ветки/миграции не закрывает Э4.
 
 **Главное правило этапа (от `02_ANALYSIS.md`):** сначала перенести **существующие**
 узлы `checkout_readiness` в новую проекцию, **не добавляя ни одного нового**.
@@ -5620,6 +5902,20 @@ L, он носит его и в другой модели. Обнуление п
 > untrusted display artifact. Контракт полей и materiality cadence — раздел 5
 > `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
 
+> **Статус 2026-08-31:** migration `0185` и Typed Memory shadow schema deployed,
+> но mode/prompt consumer остаются off; legacy `MEMORY_EVERY=8` ещё не удалён.
+> Поэтому Э5 не закрывается по наличию таблиц. Production-audit legacy failed
+> analysis jobs и Gemini 3.6 выполняется отдельно; его sanitized findings должны
+> попасть в этот раздел до enablement.
+
+> **Owner contract для изменяемой памяти:** persona, recipient, gift, occasion,
+> repeat/LTV и предпочтения — dated observations, а не вечные свойства клиента.
+> Фраза «я девушка», «для девушки» и «покупаю девушке» — три разных subjects;
+> модель не имеет права сливать их в gender клиента. Каждый факт хранит
+> `subject_scope`, `observed_at`, source role/evidence, episode/line и
+> `valid_until`; новое противоречащее evidence создаёт supersede/invalidate, а не
+> дописывает второй одновременно current факт.
+
 **Подробное обоснование:** `01_FINDINGS.md` → кластер B части второй,
 `NEW-MEM-008`, `NEW-MEM-009`.
 
@@ -5640,6 +5936,11 @@ L, он носит его и в другой модели. Обнуление п
       PII policy
 - [ ] Каждый факт имеет source/episode/age
 - [ ] Reset и смена намерения корректно `supersede` текущие факты
+- [ ] Persona/recipient/gift facts различают `client`, `recipient`, `gift_for` и
+      `test/quoted/manager observation`; manager/model text не становится
+      customer persona
+- [ ] Timeline хранит даты и current/historical state; UI/last-100 видит причину
+      supersede, но live prompt получает только fresh compatible facts
 - [ ] Operational truth остаётся **только** из application evidence
 - [ ] Соблюдать `Evidence fact` контракт из `02_ANALYSIS.md`: `fact_key`,
       schema/version, `subject_scope` (`client`/`episode`/`line`/`order`/`case`),
@@ -6658,11 +6959,42 @@ ablation уровни — это предположение о релевант�
 web-воркеры делят 20 соединений. Плюс `CONN_MAX_AGE=0` — каждое обращение открывает
 соединение заново.
 
+> **Production finding 2026-08-31 (`CLIENT-LIST-POLL-001`).** Visible clients
+> tab каждые 5s запрашивает default 100 rows: `564433 B`, `405 SQL`, ~`555 ms`;
+> 20 rows всё ещё `130194 B`, `87 SQL`, ~`271 ms`. Это ≈6.8 MB и 4860 SQL/min
+> на одну вкладку. После release origin 500/502 =0, `/bot/*` 5xx=0, но 8 origin
+> 503 и 1658 `Reached max children=3` warnings подтверждают LSAPI pressure.
+> Увеличивать children нельзя: shared host memory constrained. Нужны immediate
+> polling relief и затем revision/delta endpoint + constant query budget.
+>
+> **Immediate relief задеплоен (`d0e35d120`, code release `28707634c`).**
+> Сервер принудительно ограничивает page до 20; list poll ≥15s с backoff до
+> 120s, hidden tab не poll-ит, status poll 5s/30s, JSON parser и last-good state
+> fail-safe. Reset/payment/analysis/service N+1 сняты annotations/prefetch.
+> Production authenticated smoke: 20 rows, `130147 B`, `21 SQL` вместе с
+> middleware (endpoint regression: `10 SQL`), summary-only `200`; provider graph
+> и attempt delta `0`. Chrome production QA: row count 20, открытый диалог после
+> poll сохранил 124 message nodes без feedback error; app-origin console errors
+> `0`. Это закрывает relief/query-budget, но не revision/delta, multi-tab
+> coalescing и 48h zero-503 soak.
+
 **Ключевая часть решения — резерв для живого ответа.** Сейчас фоновая работа и ответ
 клиенту конкурируют на равных, хотя ответ клиенту дороже. Резерв — самая дешёвая
 часть решения и даёт наибольший эффект.
 
 **Шаги:**
+
+- [x] Immediate relief: explicit `page_size=20`; clients poll ≥15s с backoff;
+      global status poll ≥5s; hidden tab делает zero list/detail requests;
+      safe JSON parser и last-good UI state для list call
+- [ ] Cheap list revision/delta endpoint: unchanged poll возвращает tiny payload/
+      304; full cards загружаются только при changed revision
+- [x] Always annotate reset floor; service-case/payment state читаются из
+      existing annotations/prefetch, без per-client queries
+- [x] Query-budget regression: target ≤25 SQL для 20 rows; старые запросы
+      `page_size=100/200` server-side нормализуются к 20; payload/latency
+      измеряются отдельно; no provider calls
+- [ ] Multi-tab polling coalesced/backoff; production soak — zero new origin 503
 
 - [ ] Наблюдаемый контроллер допуска: глобальный бюджет DB-соединений, бюджет
       провайдера по полосам, **зарезервированная ёмкость для живого ответа**,
@@ -6706,6 +7038,37 @@ web-воркеры делят 20 соединений. Плюс `CONN_MAX_AGE=0`
 добавление воркеров может решать проблему, которой нет, и при этом создать реальную —
 конкуренцию за соединения.
 
+> **Production finding 2026-08-31 (`ANALYSIS-36-LIVENESS-001`).** Gemini 3.6
+> анализ реально работает: latest success `2026-08-31T15:45:34+03:00`, 328
+> snapshots; current cooldown/circuit отсутствуют. Проблема — terminal recovery:
+> 22 legacy jobs имеют `FAILED + attempts=5`, из них 12 — watermark выше
+> analyzed watermark. Failure classes: quota `4`, timeout `2`, untyped other
+> `16`. `_finish_failure()` после пятой одинаковой retry-схемы терминализирует
+> любой класс, а `reconcile_analysis_jobs()` не открывает тот же state после
+> Pacific reset. Поэтому quota-exhausted job может остаться мёртвым до нового
+> evidence. Никакого bulk-reset: сначала typed classification и exact lineage.
+>
+> **Связанный P0 (`ANALYSIS-GRAPH-TIMEOUT-001`):** 10 analysis request graphs
+> expired unresolved; 9 остановились после одного 3.6 timeout, один — timeout +
+> два HTTP 503, при plan size 12. Legacy management делает две попытки того же
+> key/model; V2 правильно запрещает второй dispatch candidate после
+> `TIMEOUT_AMBIGUOUS`, ownership exception выходит до `resolve_failure()` и
+> remainder не terminalize. Отдельный retry graph может позже успешно дать 3.6
+> snapshot, но исходный graph остаётся ложнопустым.
+>
+> **P0 graph path закрыт (`1ebe3affa` + hardening `28707634c`).** Background
+> policy независимо от accounting mode использует один frozen candidate
+> snapshot и один boundary на project/model; shadow и off имеют одинаковый
+> execution order. `False + active shadow` блокируется system check `E917` и
+> runtime до provider I/O. Exception terminalize graph/remainder; existing 600s
+> analysis reconciler provider-free закрывает expired graphs, отменяет PLANNED и
+> не угадывает winner при конфликте receipt/claim. `579` combined + `264`
+> Gemini routing/health/UI + `31` schema tests зелёные. Disposable MariaDB
+> focused proof: четыре accounting tables InnoDB, reaper↔late-success завершился
+> `succeeded_late`, correct winner, `rpd_uncertain=0`, in-flight=0. На production
+> 10 старых graph получили ровно один `expired_reconcile`; после deploy реальный
+> `conversation_reanalysis` одним candidate №1 успешно создал 3.6 snapshot.
+
 **Шаги — телеметрия:**
 
 - [ ] Durable метрики: oldest due age, queue lag, число задач, attempts, lease age
@@ -6713,6 +7076,24 @@ web-воркеры делят 20 соединений. Плюс `CONN_MAX_AGE=0`
 - [ ] Backlog виден менеджеру как **stale analysis**, а не как «нет проблем»
 - [ ] Разделить приоритеты: current inbound важнее исторического backfill
       (`HISTORICAL_ANALYSIS_TRIGGERS` уже отделяет исторические триггеры)
+- [ ] Добавить job fields: typed `failure_kind`, provider/quota scope,
+      `retry_at`, `gemini_request_id`, claimed revision/materiality digest;
+      raw provider body/customer text запрещены
+- [ ] Раздельная retry policy: day quota → Pacific reset; minute quota →
+      `RetryInfo`; timeout/5xx → bounded backoff; auth/model/invalid payload →
+      terminal config error; accounting uncertainty → defer
+- [ ] Audited reconciler один раз idempotently reopen только historical terminal
+      quota jobs после истёкшего provider block; no-evidence/current jobs не
+      перезапускать
+- [ ] Exact lineage `analysis_job + revision + materiality_digest →
+      GeminiRequest → attempts → snapshot|terminal reason`
+- [x] При active V2 observer — один provider boundary на frozen candidate;
+      timeout rotates к следующему project/model, не retry того же candidate
+- [x] Любой exceptional pool exit terminalize graph и записывает все remaining
+      `not_attempted_reason`; expired unresolved graph reconciles ровно один раз
+- [ ] До перехода на V2 model-scoped permits не утверждать, что management
+      использует все шесть проектов: legacy key-wide lease резервирует API1/2 и
+      фактически оставляет management API3–API6
 
 **Шаги — concurrency (только если телеметрия покажет проблему):**
 
@@ -7355,6 +7736,7 @@ order status, readiness (который сам читает продукт, ва
                          Э1.10 карточки не от модели (правило)
                          Э1.11 ритм чередования (правило)
                          Э1.12 медиа-ассеты
+                         Э1.13 VisualPlan/orchestrator/interaction ledger
 
 Э2  Поломки доставки   → Э2.1 усечение ответа
                          Э2.2 burst → несколько ответов

@@ -2,14 +2,24 @@
 
 Дата фиксации контракта: 2026-08-30.
 
-Статус: **production release Gemini Router V2 задеплоен 2026-08-31. Main,
-GitHub, production checkout и supervisor совпадают на `e7258a059`; migrations
+Статус: **первая production wave Gemini Router V2 и production hardening
+задеплоены 2026-08-31. Code release local/GitHub/production/supervisor совпал на
+`28707634c`; migrations
 `orders.0057–0058` и `management.0177–0185` применены. Corrected live routing,
 event-driven health, S3b accounting shadow и model-first cockpit работают на
 production. Analysis V2, materiality, Typed Memory и Assisted Checkout
 сознательно остаются `off`; funnel registry/analytics/consent/reminders ещё не
-входят в production release. Новый 48-часовой soak идёт с hotfix baseline
-`2026-08-31T14:00:03+03:00`.**
+входят в production release. Транспорт visual preview задеплоен, но реальный
+commerce/consent/payment/ТТН orchestration остаётся open и описан в
+`10_VISUAL_MESSAGING.md`. Новый behavior soak идёт с baseline
+`2026-08-31T18:37:02+03:00`; последующий docs-only parity reload является
+объяснённым restart без изменения tracked Python и не закрывает gate раньше
+`2026-09-02T18:37:02+03:00`.**
+
+Оценка «≈65% большого плана» — ориентация по крупным блокам, не Definition of
+Done. Shipped: routing/runtime/UI/schema/shadow foundation. Open: enforcement,
+real p95/soak, Analysis/Memory canaries, funnel registry, last-100 analytics,
+Assisted Checkout, combined consent/reminders/discount enablement и VisualPlan.
 
 Этот документ — единственный подробный контракт для Gemini-маршрутизации,
 учёта квот, event-driven health, API UI, durable CRM-анализа, typed memory и
@@ -29,25 +39,30 @@ production-проверки соответствующего пункта. На�
 
 | Область | Наблюдаемое состояние | Что обязательно перепроверить |
 |---|---|---|
-| Local/GitHub `main` | `e7258a0591229c247217736ec0c5765b666f7cc8` | повторять parity перед каждым следующим merge |
-| Production checkout | `e7258a0591229c247217736ec0c5765b666f7cc8`; tracked diff clean, существующие untracked runtime/diagnostic files не тронуты | не удалять untracked runtime files |
-| Running runtime | supervisor SHA `e7258a0591229c247217736ec0c5765b666f7cc8`; daemon PID `4079085`, main progress fresh/idle, `restart_count=0` | новый 48-hour soak и real-traffic p95 ещё открыты |
+| Code release local/GitHub `main` | `28707634cf4f26ea47f7844676134414ee6b5dd8`; финальный docs-only HEAD читать через `git rev-parse HEAD`, потому что commit не может самоссылочно хранить собственный hash | повторять parity перед каждым следующим merge |
+| Production checkout | code release `28707634cf4f26ea47f7844676134414ee6b5dd8`; tracked diff clean, существующие untracked runtime/diagnostic files не тронуты | после документационного commit снова fast-forward и parity proof |
+| Running runtime | supervisor/child code SHA `28707634cf4f26ea47f7844676134414ee6b5dd8`; sample PID `704548`, identity true, `restart_count=0` | новый 48-hour soak и live-reply p95 ещё открыты |
 | Daemon health | `state=running`; process pulse fresh; main progress fresh, `idle`, не stalled | 48-часовой soak и live-reply latency ещё не доказаны |
 | Initial S1 soak | **FAILED early:** child PID `77835` получил внешний `SIGKILL` 2026-08-30 15:23:40 Europe/Kyiv после `124.943 s`; supervisor signal/reload/stop отсутствовали; recovery через 1 с сработал | не считать S1 soak закрытым и не стирать incident из baseline |
 | Correlation | selector фактически передавал `LSAPI_CHILDREN=10`, несмотря на stale public `.htaccess` со значением 3; наблюдались expansion и повторные lswsgi `SIGKILL` | fPMEM недоступен: LVE/PMEM-причина высоко вероятна, но формально не доказана |
 | Authorized S1b | production Selector изменён только `LSAPI_CHILDREN: 10→3`; добавлен `LSAPI_EXTRA_CHILDREN=0`; non-LSAPI digest сохранён, env count `75→76` | это external production state, а не tracked-file/SHA divergence |
 | S1b runtime snapshot | selector/app restart выполнен под exact bot maintenance; health/home/catalog последовательно вернули 200; все lswsgi env показывают `3/0`; process group после старта master+2, верхняя цель master+3 | process/RSS цифры являются snapshots, не steady-state p95 |
 | S1b memory snapshot | comparable RSS `950732→588240 KiB`, PSS `666577→390312 KiB`, private `583960→298036 KiB` | не выдавать snapshot за fPMEM или PMEM p95 proof |
-| Active soak | baseline `2026-08-31T14:00:03+03:00`; deadline `2026-09-02T14:00:03+03:00`; hourly heartbeat active | release/hotfix сбросили предыдущий gate; закрывать только полной новой выборкой |
+| Active soak | behavior baseline `2026-08-31T18:37:02+03:00`; deadline `2026-09-02T18:37:02+03:00`; heartbeat должен быть обновлён после финального docs parity | release/hotfix сбросили предыдущий gate; закрывать только полной новой выборкой |
 | Production migrations | `management.0177–0185` и `orders.0057–0058` applied; требуемые 13 таблиц существуют, IG non-InnoDB count `0` | Analysis/Memory/Checkout feature modes остаются off |
 | Runtime routing | corrected S2 deployed: Ordinary начинает с Lite, Complex — с 3.7, NO_MODEL не вызывает provider; legacy `gemini_model=3.7` больше не является routing authority | доказать реальным traffic trail и reply p95 |
-| Production UI | `Квоти / Маршрути / Спроби`; provider-free authenticated smoke: page/API `200`, 4 model rows × 6 projects, `24× available_assumed`, zero provider/request writes | накопить real traffic evidence и quota drift |
+| Production UI | Chrome authenticated smoke: `Квоти / Маршрути / Спроби`, 4 model rows × 6 projects, routes=4, attempts rows=18; 360px без horizontal overflow, controls=44px, app console errors=0 | future UI changes снова проходят 360/768/1440 |
 | Ключи | шесть credentials + explicit `gemini-project-1…6`; dedicated accounting HMAC; private media root pre-created owner/mode `0700` | opaque identities не являются реальными Google project IDs и не выводятся в DOM |
 | Cron ownership | один stdlib watchdog, один sequential Instagram coordinator; durable tasks и Nova Poshta используют общий heavy-process lock | cadence/LVE steady state подтвердить soak-выборкой |
 | Removed owners | automatic metadata cron = 0; legacy Instagram periodic owner lines = 0 | manual metadata остаётся только явной диагностикой |
 | Production hotfix | `ig_follow_intelligence` collation loop исправлен mysqlclient option `utf8mb4_unicode_ci`; HTML-as-JSON guard добавлен; после нового daemon spawn follow errors `0`, health `200`, clients API JSON `200` | продолжать проверку console/API в soak |
+| Post-release visual transport | `3ec06d308`: native quick-reply collision fixed; `2a5406781`: receipt-first Button/Generic Template + safe preview actions; `3e94b8e24`: false historical purchase correction; `7fd83f838`: 30s worker-recovery UX | это transport/data/runtime evidence, не закрытие боевого VisualPlan/funnel |
+| Owner visual proof | preview `2801–2806` receipt-backed; два preview tap прошли `NO_MODEL`; purchase/consent/takeover mutations `0` | permanent choreography/acceptance — `10_VISUAL_MESSAGING.md` |
+| Legacy analysis debt | 22 terminal failed jobs остаются отдельным typed-retry debt; 10 orphan request graphs idempotently terminalized без provider replay; после deploy real 3.6 `conversation_reanalysis` succeeded одним candidate и создал snapshot | typed job failure/reopen policy; не bulk-reset без evidence |
+| False-purchase/memory repair | superseded review не воскресает; buyer=false, purchases=0, current episode сохранён, stage `checkout`; stale cross-episode summary подавлен; double reconcile `0/0/0` | Typed Memory projector всё ещё off/open |
 | Shared-host LVE | воспроизводились пики 1,25–1,28 GiB при лимите 1 GiB | 48-часовой soak после runtime-среза |
-| S1 tests | 68 low-level + 134 Django + 97 deploy tests; local `manage.py check` и migration drift clean | production soak не заменяется локальными тестами |
+| LSAPI request pressure | immediate relief deployed: 20 rows, 130147 B/21 SQL с middleware против 564KB/405 SQL; poll 15–120s, hidden zero, status 5s/30s, last-good UI | revision/delta, multi-tab coalescing и zero-new-503 soak остаются |
+| Release tests | `579` combined + `264` routing/health/UI + `31` full-schema tests; focused MariaDB InnoDB/reaper race PASS; check/migration drift clean | fresh full MariaDB graph отдельно открыт на pre-existing `storefront.0097` assertion |
 
 Эти строки — handoff evidence, а не вечная истина. Каждый implementation-срез
 сначала обновляет таблицу, не подменяя server truth локальными выводами. В
@@ -70,21 +85,33 @@ Markdown запрещено записывать API-ключи, SSH-парол�
 - Анализ не повторяется без нового material evidence.
 - Новый анализ обязан встраиваться в будущий versioned funnel registry, а не
   создавать параллельную FSM.
+- Customer-facing visual orchestration принадлежит
+  `10_VISUAL_MESSAGING.md`; один turn создаёт не более одного logical
+  VisualPlan, а model не создаёт payload/URL/price/ТТН/consent actions.
+- Combined opt-in показывает одну кнопку без decline; один tap создаёт два
+  отдельно аудируемых grants `order_updates` и `bonuses`.
+- Meta-window = 24h от inbound provider timestamp; 20h — internal proactive
+  safe deadline. Business consent не является closed-window capability.
+- Initial payment card не содержит `Я оплатил`; payment truth принадлежит
+  provider webhook/reconciliation, а `PAYLINK_VIEWED` — first-party checkout GET.
 
 ### 0.3 Открытые gates
 
-- [x] S1 integration/deploy parity: local, GitHub, production checkout,
-      supervisor и child совпадают на `e62bedf5df570af9a46fe0e760eb248819cccefa`;
-      production tracked-clean.
+- [x] Current integration/deploy parity: local, GitHub, production checkout,
+      supervisor и child совпали на code release
+      `28707634cf4f26ea47f7844676134414ee6b5dd8`;
+      production tracked-clean. `e62bedf5`/`e7258a059` остаются historical
+      release evidence, не current SHA.
 - [x] Runtime ownership conversion подтверждена на production: один stdlib
       watchdog, один sequential coordinator, общий heavy-process lock для
       durable/Nova; metadata и legacy periodic owners отсутствуют.
 - [x] Engine-registry code gap закрыт в deployed SHA; S1 не требовал новой
       migration.
-- [x] Production release parity: local/GitHub/server/supervisor = `e7258a059`;
+- [x] First-wave release parity: migrations/static/runtime proof на
+      `e7258a059`; post-release fixes/hardening fast-forward до `28707634c`;
       migrations 0177–0185/0057–0058, static/compress и narrow smoke зелёные.
 - [ ] Завершить перезапущенный 48-часовой LVE/PMEM/NPROC/daemon-exit soak
-      (`2026-08-31T14:00:03+03:00` → `2026-09-02T14:00:03+03:00`) и снять
+      (`2026-08-31T18:37:02+03:00` → `2026-09-02T18:37:02+03:00`) и снять
       live-reply p95. Automation active; ранний pre-fix SIGKILL остаётся в evidence.
 - [ ] Corrected S2 задеплоен и UI/health proof зелёный; закрыть пункт после
       real `request_id → attempt graph → reply/Meta receipt` и p95 evidence.
@@ -93,10 +120,20 @@ Markdown запрещено записывать API-ключи, SSH-парол�
 - [ ] Выпустить materiality Slice 1 после release gate: локально он прошёл три
       цикла NO-GO/fix/review, MariaDB kill/resume и финальный PASS, но остаётся
       `off` и не считается production-complete.
-- [ ] Подготовить S3b production shadow rollout: локально все NO-GO исправлены,
-      final independent review PASS и integration tests зелёные; включение
-      возможно только после explicit six-project mapping, dedicated HMAC key и
-      следующей Pacific midnight, затем два полных Pacific days наблюдения.
+- [x] S3b production shadow prerequisites: explicit six-project labels,
+      dedicated HMAC, schema/InnoDB/read APIs и observational writer deployed.
+      **Не закрывает** следующий пункт: два Pacific days/enforcement ещё open.
+- [ ] Funnel registry `0186`: исправить десять NO-GO из `04`/`10`, затем merge,
+      migration, shadow parity и production proof. Отдельная ветка не считается
+      current main.
+- [ ] Last-100 analytics: sanitized episode/read model без raw transcript scan.
+- [ ] Combined consent/reminders/discount policy и customer VisualPlan:
+      реализовать по section 8 и `10`; preview transport не равен enablement.
+- [x] Immediate LSAPI relief: list page20, 15–120s backoff, hidden zero,
+      status 5s/30s, last-good JSON и constant query budget задеплоены; production
+      130147 B/21 SQL, provider delta 0.
+- [ ] Завершить LSAPI pressure track: revision/delta endpoint, multi-tab
+      coalescing и zero new origin 503 soak; children не увеличивать.
 - [ ] Дальше внедрять V2 отдельными reversible slices; не смешивать schema,
       enforcement, policy, analysis, funnel и UI.
 
@@ -144,7 +181,7 @@ supervisor = `e7258a059`; health `200`, dangerous backlog `0`, daemon running,
 main `idle`, `restart_count=0`, lswsgi process count `3`. Это новый baseline,
 не завершение 48-часового gate.
 
-### 0.5 S2 review gate — первоначальный NO-GO закрыт локально, deploy всё ещё закрыт
+### 0.5 S2 review gate — первоначальный NO-GO исправлен и first wave deployed
 
 Первоначальный независимый review `62070f6eb` + `ec34e1734` не разрешил deploy
 и потребовал закрыть следующие темы без переноса их в будущий S3:
@@ -189,12 +226,44 @@ kill/resume для `0177` завершился повторным примене
 | S2 correctness amendment | one canonical graph, exact admission, deadline/fallback evidence, lock order | deployed; accounting shadow active |
 | Checkout generation S2b | `0184`; 12h proposal, 25m invoice, amount/identity/HMAC/winner/privacy/promo guards | applied; feature off |
 | Typed Memory V2 shadow | `0185`; bounded HMAC chain, v2.2 evidence, privacy purge, exact physical schema | applied; mode off, no typed prompt, MEMORY_EVERY=8 |
+| Graph/polling/truth hardening | `1ebe3affa`, `d0e35d120`, `9e3dedd80`, `28707634c`; frozen background candidates, provider-free reaper, page20/backoff/N+1 removal, correction tombstone + fresh memory guard | deployed; real 3.6 winner, 10 reconciled graphs, false buyer repair, authenticated Chrome/UI proof |
 
 **Следующий конкретный шаг:** automation ведёт новый production soak до
-`2026-09-02T14:00:03+03:00`; собирать real request/attempt/reply evidence.
-Funnel registry `0186` остаётся в отдельной незавершённой ветке и не входит в
-production. Analysis/Memory/Checkout включать только отдельными canary после
-shadow/soak gates.
+`2026-09-02T18:37:02+03:00`; real 3.6 request→attempt→snapshot evidence уже
+получен, но representative live reply→Meta receipt/p95 ещё открыт. Terminal
+legacy 3.6 jobs требуют typed audited retry без generation probes и bulk reset.
+Funnel registry `0186` остаётся отдельным NO-GO и не
+входит в production. VisualPlan/combined consent — по `10`. Analysis/Memory/
+Checkout включать только отдельными canary после shadow/soak gates.
+
+### 0.7 Completion dashboard для handoff
+
+Счётчик после production hardening/code release `28707634c`:
+
+```text
+done 87     open 152     blocked 1
+raw checklist closure: 87 / 240 = 36.3%
+```
+
+Raw percentage консервативен: один schema checkbox и один 48-hour production
+gate имеют одинаковый вес. Прежнее «≈65%» — weighted architecture estimate,
+которое учитывало deployed foundation; использовать его как DoD нельзя.
+
+| Блок | Evidence status | Что осталось |
+|---|---|---|
+| First production wave | **100% deployed** | final soak/p95 — отдельный gate |
+| Routing/health/cockpit | deployed | representative real traffic trail, 2 admin policy actions |
+| Quota/accounting | schema + semantics + shadow deployed | 2 Pacific days, enforcement, full consumer gateway |
+| Analysis/Materiality | schema/shadow code deployed, consumer off | typed failures, 3.6 terminal-job recovery, canary |
+| Typed Memory | schema deployed, mode off | projector/prompt parity, supersede/invalidate, remove legacy summary |
+| Funnel registry | **blocked / NO-GO** | 10 blockers, merge/migrate/shadow/deploy |
+| Last-100 analytics | open | sanitized episode read model, zero raw scan |
+| Assisted Checkout | schema applied, feature off | behavior canary and payment visual |
+| Consent/reminders/discounts | open/legacy partial | combined CTA, 20h guard, capability, enablement |
+| Visual messaging | transport/preview deployed | VisualPlan + real catalog/payment/ТТН actions |
+
+Следующий агент обновляет эти counts после каждого docs reconciliation; не
+пересчитывает весь план с нуля и не повышает percentage без done-evidence.
 
 ---
 
@@ -470,15 +539,21 @@ Gemini 3.6 Flash
 
 ### 3.1 Запрет постоянных проверок
 
-- [ ] Удалить hourly metadata health cron, countdown и automatic batch.
-- [ ] Запретить synthetic `generateContent` canary во всех обычных режимах.
-- [ ] Старую generation-probe команду сделать явной quota-consuming diagnostic,
+- [x] Удалить hourly metadata health cron, countdown и automatic batch.
+- [x] Запретить synthetic `generateContent` canary во всех обычных режимах.
+- [x] Старую generation-probe команду сделать явной quota-consuming diagnostic,
       которая без специального флага отказывается работать.
-- [ ] Page load, refresh, polling и charts читают только DB/cache snapshot.
-- [ ] Manual metadata GET допустим только по явному клику администратора в
+- [x] Page load, refresh, polling и charts читают только DB/cache snapshot.
+- [x] Manual metadata GET допустим только по явному клику администратора в
       раскрываемой диагностике.
-- [ ] Metadata-result маркируется как `auth/model capability`, а не quota или
+- [x] Metadata-result маркируется как `auth/model capability`, а не quota или
       generation health.
+
+Initial production proof на `7fd83f838`, revalidated на `28707634c`: crontab
+metadata owner `0`; authenticated
+quotas/routes/attempts API `200`; 4×6 read не изменил Gemini request/attempt
+counts (`17/3034` до и после); generation probe требует
+`--confirm-quota-spend`.
 
 ### 3.2 Состояния project/model
 
@@ -587,20 +662,21 @@ customer turn
 
 Admin capabilities:
 
-- [ ] Видеть active routing/accounting policy versions.
-- [ ] Включать `pinned` live-model максимум на 60 минут; default — `adaptive`.
+- [x] Видеть active routing/accounting policy versions.
+- [x] Включать `pinned` live-model максимум на 60 минут; default — `adaptive`.
 - [ ] Смотреть dry-run preview и прогноз расхода по lane до применения policy.
 - [ ] Применять новую immutable policy version с audit actor/time/reason.
-- [ ] Не иметь возможности вручную переписать usage или скрыть provider 429.
+- [x] Не иметь возможности вручную переписать usage или скрыть provider 429;
+      current cockpit read-only, policy mutation UI ещё не реализован.
 
 Responsive/accessibility:
 
-- [ ] 360 px — model accordions, RPM/TPM/RPD вертикально, без page-level
+- [x] 360 px — model accordions, RPM/TPM/RPD вертикально, без page-level
       horizontal scroll.
-- [ ] Текст не меньше 14 px; interactive targets не меньше 44×44.
-- [ ] Keyboard, visible focus, WCAG AA, reduced motion.
-- [ ] Один `aria-live=polite` region; polling не зачитывает всю таблицу заново.
-- [ ] Сохраняется Django template + vanilla JS и TwoComms dark visual language.
+- [x] Текст не меньше 14 px; interactive targets не меньше 44×44.
+- [x] Keyboard, visible focus, WCAG AA, reduced motion.
+- [x] Один `aria-live=polite` region; polling не зачитывает всю таблицу заново.
+- [x] Сохраняется Django template + vanilla JS и TwoComms dark visual language.
 
 ---
 
@@ -608,14 +684,18 @@ Responsive/accessibility:
 
 ### 4.1 Project identity
 
-- [ ] Настроить шесть стабильных `project_identity`, не содержащих секрет.
-- [ ] Связать quota/cooldown с `(project_identity, model)`.
-- [ ] Ротация credential сохраняет quota identity.
-- [ ] CUSTOM/ENV duplicates дедуплицировать по HMAC fingerprint; digest не
+- [x] Настроить шесть стабильных `project_identity`, не содержащих секрет.
+- [x] Связать quota/cooldown с `(project_identity, model)` в V2 shadow ledger.
+- [x] Ротация credential сохраняет quota identity.
+- [x] CUSTOM/ENV duplicates дедуплицировать по HMAC fingerprint; digest не
       возвращать клиенту и не логировать публично.
-- [ ] Неизвестный CUSTOM не считается седьмым quota project.
-- [ ] Configuration check падает на duplicate/unknown mapping до включения
+- [x] Неизвестный CUSTOM не считается седьмым quota project.
+- [x] Configuration check падает на duplicate/unknown mapping до включения
       enforcement.
+
+Production labels — opaque `gemini-project-1…6`, не реальные Google IDs;
+dedicated HMAC configured. `[x]` здесь доказывает identity/schema/shadow, а не
+enforcement.
 
 ### 4.2 Durable request graph
 
@@ -647,12 +727,17 @@ planned
 Отдельный terminal `cancelled_pre_dispatch` разрешён только до
 `provider_started` и единственный возвращает quota reservation.
 
-- [ ] Каждый considered candidate имеет row/event или immutable plan entry.
-- [ ] `not_attempted_reason` покрывает circuit, lease, quota, deadline,
+- [x] Каждый considered candidate имеет row/event или immutable plan entry в
+      accounting shadow graph.
+- [x] `not_attempted_reason` покрывает circuit, lease, quota, deadline,
       superseded wave и policy stop.
-- [ ] Один atomic winner; late success не создаёт второй reply/send.
-- [ ] Reply/recovery/Meta receipt связаны с request ID.
-- [ ] Нельзя сохранять key value, prompt или provider body.
+- [x] Один atomic winner; late success не создаёт второй reply/send.
+- [x] Reply/recovery/Meta receipt связаны с request ID.
+- [x] Нельзя сохранять key value, prompt или provider body.
+
+Production sample содержит durable graph (`17` requests / `3034` attempts на
+момент smoke); read API redacted/provider-free. Real representative
+request→attempt→reply p95 gate остаётся section 0.3.
 
 ### 4.3 `GeminiQuotaState` и policy profiles
 
@@ -671,19 +756,27 @@ State key: `(project_identity, model)`.
 
 Правила:
 
-- [ ] `ZoneInfo("America/Los_Angeles")`, включая PST/PDT transitions.
-- [ ] RPD относится к Pacific calendar day.
-- [ ] RPM/TPM — rolling 60 seconds, не fixed window от первой попытки.
-- [ ] TPM считает input/prompt tokens; output tokens показываются отдельно.
-- [ ] Estimated input резервируется до dispatch; actual usage reconciles
+- [x] `ZoneInfo("America/Los_Angeles")`, включая PST/PDT transitions.
+- [x] RPD относится к Pacific calendar day.
+- [x] RPM/TPM — rolling 60 seconds, не fixed window от первой попытки.
+- [x] TPM считает input/prompt tokens; output tokens показываются отдельно.
+- [x] Estimated input резервируется до dispatch; actual usage reconciles
       idempotently.
-- [ ] Timeout сохраняет conservative input estimate.
-- [ ] Settlement относится к original dispatch day даже после midnight.
-- [ ] Structured 429 хранит metric/quota ID/dimensions/retry delay без raw body.
-- [ ] Provider 429 сильнее local estimate и ставит `external_usage_suspected`.
-- [ ] Unknown model/budget/project — system-check error, не unlimited capacity.
+- [x] Timeout сохраняет conservative input estimate.
+- [x] Settlement относится к original dispatch day даже после midnight.
+- [x] Structured 429 хранит metric/quota ID/dimensions/retry delay без raw body.
+- [x] Provider 429 сильнее local estimate и ставит `external_usage_suspected`.
+- [x] Unknown model/budget/project — system-check error, не unlimited capacity.
+
+Эти `[x]` относятся к deployed observational accounting semantics. Admission
+enforcement по ним остаётся off и не считается закрытым.
 
 ### 4.4 Admission и DB boundaries
+
+> **Статус:** candidate graph/reservation/settlement работают в shadow, но
+> authoritative admission enforcement и полный запрет direct provider calls
+> ещё не включены для всех consumers. Поэтому составные пункты ниже остаются
+> open до static inventory + canary.
 
 - [ ] Один gateway обслуживает live, recovery, CRM analysis, memory, UGC/media,
       reports, checker и manual override.
@@ -713,10 +806,11 @@ State key: `(project_identity, model)`.
 
 ### 4.6 Schema и shadow rollout
 
-- [ ] Additive V2 schema, все behavior flags выключены.
-- [ ] Новые таблицы InnoDB на disposable production-shaped MariaDB.
-- [ ] Исправить engine registry для существующей quota-таблицы.
-- [ ] Shadow начать после ближайшей Pacific midnight, а не с ложного mid-day 0.
+- [x] Additive V2 schema deployed; enforcement/consumer behavior flags остаются
+      выключены.
+- [x] Новые таблицы InnoDB на disposable production-shaped MariaDB и production.
+- [x] Исправить engine registry для существующей quota-таблицы.
+- [x] Shadow начат с Pacific-day boundary, а не с ложного mid-day 0.
 - [ ] Старые attempts backfill только как telemetry, не как точный remaining.
 - [ ] Собрать два полных Pacific days shadow data без изменения route.
 - [ ] Проверить: каждый `provider_started` имеет одну reservation и settlement.
@@ -728,6 +822,28 @@ State key: `(project_identity, model)`.
 ---
 
 ## 5. Durable CRM analysis
+
+> **Production truth 2026-08-31:** legacy analysis chain действительно начинает
+> с `gemini-3.6-flash` и дала latest success `15:45:34+03:00`; 328 snapshots
+> stored. Materiality/Analysis V2 selector modes остаются off/legacy. Найден
+> liveness gap: 22 terminal `FAILED/attempts=5`, 12 с unanalysed watermark;
+> quota/timeout/untyped failures после Pacific reset автоматически не reopen.
+> Исправление — typed failure/retry/reopen + exact job→request lineage; bulk
+> requeue запрещён. Request-graph P0 при этом закрыт в `28707634c`: 10 expired
+> graphs terminalized provider-free, а первый post-deploy real pass дал один
+> successful 3.6 attempt/winner/snapshot. Implementation checklist — Э8.2 `04`.
+
+- [ ] Типизировать failure kind/quota scope/retry boundary и связать job с
+      `GeminiRequest` по revision/materiality digest.
+- [ ] Day quota defer до Pacific reset, minute quota `RetryInfo`, timeout/5xx
+      bounded retry, config faults terminal.
+- [ ] Idempotently reopen только expired historical quota terminal jobs;
+      no-new-evidence jobs остаются закрыты.
+- [ ] Перевести analysis на V2 model-scoped permits до заявления «все шесть
+      проектов»: legacy management path фактически использует API3–API6.
+- [x] Один frozen candidate пересекает provider boundary максимум один раз;
+      ambiguous timeout rotates дальше. Любой exception terminalize parent graph
+      и remaining plan; expired unresolved graphs reconciles idempotently.
 
 ### 5.1 Materiality вместо бесконечных проходов
 
@@ -856,6 +972,16 @@ reminder и не меняет durable transcript.
 
 ### 5.7 Typed memory
 
+> **Статус:** schema/migration `0185` deployed, consumer mode off; legacy
+> `MEMORY_EVERY=8` summary остаётся. Наличие таблицы не закрывает projector,
+> prompt parity или supersede/invalidate semantics.
+> Production proof до fix: legacy summary старше current episode попадал в
+> 33k prompt; для тестового клиента prompt одновременно содержал old `<records>`,
+> `done/100%` и unverified-payment warning. До Typed Memory нужен fail-closed
+> age/episode/reset gate; затем stage/episode correction P0 из Э3.2 `04`.
+> Оба immediate guards задеплоены в `28707634c`: stale summary suppressed,
+> false buyer=false и current stage=`checkout`; это не включает Typed Memory V2.
+
 `IgMemoryFact`:
 
 ```text
@@ -878,6 +1004,13 @@ sensitivity / retention_class
 - [ ] Live prompt загружает только relevant facts current episode/line.
 - [ ] Authoritative payment/order/price/stock не дублируются как memory truth.
 - [ ] Inbound без исходящего ответа всё равно может обновить durable analysis.
+- [ ] Persona/recipient/gift/occasion/repeat facts имеют dated observation,
+      subject scope и episode/line. `Я девушка`, `для девушки` и manager/model
+      quote не сливаются в один current client-gender fact.
+- [ ] Contradicting newer evidence supersede/invalidate old current fact; history
+      остаётся в timeline, live prompt получает только fresh compatible state.
+- [x] Legacy compatibility: summary старше current episode/reset не загружается;
+      fresh same-episode summary остаётся до typed-memory parity.
 
 ---
 
@@ -885,6 +1018,11 @@ sensitivity / retention_class
 
 Gemini V2 не заменяет funnel registry. Analysis пишет generic proposals;
 versioned backend definitions и projector владеют переходами.
+
+> **Статус `[!]` NO-GO:** migration/registry `0186` находится только в отдельной
+> ветке и не входит в current main. До merge обязательны десять blockers из
+> Э4 `04` и Wave 9 `10`. Customer VisualPlan читает/предлагает typed actions, но
+> не становится владельцем state.
 
 ### 6.1 Branch types
 
@@ -954,6 +1092,17 @@ Contact/delivery/payment details собираются на checkout и сами 
 
 ## 7. Analytics read model
 
+> **Статус: open.** Legacy funnel/analysis tables дают частичные aggregates, но
+> sanitized V2 episode read model и last-100 query без raw transcript scan не
+> доказаны.
+
+- [ ] Materialize one current sanitized projection per episode/revision.
+- [ ] Last-100 query читает projections/nodes/snapshots/technical aggregates и
+      делает zero raw-message reads в обычном режиме.
+- [ ] Distinct client/episode cohort, timezone/window/cutoff/exclusions
+      зафиксированы и покрыты тестами.
+- [ ] Drilldown raw transcript доступен только по конкретной anomaly с audit.
+
 Для каждого episode хранить sanitized current outcome projection:
 
 - starting source/ad/product;
@@ -1002,6 +1151,12 @@ cohort, exclusions и sample cutoff.
 
 ### 8.1 Assisted checkout
 
+Payment visual contract — section 10
+[`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md): initial card без
+`Я оплатил`; `Перевірити оплату` только reconciliation signal; Meta `web_url`
+tap не равен `PAYLINK_VIEWED`, который создаётся first-party signed checkout
+GET.
+
 - [ ] Proposal/access link живёт 12 часов как commercial snapshot.
 - [ ] Это не 12-часовая stock hold: stock/price проверяются повторно.
 - [ ] Inventory/promo reservation и provider invoice живут 25 минут.
@@ -1021,19 +1176,33 @@ cohort, exclusions и sample cutoff.
 
 ### 8.2 Consent и Meta transport
 
+Visual/copy/postback choreography — section 9
+[`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md). Этот раздел
+владеет business/platform eligibility policy.
+
 - [ ] После verified 200/full payment, только внутри реально открытого Meta
-      window, отправить thank-you и одну прозрачную кнопку `Так, отримувати`.
-- [ ] Business consent хранит client/order, topics, exact localized copy/version,
-      source click/message, channel, time, policy и revocation.
-- [ ] Topics `order_updates` и `bonuses` раздельны, даже если UI объединяет CTA.
+      window, отправить thank-you и **одну** прозрачную кнопку
+      `Так, отримувати`; initial payload не содержит decline/cancel button.
+- [ ] Один idempotent tap атомарно создаёт два append-only grants с общим
+      bundle: `order_updates` и `bonuses`.
+- [ ] Business consent хранит client/order/episode, topic, exact localized copy
+      digest/version, source visual/click/message, provider timestamp, channel,
+      policy и revocation. Current projection per `(client, topic)`.
 - [ ] Transactional status не содержит promo без `bonuses` consent.
 - [ ] Meta transport capability/token хранится отдельно от business consent.
+- [ ] Meta deadline = inbound/postback provider timestamp +24h; internal
+      proactive safe deadline = +20h. Между 20h и 24h proactive automation
+      blocked; reactive reply policy рассматривается отдельно.
 - [ ] Payment success page всегда содержит безопасный `Вернуться в Direct` CTA.
 - [ ] Web click сам по себе не открывает messaging window; inbound/postback — да.
 - [ ] Вне окна auto-send разрешён только при доказанной Meta capability.
 - [ ] `HUMAN_AGENT` автоматическим ботом не используется.
 - [ ] Без capability создаётся manager task или ожидание следующего inbound.
 - [ ] Opt-out/revocation немедленно прекращает обе темы.
+
+**Неподвижное ограничение:** одна красивая CTA — UX bundling, но не один
+неразличимый consent и не «вечное окно». Business grants сохраняются раздельно;
+closed-window право появляется только из отдельно доказанной Meta capability.
 
 ### 8.3 `IgReminderIntent`
 
@@ -1121,7 +1290,7 @@ Price-objection policy:
       один technical alert, не customer message. Логика покрыта тестами, но
       production restart-storm outcome и 48-часовой exit rate ещё не доказаны.
 
-**S1 verification evidence (2026-08-30):**
+**Historical S1 verification evidence (2026-08-30):**
 
 - local/GitHub/server/supervisor/child SHA:
   `e62bedf5df570af9a46fe0e760eb248819cccefa`;
@@ -1141,10 +1310,16 @@ Price-objection policy:
   является Git divergence;
 - RSS/PSS/private before/after из раздела 0.4 — snapshots, а не p95/fPMEM proof.
 
+Capacity sample `7fd83f838`: selector `3/0`; observed lswsgi
+master+2; one supervisor + one daemon; RSS/PSS/private aggregate на sample
+`649792/521380/469400 KiB`; status `running`, queue `0`, recent error events `0`,
+read APIs JSON `200`. Это sample, не p95/fPMEM и не завершение soak.
+
 Runtime gate:
 
-Baseline перезапущен с `2026-08-30T15:48:03+03:00`; deadline
-`2026-09-01T15:48:03+03:00`; automation active. Pre-fix SIGKILL остаётся в
+Behavior baseline перезапущен с `2026-08-31T18:37:02+03:00`; deadline
+`2026-09-02T18:37:02+03:00`; automation должна быть обновлена после final docs
+parity. Pre-fix SIGKILL остаётся в
 истории и не исключается из incident evidence.
 
 - [ ] 48 часов без unexplained daemon exits.
@@ -1187,37 +1362,44 @@ Baseline перезапущен с `2026-08-30T15:48:03+03:00`; deadline
 
 ### 10.1 Routing
 
-- [ ] Classification table для `NO_MODEL`, `ORDINARY_LIVE`, `COMPLEX_LIVE`.
-- [ ] Exact price при exact product не становится complex по слову «цена».
-- [ ] Ambiguous product image становится complex и создаёт один artifact.
-- [ ] Story mention: deterministic ack, zero chat Gemini, один assessment.
-- [ ] Voice: один artifact, без повторного analysis.
-- [ ] Ad referral: deterministic resolver first, 3.7 только при ambiguity.
-- [ ] Ordinary/complex chains работают model-major через шесть проектов.
-- [ ] Fast 429 rotating projects; slow timeout соблюдает SLA и пишет skipped.
-- [ ] Emergency pin истекает максимум через 60 минут.
+- [x] Classification table для `NO_MODEL`, `ORDINARY_LIVE`, `COMPLEX_LIVE`.
+- [x] Exact price при exact product не становится complex по слову «цена».
+- [x] Ambiguous product image становится complex и создаёт один artifact.
+- [x] Story mention: deterministic ack, zero chat Gemini, один assessment.
+- [x] Voice: один artifact, без повторного analysis.
+- [x] Ad referral: deterministic resolver first, 3.7 только при ambiguity.
+- [x] Ordinary/complex chains работают model-major через шесть проектов.
+- [x] Fast 429 rotating projects; slow timeout соблюдает SLA и пишет skipped.
+- [x] Emergency pin истекает максимум через 60 минут.
+
+Routing contract прошёл integrated regression и deployed. Representative real
+traffic p95/request→attempt→receipt остаётся отдельным open gate 0.3.
 
 ### 10.2 Accounting/concurrency
 
-- [ ] Pacific DST: winter/summer reset, spring/fall transitions.
-- [ ] Rolling RPM/TPM boundary и request across midnight.
-- [ ] Последний RPD/RPM/TPM slot под MariaDB concurrency.
-- [ ] External quota drift и structured `RetryInfo`.
-- [ ] 401/403/404/408/429/5xx, invalid payload, safety, empty response.
-- [ ] Timeout ambiguity не возвращает consumed reservation.
-- [ ] One winner/receipt under hedge and crash.
+- [x] Pacific DST: winter/summer reset, spring/fall transitions.
+- [x] Rolling RPM/TPM boundary и request across midnight.
+- [x] Последний RPD/RPM/TPM slot под MariaDB concurrency.
+- [x] External quota drift и structured `RetryInfo`.
+- [x] 401/403/404/408/429/5xx, invalid payload, safety, empty response.
+- [x] Timeout ambiguity не возвращает consumed reservation.
+- [x] One winner/receipt under hedge and crash.
+- [x] Expired reaper ↔ late success на disposable MariaDB/InnoDB сходится в
+      `succeeded_late`, correct winner, conservative RPD и zero in-flight.
 - [ ] 50-turn burst: bounded threads/connections и один reply на turn.
 - [ ] Статический запрет прямого provider call вне gateway.
 
 ### 10.3 UI/health
 
-- [ ] Load/refresh/polling делают zero provider calls.
-- [ ] Полная 4×6 zero-usage matrix без заранее созданных DB rows.
-- [ ] Real traffic меняет только соответствующую project/model пару.
+- [x] Load/refresh/polling делают zero provider calls.
+- [x] Полная 4×6 zero-usage matrix без заранее созданных DB rows.
+- [x] Real traffic меняет только соответствующую project/model пару: первый
+      post-deploy pass обновил ровно одну 3.6 pair и создал один winner/snapshot.
 - [ ] Cooldown expiry даёт `available_assumed`, не fake success.
-- [ ] Secrets/project IDs/customer text отсутствуют в API/DOM.
+- [x] Secrets/project IDs/customer text отсутствуют в API/DOM.
 - [ ] Empty/stale/error/external-drift states.
-- [ ] Playwright 360/768/1440; axe serious/critical = 0.
+- [x] Playwright/evaluation 360/768/1440 и accessibility contract зелёные для
+      deployed cockpit; повторить после будущих UI changes.
 
 ### 10.4 Analysis/memory/funnel
 
@@ -1245,15 +1427,21 @@ Baseline перезапущен с `2026-08-30T15:48:03+03:00`; deadline
 
 ### 10.6 Final release proof
 
-- [ ] Shared CPython 3.14.6 / Django 6.1 runtime использован для команд.
-- [ ] `manage.py check`, related suites, compile и migration drift зелёные.
+- [x] Shared CPython 3.14.6 / Django 6.1 runtime использован для команд.
+- [x] `manage.py check`, related suites, tracked compile и migration drift
+      зелёные; untracked AppleDouble файл не удалялся и не относится к imports.
 - [ ] Disposable MariaDB migration/interrupt/retry и InnoDB engine audit зелёные.
-- [ ] `git diff --check` зелёный.
-- [ ] Никаких synthetic messages живым клиентам, Meta test events или generation
+      Focused accounting/InnoDB/race proof зелёный; общий fresh graph остаётся
+      open из-за независимого `storefront.0097` WebPush HASH assertion
+      (`FRESH-MARIADB-WEBPUSH-001` в Э0.1 `04`).
+- [x] `git diff --check` зелёный.
+- [x] Никаких synthetic messages живым клиентам, Meta test events или generation
       probes.
-- [ ] Production deploy только через `main` и supported SSH pull.
-- [ ] Небольшой последовательный endpoint smoke, без broad crawl.
-- [ ] `local = GitHub = production = running daemon SHA`.
+- [x] Production deploy только через `main` и supported SSH pull.
+- [x] Небольшой последовательный endpoint + authenticated Chrome smoke, без
+      broad crawl; healthz/bot health=200, app-origin console errors=0.
+- [x] Code release `local = GitHub = production = running daemon SHA`; после
+      docs-only commit parity повторяется и доказывается отдельно.
 - [ ] Migrations/engines/queues/leases/PID здоровы.
 - [ ] 48-hour production soak завершён без unexplained exits.
 
@@ -1276,8 +1464,15 @@ Baseline перезапущен с `2026-08-30T15:48:03+03:00`; deadline
 - Production MariaDB — runtime/business truth; SQLite — быстрый структурный
   test layer.
 - Сильная модель не получает право менять authoritative business state.
+- Customer-facing cards/buttons/carousels/payment/ТТН и combined opt-in
+  реализуются только по [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md).
+- Красивый visual preview/receipt доказывает transport, но не закрывает
+  commerce/funnel/consent action без signed revision-safe backend path.
 
 ## 12. Ссылки
+
+- [Visual Messaging plan](10_VISUAL_MESSAGING.md) — канонический visual UX,
+  VisualPlan, card/carousel/payment/ТТН/consent choreography.
 
 - Общий implementation order: `04_IMPLEMENTATION.md`.
 - Production incident handoff: `07_PRODUCTION_TECHNICAL_DELAY_SPAM_HANDOFF_2026-08-27.md`.
