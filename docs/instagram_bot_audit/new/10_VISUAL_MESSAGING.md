@@ -2,17 +2,17 @@
 
 Дата планирования: 2026-08-31
 
-Проверенная кодовая граница: `28707634cf4f26ea47f7844676134414ee6b5dd8`
+Проверенная quota code-граница: `071a4b5b2f65a91a36443fe98d10a1a322942542`
 
 Режим этого документа: план реализации; он не является доказательством готовности кода.
 
 ## 0. Владелец контракта и границы документов
 
 - [04_IMPLEMENTATION.md](04_IMPLEMENTATION.md) владеет порядком реализации, зависимостями и статусами checklist.
-- [09_GEMINI_QUOTA_ROUTING_PLAN.md](09_GEMINI_QUOTA_ROUTING_PLAN.md) владеет Gemini routing, quota/accounting, analysis/memory, platform eligibility и будущей funnel-интеграцией.
+- [09_GEMINI_QUOTA_ROUTING_PLAN.md](09_GEMINI_QUOTA_ROUTING_PLAN.md) владеет только Gemini live routing, keys, quota/accounting, fallback и provider-free API observability.
 - Этот файл владеет customer-facing visual orchestration: когда нужен текст, quick reply, button template, single card, carousel, payment/ТТН visual и как backend обрабатывает action.
-- Подробные quota/analysis правила здесь не дублируются; business/platform policy из `09` имеет приоритет.
-- Чекбоксы в `04/09` закрываются только после code + tests + deploy + production proof; красивый preview не равен готовому commerce flow.
+- Analysis/Memory, funnel, business/platform eligibility и commerce policy принадлежат точным разделам `04`; quota/provider правила здесь не дублируются.
+- Чекбоксы в `04` и outcomes `09` независимы; красивый preview не равен готовому commerce flow и не закрывает Gemini enforcement.
 
 ## 1. Текущая истина и честная граница готовности
 
@@ -39,22 +39,21 @@
 - Нет явного 20-hour internal safe deadline рядом с Meta 24-hour deadline.
 - `PAYLINK_VIEWED` нельзя доказать нажатием Meta `web_url`.
 - Analysis V2, Typed Memory, Assisted Checkout и funnel registry остаются `off`.
-- Funnel registry `0186` остаётся в отдельной NO-GO ветке.
+- Прежняя funnel migration `0186` остаётся в отдельной NO-GO ветке; после
+  Gemini calibration/ranking migration `0186` она обязана получить следующий свободный номер
+  и новую dependency, а не cherry-pick старый номер.
 - 48-hour soak и два полных Pacific shadow days являются реальными временными gates.
 
 ### Почему нельзя использовать старые «90% / 60%» как acceptance
 
-Фактические checkbox-маркеры на текущем `04`:
+Фактические checkbox-маркеры после scope-сверки:
 
-| Этап | `[x]` | `[ ]` | `[~]` | `[!]` |
-|---|---:|---:|---:|---:|
-| ЭА | 89 | 178 | 10 | 0 |
-| Э1 | 23 | 105 | 3 | 15 |
-| Э4 | 0 | 91 | 0 | 1 |
-| Э5 | 0 | 64 | 0 | 0 |
+- `04`: done `341`, open `822`, partial `31`, blocked `18`, declined `10`;
+  raw done ratio `341 / 1212 = 28,1%`;
+- `09`: ровно девять Gemini provider outcomes — done `8`, open `1`, blocked `0`;
+  functional completion `88,9%`.
 
-После production hardening-сверки в `09`: done `87`, open `152`, blocked `1`
-(raw done ratio `36.3%`). Поэтому проценты заменяются evidence-статусами:
+Поэтому старые оценки «90% / 60%» заменяются evidence-статусами:
 
 1. transport foundation — deployed;
 2. customer visual orchestration — open;
@@ -343,13 +342,14 @@ active_from / retired_at
 
 ### Wave 0 — Документальная истина
 
-- Обновить handoff `04/09`: code release `28707634c`, behavior soak baseline
-  `2026-08-31T18:37:02+03:00`, deadline `2026-09-02T18:37:02+03:00`.
+- Обновить handoff `04/09`: quota release `071a4b5b2`, ranking soak baseline
+  `2026-08-31T21:40:35+03:00`, deadline `2026-09-02T21:40:35+03:00`.
 - Старые SHA оставить только как historical evidence.
 - Зафиксировать preview transport proof, не помечая Э1.5–Э1.12 готовыми.
 - Исправить Э1.1 под combined CTA / two backend topics.
 - Исправить Э1.6: Meta web_url tap не равен `PAYLINK_VIEWED`.
-- Добавить эту choreography matrix в Э1 и ссылку из `09` section 8.
+- Добавить эту choreography matrix в Э1; `09` только ссылается на owning visual
+  документы и не дублирует choreography.
 
 ### Wave 1 — E0.4 eligibility + Visual foundation, behavior off
 
@@ -480,7 +480,12 @@ active_from / retired_at
 - Persona/recipient/gift facts имеют subject scope/date/evidence и не смешивают
   клиента с получателем/quoted/manager observation.
 
-### Wave 9 — Funnel registry `0186`
+### Wave 9 — Funnel registry, следующий номер после Gemini `0186`
+
+Сначала rebase старой NO-GO branch на `main`, переименовать её migration в
+следующий свободный номер и направить dependency на deployed Gemini calibration/
+ranking `0186`.
+Старую funnel `0186` не cherry-pick как есть.
 
 До deploy исправить все NO-GO:
 
@@ -505,13 +510,15 @@ active_from / retired_at
 
 ### Wave 11 — Final closure
 
-- Полная test matrix `04/09`.
+- Полная visual/business test matrix `04/10` плюс compatibility с provider
+  boundary `09` без изменения его quota policy.
 - MariaDB concurrency/kill-resume/InnoDB.
 - `uk/ru/en`, iOS/Android/web fallback.
 - narrow production owner-account receipts.
 - final 48h soak после последнего runtime release.
 - exact local/GitHub/server/supervisor SHA.
-- Только затем `[x]` и production proof в `04/09`.
+- Только затем `[x]` и production proof в `04/10`; outcomes `09` меняются только
+  provider enforcement/ranking/observability работой.
 
 ## 15. Обязательные tests
 

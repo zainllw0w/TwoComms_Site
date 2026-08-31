@@ -11,36 +11,61 @@
 критерии готовности.
 
 > **Канонический контракт Gemini V2:**
-> `09_GEMINI_QUOTA_ROUTING_PLAN.md`. Определения `NO_MODEL`, `ORDINARY_LIVE`,
-> `COMPLEX_LIVE`, `DURABLE_ANALYSIS`, event-driven health, quota ledger,
-> analysis/memory и связей с будущими подворонками поддерживаются только там.
-> Production code release `28707634c` содержит Router V2, event-driven health,
-> 4×6 cockpit, accounting shadow, single-boundary background rotation,
-> request-graph recovery и additive migrations 0177–0185/0057–0058.
-> Analysis/Memory/Assisted Checkout остаются off, а funnel/analytics/
-> consent/reminders всё ещё открыты; подробный актуальный статус хранится в `09`.
+> [`09_GEMINI_QUOTA_ROUTING_PLAN.md`](09_GEMINI_QUOTA_ROUTING_PLAN.md) владеет
+> **только provider infrastructure**: `NO_MODEL`/Ordinary/Complex live routing,
+> model-major fallback, six-project identity, quota admission/accounting,
+> event-driven health и provider-free 4×6 API/cockpit. Его точный functional
+> dashboard — `8/9 = 88,9%`; открыт только полный authoritative enforcement G7.
+> Quota-aware ranking G8 и edge-state observability G9 задеплоены code release
+> `071a4b5b2`. Production foundation уже содержит Router
+> V2, request graph, accounting shadow и отсутствие synthetic health probes.
+> Другой агент **не должен перестраивать** эти компоненты внутри Э3/Э4/Э5/Э8.
+> CRM Analysis, Typed Memory, funnel, analytics, Assisted Checkout, consent и
+> reminders принадлежат этому `04` и `10`, а не completion percentage `09`.
 
 > **Канонический контракт customer-facing visual orchestration:**
 > [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md). Этот файл
 > определяет, когда использовать text / quick reply / button template / single
 > card / carousel, как выглядят payment и ТТН, как работает combined opt-in и
 > какие revision/receipt/UNKNOWN/fallback правила обязательны. `04` владеет
-> порядком и статусами; `09` — Gemini/quota/analysis/platform policy; `10` —
+> порядком и статусами; `09` — Gemini provider/quota infrastructure; `10` —
 > визуальным UX. Подробные правила не копировать между тремя файлами.
 
-> **Актуальная code-boundary 2026-08-31:** local/GitHub/production/supervisor =
-> `28707634cf4f26ea47f7844676134414ee6b5dd8`. Deployed foundation включает
+> **Актуальная quota code-boundary 2026-08-31:** local/GitHub/production/
+> supervisor = `071a4b5b2f65a91a36443fe98d10a1a322942542`; предыдущая
+> behavior foundation была выпущена release `28707634c`.
+> Deployed foundation включает
 > Router V2, event-driven health, 4×6 cockpit, accounting shadow, Generic/Button
 > Templates, Quick Replies, receipt-first/echo registry и owner-account preview
 > `2801–2806`. Это доказательство транспорта и provider rendering, но не
 > завершение product/payment/consent/funnel flow. Analysis V2, Typed Memory и
-> Assisted Checkout остаются off; funnel registry `0186` — отдельный NO-GO.
+> Assisted Checkout остаются off; отдельная funnel branch со старым номером
+> `0186` — NO-GO и обязана перенумероваться после rebase.
 > Production proof этого среза: real 3.6 analysis success/winner, 10 orphan
 > request graphs terminalized без provider replay, false-purchase projection
 > исправлена идемпотентно, clients API возвращает 20 rows/≈130 KB/21 SQL с
 > middleware вместо 100 rows/≈564 KB/405 SQL. Финальный docs-only SHA всегда
 > сверять командой `git rev-parse HEAD`: документ не может содержать собственный
 > самоссылочный commit hash.
+
+### Handoff ownership после сокращения `09`
+
+Требования не удалены, а распределены по owning-разделам:
+
+| Область | Единственный implementation owner | Что уже можно переиспользовать |
+|---|---|---|
+| Gemini live routing/keys/quota/fallback/API | [`09`](09_GEMINI_QUOTA_ROUTING_PLAN.md), outcomes G1–G9 | `RoutingDecision`, model-major plan, request/attempt graph, 4×6 cockpit, accounting shadow |
+| Analysis materiality, typed failures, manager evidence | Э3.4, Э3.5, Э8.2 | existing analysis job/result schema и request lineage; не создавать второй Gemini gateway |
+| Typed Memory/current prompt | Э3.12 и Э5 | deployed `0185` shadow schema; facts применяет deterministic projector |
+| Funnel/sub-funnels | Э4 | generic episode/line/evidence contract; Gemini только предлагает, projector решает |
+| Last-100/product analytics | Э8.6/Э8.7 | snapshots/events/technical aggregates; default query не читает raw transcript |
+| Cards/checkout/consent/reminders/discounts/ТТН | Э1, Э6 и [`10`](10_VISUAL_MESSAGING.md) | receipt-first templates/postbacks; backend владеет URL/price/payment/permission |
+| Daemon/LSAPI/process ownership | Э8.1/Э8.4 | deployed supervisor/coordinator/locks и отдельный soak |
+
+Completion `09` не закрывает эти строки автоматически. И наоборот, агент `04`
+не должен добавлять provider admission, quota counters или health probes в свои
+business services: он вызывает уже существующую границу Gemini и развивает
+собственный typed state.
 
 ---
 
@@ -282,11 +307,11 @@ policy-решения владельца, юридической проверк�
 только про порядок выполнения, чтобы не потерять приоритет владельца и
 одновременно не выпустить карточку в сломанный путь.
 
-### Completion dashboard для следующего агента (code release `28707634c`)
+### Completion dashboard для следующего агента (scope-сверка 2026-08-31)
 
 ```text
-done 309   open 869   partial 31   blocked 18   declined 6
-raw done ratio: 309 / (309 + 869 + 31 + 18) = 25.2%
+done 341   open 822   partial 31   blocked 18   declined 10
+raw done ratio: 341 / (341 + 822 + 31 + 18) = 28.1%
 ```
 
 Raw ratio специально консервативен и не равен product maturity: один docs-пункт
@@ -295,14 +320,15 @@ Raw ratio специально консервативен и не равен pro
 
 | Трек | Текущий статус | Канонический handoff |
 |---|---|---|
-| Gemini/quota/runtime | first wave deployed, full V2 open | `09` completion dashboard |
+| Gemini router/keys/quota/API | G1–G6/G8/G9 deployed; 8/9 outcomes | `09`; открыт только G7 enforcement, не перестраивать остальное |
+| Runtime/LSAPI | hardening deployed; soak отдельно | Э8.1/Э8.4 |
 | Visual transport | deployed/preview proven | Э1.2 и `10` |
 | Visual orchestration | open priority | Э1.13 и `10` |
 | Resolver/media revision | deployed | Э3.7 |
-| Funnel registry | blocked NO-GO | Э4 + `09/10` blockers |
-| Typed Memory | schema deployed, consumer off | Э5 + `09 §5.7` |
-| Last-100 analytics | open | `09 §7` |
-| Consent/reminders/discount | open/legacy partial | Э1.1/Э6 + `09 §8` |
+| Funnel registry | blocked NO-GO | Э4 + visual action contract `10` |
+| Typed Memory | schema deployed, consumer off | Э3.12 + Э5 |
+| Last-100 analytics | open | Э8.6/Э8.7 |
+| Consent/reminders/discount | open/legacy partial | Э1.1/Э6 + `10` |
 
 После каждого implementation slice обновлять counts и evidence status здесь;
 не ставить done по наличию branch/schema/preview без production DoD.
@@ -1829,120 +1855,80 @@ circuit открывается по политике, а не по одному 
 
 ## ЭА.11 — Шесть ключей: доказать project identity, потом менять routing
 
-> **Решение владельца 2026-08-30:** шесть ключей принадлежат шести отдельным
-> Google-проектам. Историческая неопределённость ниже снята как product decision,
-> но runtime mapping/configuration-check ещё не реализованы; поэтому пункт не
-> закрыт. Канонический identity contract — раздел 4.1 файла `09`.
+> **Статус: deployed, Gemini G5/G6.** Шесть ключей принадлежат шести отдельным
+> quota projects. Production использует шесть opaque `project_identity`,
+> configuration check и HMAC duplicate detection; unknown CUSTOM не становится
+> седьмым project. API/DOM не возвращают alias, fingerprint, secret или реальный
+> Google project ID. Канонический identity contract — G5 и section 4.1 `09`.
 
 - Находка: `07_…HANDOFF` → `P0-D`, раздел 8 («Почему 429 каскадирует»)
 - Класс: MEASURE + POLICY, затем DEFECT
 - Блокеры: ЭА.10
 - Блокирует: ЭА.12 (порядок кандидатов зависит от области квоты)
 
-**Проблема кратко:** `key_project_groups()`
-(`management/services/gemini_keys.py:134`) на production возвращает `{}` —
-`GEMINI_KEY_PROJECT_GROUPS` не задан. При пустой группе `_project_aliases()`
-(строка 354) возвращает только текущий alias, а `mark_429()` (строка 666) ставит
-cooldown только на alias. Телеметрия при этом пишет `decision=cooldown_project`
-при пустой группе — то есть **сообщает о решении, которого не было**.
+**Историческая проблема:** `key_project_groups()` возвращал `{}`, поэтому
+cooldown и telemetry не знали quota project. Эта граница устранена текущим
+mapping/configuration contract; номера строк baseline больше не являются
+актуальным указателем реализации.
 
-**Обновлённая граница доказательств.** Доказано владельцем: проекты независимы.
-Доказано runtime-срезом: routing этого пока не знает, `project_group` пусты и
-телеметрия способна называть alias-level действие `cooldown_project`. До явного
-mapping нельзя считать project-aware routing включённым.
+Исторический baseline с пустым `GEMINI_KEY_PROJECT_GROUPS` сохранён выше только
+как объяснение дефекта и больше не является текущим runtime. Отдельный повторный
+статистический вывод «общая это квота или независимая» отменён решением владельца
+и явным mapping; он не должен запускать новый provider probe.
 
-**Шаги — сначала измерение и решение (без изменения routing):**
+- [x] Opaque six-project mapping, rotation-stable quota identity,
+      configuration fail-closed, CUSTOM/ENV HMAC dedupe, корректная scope
+      telemetry и durable evidence всех кандидатов задеплоены и покрыты G5/G6
+- [-] Историческая корреляционная проверка 429 между alias отменена как
+      superseded: project ownership уже подтверждён, synthetic probe запрещён
 
-- [ ] Внести шесть стабильных безопасных `project_identity` labels без вывода
-      ключей, env aliases или реальных Google project IDs в API/DOM/log
-- [ ] Configuration-check подтверждает шесть уникальных identities и не допускает
-      неизвестный CUSTOM как седьмой проект
-- [ ] Read-only проверка гипотезы по данным: при 429 на одном алиасе — какова
-      доля 429 на других алиасах в следующие 60 секунд. Высокая доля указывает на
-      общую квоту, низкая — на независимые
-- [ ] Пока identity неизвестна — **немедленно** исправить ложную телеметрию:
-      `decision` при пустой группе не должен называться `cooldown_project`.
-      Это правка на 1 строку, но она снимает ложный вывод при будущем разборе
-- [ ] Добавить в `GeminiRequestAttempt` признак `project_identity_known`
-      (bool) — иначе через месяц снова будет неизвестно, чему верить
+**Метрика:** configuration identities `6/6`, duplicate/unknown mappings `0`,
+public secret/project-ID exposures `0`; runtime 429 scope виден по exact
+project/model pair.
 
-**Шаги — routing после доказательства:**
+**Откат:** mapping/configuration можно отключить feature mode, но durable
+identity/attempt telemetry не удаляется и не переписывается.
 
-- [ ] Заполнить mapping для шести независимых проектов; rotation credential
-      сохраняет quota identity, CUSTOM/ENV duplicate дедуплицируется по HMAC
-- [ ] Тест: 429 на алиасе группы → все алиасы группы получают cooldown; алиасы
-      другой группы не получают
-- [ ] Тест: при неизвестной группе не применяется group-wide cooldown (иначе один
-      сбой выключит весь пул — прямой запрет из раздела 14 источника)
-- [ ] Durable evidence для всех шести кандидатов (ЭА.1 волна 2): доказать, что
-      «шесть страхующих» реально перебираются
+## ЭА.12 — Event-driven scoreboard и quota-aware ranking
 
-**Готово когда:** соответствие alias → project записано и датировано; ложная
-телеметрия исправлена; routing соответствует доказанной identity; тесты покрывают
-оба случая; ожидание «шесть независимых страховок» либо подтверждено, либо
-официально скорректировано.
-
-**Метрика:** доля 429, после которых следующий кандидат тоже получил 429 в течение
-60 с (числитель/знаменатель — по `GeminiRequestAttempt`). До правки это база; после
-правки при общей квоте показатель должен упасть за счёт того, что бесполезные
-кандидаты не вызываются. Guardrail: время до успешного ответа не растёт.
-
-**Откат:** конфигурация (переменная окружения) — откат мгновенный. Правка
-телеметрии откату не требует.
-
-- [ ] **Коммит + push + деплой** (правка телеметрии + routing; конфигурацию
-      применить на сервере и зафиксировать, что именно изменено, без вывода
-      значений)
-
-## ЭА.12 — Health-скорборд кандидатов и half-open проба
+> **Статус:** G8 задеплоен в `071a4b5b2`. Один provider-free snapshot объединяет
+> calibrated V2 и legacy headroom консервативным минимумом, учитывает active
+> provider block, Pacific RPD, rolling RPM, calibrated input TPM, unexpired
+> permit, fresh degradation и latency. Model-major chain не меняется.
 
 - Находка: `ЭА-NEW-04`; опирается на раздел 8 источника (порядок model-major)
 - Класс: GAP (улучшение)
 - Блокеры: ЭА.10, ЭА.11
 - Блокирует: нет (ускоряет L2, снижает вероятность дойти до L4)
 
-**Проблема кратко:** `iter_live_chat_attempts()`
-(`management/services/gemini_keys.py:815`) строит snapshot кандидатов в начале
-логического запроса и идёт model-major порядком. Порядок статичен: он не учитывает,
-что 20 секунд назад конкретный кандидат уже отдал 429. В деградации это означает
-последовательный обход заведомо мёртвых кандидатов и расход бюджета хода на
-ожидание.
+**Историческая проблема:** legacy iterator использовал статичный order и не
+учитывал недавние real outcomes. Event-driven scoreboard устранил эту часть;
+G8 добавляет authoritative quota pressure к уже работающему health order.
 
-**Шаги:**
+**Текущая граница:**
 
-- [ ] RED-тест: кандидат отдал 429 секунду назад → сейчас он снова первый в
-      порядке; после правки — понижен
-- [ ] Скорборд: по `(alias, model)` хранить окно последних исходов и латентность.
-      Хранилище — durable state (`GeminiKeyState` / `GeminiModelState`) либо
-      in-process кэш с явным TTL. **Не** опираться на FileBasedCache как на
-      источник истины (см. ЭА.16 про его неатомарность)
-- [ ] Порядок кандидатов: сначала приоритет модели (сохранить практический
-      приоритет 3.7 — это осознанное требование), внутри модели — по свежему
-      здоровью
-- [ ] Half-open: закрытый circuit пропускает **одну** пробную попытку раз в T
-      секунд. Успех закрывает circuit, неудача продлевает
-- [ ] Пробную попытку **не** делать на клиентском критическом пути, если есть
-      здоровый кандидат: проба не должна увеличивать задержку клиента
-- [ ] Snapshot кандидатов обновлять при истечении бюджета попытки, а не один раз
-      на запрос
-- [ ] Hedge-попытка (вторая параллельная к другому кандидату после p95 первого) —
-      **опционально и по умолчанию выключено**: она удваивает расход квоты. Включать
-      только если ЭА.0/ЭА.24 покажут, что задержка, а не квота, является узким
-      местом. Записать решение здесь
-- [ ] Тест: при полностью здоровом пуле порядок совпадает с текущим (никаких
-      изменений в норме)
+- [x] Real-attempt scoreboard, TTL cache, model-major ordering, recent 429/fault
+      demotion, latency evidence, bounded timeout и zero synthetic probes
+      задеплоены; immutable candidate plan остаётся полным
+- [x] **G8:** после calibration ранжировать project/model по provider
+      block, remaining RPD/RPM/TPM, in-flight permit, freshness и latency;
+      сохранить точный `not_attempted_reason` и frozen persisted order
 
-**Готово когда:** мёртвый кандидат не вызывается повторно в пределах окна;
-приоритет 3.7 сохранён; half-open восстанавливает пул без ручного вмешательства; в
-норме поведение не изменилось.
+Legacy half-open/hedge предложения не являются отдельным invitation to rebuild.
+Scarce hedging запрещён G2; Lite допускает максимум два calls по explicit SLA.
+Любая recovery-проба использует обычный real request/admission path, а не
+scheduled health canary.
+
+**Готово когда:** G8 использует calibrated quota state, мёртвый/исчерпанный
+candidate не пересекает provider boundary, model-major chain сохраняется и
+нормальный путь не ухудшается.
 
 **Метрика:** число вызовов заведомо недоступных кандидатов на инцидент;
 время до первого успешного ответа при деградации (p50/p95). Guardrail: расход квоты
 на инцидент не растёт (иначе hedge/probe съедают бюджет). Стоп-условие: рост 429.
 
-**Откат:** флаг; при выключении используется текущий статический порядок.
-
-- [ ] **Коммит + push + деплой**
+**Откат:** `GEMINI_V2_PROJECT_RANKING_MODE=off`; G2/G5 telemetry и frozen
+candidate evidence при откате сохраняются.
 
 ## ЭА.13 — Бюджет логического хода и корректная отмена по дедлайну
 
@@ -2245,7 +2231,7 @@ Guardrail: фактический переход не теряется (тест
 
 ## ЭА.19 — Event-driven generation health без канареек
 
-> **Коррекция Gemini V2:** канонический контракт — раздел 3 файла
+> **Коррекция Gemini V2:** канонический контракт — outcomes G4/G9 файла
 > `09_GEMINI_QUOTA_ROUTING_PLAN.md`. Старое предложение о synthetic generation
 > canary отменено: даже редкая канарейка тратит тот же scarce RPD, который должна
 > измерять.
@@ -2257,16 +2243,17 @@ Guardrail: фактический переход не теряется (тест
 
 **Исправленный контракт:**
 
-- [ ] Удалить hourly metadata cron, automatic batch и generation canary.
-- [ ] `confirmed_recent_success` выводить только из реальной успешной генерации.
-- [ ] При отсутствии свежего трафика и активных ошибок показывать
-      `available_assumed`, а не «точно работает».
-- [ ] Реальные 429/auth/model/timeout состояния хранить по
-      `(project_identity, model)`; provider evidence главнее локального остатка.
-- [ ] Metadata GET разрешить только как ручную diagnostics capability по явному
+- [x] Удалить hourly metadata cron, automatic batch и generation canary.
+- [x] `confirmed_recent_success` выводить только из реальной успешной генерации.
+- [x] При отсутствии свежего трафика и активных ошибок показывать
+      `available_assumed`, а не «точно работает» — remaining G9 edge proof.
+- [x] Реальные 429/auth/model/timeout состояния хранить по
+      `(project_identity, model)`; provider evidence главнее локального остатка —
+      remaining G9 state projection.
+- [x] Metadata GET разрешить только как ручную diagnostics capability по явному
       клику; он не подтверждает quota/generation health.
-- [ ] Page load, refresh, polling и charts выполняют zero provider calls.
-- [ ] UI показывает четыре модели × шесть проектов и redacted last real
+- [x] Page load, refresh, polling и charts выполняют zero provider calls.
+- [x] UI показывает четыре модели × шесть проектов и redacted last real
       success/failure без ключей, project IDs, prompts и customer text.
 
 **Готово когда:** UI совпадает с реальными attempt/incident windows, не создаёт
@@ -2275,7 +2262,8 @@ provider traffic и не рисует доказанный success без genera
 **Откат:** UI может вернуться к предыдущей проекции, но background probes не
 возвращать.
 
-- [ ] **Коммит + push + деплой**
+- [x] **Коммит + push + production deploy/proof G4/G5/G9**; production 4×6 API
+      JSON 200, provider request/attempt delta 0
 
 ## ЭА.20 — Контракт structured-output и HTTP 400 INVALID_ARGUMENT
 
@@ -2649,11 +2637,11 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
 
 > **Коррекция Gemini V2:** этот блок сохраняет production evidence legacy-среза
 > `760b3095`, но больше не определяет финальную архитектуру. Канонические
-> `NO_MODEL`, `ORDINARY_LIVE`, `COMPLEX_LIVE`, `DURABLE_ANALYSIS`, model-major
-> chains, quota FSM, project identity и rollout находятся в
+> `NO_MODEL`, `ORDINARY_LIVE`, `COMPLEX_LIVE`, live model-major chains, quota
+> FSM, project identity и rollout находятся в
 > `09_GEMINI_QUOTA_ROUTING_PLAN.md`. Существующий forced `gemini-3.7-flash`
-> способен обходить task-tier policy; до удаления этого обхода live-routing V2
-> не считается доказанным.
+> был удалён как routing authority; G1/G2/G5/G6 задеплоены. Ниже открыты только
+> G7/G9 детали, а legacy evidence не приглашает строить второй router.
 
 Владелец прислал срез консоли квот (один ключ, 29.08). Это главные числа этапа:
 
@@ -2692,7 +2680,7 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
 
 - [x] Исторический `gemini_quota.py`: бюджеты RPD/RPM/TPM на пару, тиры и карта
       `reasoning_task → тир` были задеплоены в legacy-срезе
-- [ ] V2 создаёт versioned `RoutingDecision` до provider call; keyword/task label
+- [x] V2 создаёт versioned `RoutingDecision` до provider call; keyword/task label
       без typed ambiguity/media/authority signals недостаточен
 - [x] Исторический учёт в БД (`GeminiModelQuotaUsage`, миграция `0176`): сутки
       Pacific + **fixed** minute-window от `minute_started_at`; атомарное
@@ -2731,9 +2719,12 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
       остатку, превентивный пропуск, снимок для админки, порог hedging). Ещё 14
       существующих тестов переведены с жёстко прописанных имён моделей на запрос
       к маршрутизатору, поэтому при следующем ре-тиринге они не сломаются
-- [ ] Escalation-хук для сложных «обычных» ходов (первый контакт, возражение)
-      заложен, но выключен: сначала смотрим цифры на lite, потом включаем
-- [ ] Показ остатка квоты в админке (`gemini_quota.usage_snapshot()` уже готов)
+- [-] Отдельный keyword-escalation для «сложных обычных» ходов отменён:
+      `RoutingDecision` использует typed ambiguity/media/commercial signals, а
+      keyword hook вернул бы скрытый второй классификатор
+- [x] Provider-free 4×6 cockpit показывает local-estimate usage/remaining,
+      attempts, blocks и reset без provider call; G9 отдельно закрывает
+      cooldown/stale/error/external-drift edge states
 - [x] **Коммит + push + деплой выполнены 2026-08-30 02:01 EEST.** `760b3095a` на
       `main`; на production `git pull` → `760b3095`, `migrate management` применил
       `0176_gemini_model_quota_usage`, `manage.py check` без замечаний, демон
@@ -2753,16 +2744,18 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
 
 > **Коррекция Gemini V2:** полный список из шести проектов обязан присутствовать
 > в candidate plan, но это **не** означает шесть параллельных provider calls.
-> Канонический контракт находится в разделах 2 и 4 файла
+> Канонический контракт находится в outcomes G2/G8 и разделе 4 файла
 > `09_GEMINI_QUOTA_ROUTING_PLAN.md`: для scarce 3.7/3.6/3.5 hedging по умолчанию
 > запрещён; Lite допускает максимум два реально dispatched calls; deadline
 > сохраняет `not_attempted_reason` для остальных кандидатов. Legacy-решения ниже
-> остаются историей уже задеплоенного среза и требуют замены после request ledger.
+> остаются историей уже задеплоенного среза; G2/G6 заменили legacy full-pool
+> behavior. Этот раздел не является приглашением вернуть scarce hedge.
 
-- [ ] Добавить immutable candidate plan и atomic winner до изменения waves.
-- [ ] Убрать предварительный lease/reservation всех кандидатов и раннее
-      освобождение реально работающих losers.
-- [ ] Отличать `cancelled_pre_dispatch`, `timeout_ambiguous` и `succeeded_late`.
+- [x] Immutable candidate plan и atomic winner создаются до provider waves.
+- [x] Предварительный lease/reservation всех кандидатов удалён: reservation
+      берётся перед dispatch, а permit живёт до terminal completion loser.
+- [x] FSM различает `cancelled_pre_dispatch`, `timeout_ambiguous` и
+      `succeeded_late`; late loser не создаёт второй Meta send.
 
 > **Внеплановый блок, добавлен 2026-08-29 по production-наблюдению владельца.**
 > Полный разбор: `E-HEDGE_parallel_key_pool.md`.
@@ -2779,7 +2772,7 @@ pid (828670, старт 19:40); touch `<django_root>/tmp/restart.txt` в 19:53 �
 > Ключевое: `read_timeout` пришёл на **оба** ключа, значит медленной была сама
 > модель. Но узнать это можно было только опросив остальные.
 
-**Решения (все закрыты):**
+**Исторические решения 2026-08-29 (закрыты, затем ограничены G2):**
 
 - [x] Hedged-волна со ступенчатым старом: все ключи лучшей модели, первый успех
       выигрывает, остальные не выстреливают. 19.5 с на шесть ключей против 28.9 с
@@ -2949,7 +2942,7 @@ Messenger и Instagram. Набор доступных инструментов �
 1. Platform-token часть Э1.1 отмечается `[!]` — заблокирована. Блокер: нет
    подтверждения по первоисточнику Meta + требуется решение владельца об App
    Review. Отдельный business-consent record не подменяет этот token и описан в
-   коррекции Э1.1/разделе 8 файла `09`.
+   коррекции Э1.1 ниже и visual contract `10`.
 2. Э1.2–Э1.9 идут как запланировано: транспорт шаблонов и карточки полностью
    поддержаны и не требуют согласия.
 3. Для Э6.2 quick reply спрашивает согласие **внутри уже открытого окна**; её
@@ -2974,8 +2967,8 @@ Messenger и Instagram. Набор доступных инструментов �
 > Нажатие postback является inbound и открывает стандартное Meta-window на 24h
 > от provider timestamp. `20h` — наш внутренний proactive safe deadline внутри
 > этого окна, а не срок Meta. Business consent **не** разрешает closed-window
-> auto-send; вне окна нужен доказанный Meta capability/token. Полный policy —
-> section 8 `09`; visual/copy/state contract — section 9
+> auto-send; вне окна нужен доказанный Meta capability/token. Полный policy
+> принадлежит этому Э1.1; visual/copy/state contract — section 9
 > [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md).
 
 - [ ] Ввести business-consent record отдельно от platform token/capability.
@@ -3327,8 +3320,8 @@ exchange:12:start
 > 25 минут (`validity=1500`); live invoice переиспользуется, ambiguous attempt
 > ждёт reconciliation. По умолчанию предлагается полная online payment. Только
 > по прямому вопросу о COD объясняется предоплата 200 грн, которая входит в
-> полную стоимость; custom print требует полной оплаты. См. раздел 8 файла
-> `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> полную стоимость; custom print требует полной оплаты. Business/visual contract
+> принадлежит Э1.6 и [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md), не `09`.
 
 **Шаги:**
 
@@ -4598,8 +4591,8 @@ reset старый русский/английский эпизод влияет
 > **Уточнение Gemini V2:** freshness определяется не `-id`, а совпадением
 > `episode + line + watermark + materiality_digest + authority fingerprint +
 > compatible schema/policy`. Immutable snapshots остаются в timeline; только
-> один общий selector решает, какой из них current. Полный контракт — раздел 5
-> `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> один общий selector решает, какой из них current. Полный контракт принадлежит
+> этому Э3.4 вместе с Э3.5 и Э8.2; `09` даёт только provider/quota boundary.
 
 - Находка: `NEW-ANALYSIS-001`
 - Класс: DEFECT
@@ -4680,7 +4673,11 @@ mixed case использует только допустимые user message I
 - Класс: GAP
 - Блокирует: доказуемость Э5.2, Э5.4, Э8.5, `ADD-AGENT-008`
 
-**Проблема кратко:** `BotPromptRevision` записывает правки инструкций,
+**Текущая граница:** G6 уже связал request/attempt/winner/reply/Meta receipt.
+Открытая часть Э3.6 — prompt/deploy/knowledge provenance, она не должна
+перестраивать Gemini request graph.
+
+**Историческая проблема:** `BotPromptRevision` записывает правки инструкций,
 `GeminiRequestAttempt` записывает попытки провайдера. Но метаданные успешного chat
 не возвращают `request_id`, а исходящий reply не хранит immutable prompt
 fingerprint и набор revision. Оператор видит, что инструкция менялась, но не может
@@ -4692,9 +4689,9 @@ fingerprint и набор revision. Оператор видит, что инст
 - [ ] Сохранить рядом с исходящим reply: `sha256` промпта, deploy SHA, selected
       instruction revision IDs, knowledge-base revision, catalog revision,
       response-schema version
-- [ ] Вернуть `request_id` из `_run_chat_with_pool()` в `meta` и сохранить
-- [ ] Связать `reply_message_id` с `GeminiRequestAttempt`
-- [ ] **Не хранить:** ключи, provider body, тело system prompt, адресные и
+- [x] Вернуть `request_id` из provider gateway в `meta` и сохранить
+- [x] Связать `reply_message_id`/Meta receipt с `GeminiRequestAttempt`
+- [x] **Не хранить:** ключи, provider body, тело system prompt, адресные и
       платёжные PII
 - [ ] Учесть Э0.6: reply может относиться к turn с несколькими source message IDs
 - [ ] UI: по reply-строке открывается redacted audit chain
@@ -5004,8 +5001,8 @@ provenance, media evidence, профиль, language votes, checkout selection) 
 > триггером дорогого summary. Один materiality digest и coalesced job работают по
 > формуле `min(last_relevant + 90s, first_unanalysed + 10m)`; unchanged
 > reaction/«ок»/postback и ожидание оплаты без нового backend event не запускают
-> анализ. Typed authoritative projection обновляется без LLM. См. раздел 5
-> `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> анализ. Typed authoritative projection обновляется без LLM. Контракт
+> materiality/memory принадлежит этому Э3.12, Э5 и Э8.2, а не `09`.
 
 - Находки: `NEW-MEM-003` + слитая `NEW-TECH-005`
 - Класс: DEFECT
@@ -5147,58 +5144,64 @@ injection-попыток нет; упорный злоумышленник по�
 > decision/candidate plan и append-only attempts FSM
 > `planned → reserved → provider_started → terminal`. Ordinary live идёт
 > Lite→3.5→3.6→3.7, complex live — 3.7→3.6→3.5→Lite, durable analysis —
-> 3.6→3.5→Lite. Полный contract, quota semantics и rollout — разделы 2–4
+> 3.6→3.5→Lite. Provider contract, quota semantics и rollout — G1–G8
 > `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+>
+> **Статус: G1/G2/G5/G6 deployed.** Описанные ниже отсутствие ledger,
+> `CHAT_PRIMARY_ATTEMPT_LIMIT=2` и alias-level fallback — исторические baseline,
+> а не current architecture. `04` не должен создавать второй planner. Открытая
+> quota-aware policy живёт только в G7/G8 `09`.
 
 - Находки: `NEW-AI-002`, затем `NEW-AI-001`
 - Класс: GAP
 - **Порядок обязателен:** ledger до планировщика
 
-**Почему порядок жёсткий.** `NEW-AI-001` предлагает изменить политику выбора
-модели. Без ledger эффект изменения нельзя ни доказать, ни безопасно откатить:
-отсутствие красного статуса у alias означает прежде всего отсутствие durable
-попытки, а не успех.
+**Почему порядок был жёстким.** Ledger требовался до изменения policy; G6 уже
+закрыл эту зависимость. Отсутствие попытки теперь имеет persisted reason, а не
+интерпретируется как success.
 
-**Проблема кратко (`NEW-AI-002`):** `GeminiRequestAttempt` создаётся лишь после
+**Историческая проблема (`NEW-AI-002`):** `GeminiRequestAttempt` создавался лишь после
 начала реального provider-call. Ранние `model_circuit_open/quarantined/lease_busy`,
-кандидаты, обрезанные лимитом, и alias, до которых planner не дошёл, **не получают
-строки**. Плюс `gemini_health._group_by_request()` группирует по
-`(key_name, request_id)`, поэтому единый live-request «3.7 fail API1 → 3.6 success
-API4» не распознаётся как fallback.
+кандидаты, обрезанные лимитом, и aliases, до которых planner не дошёл, **не
+получали строки**. Старый health также группировал по alias, поэтому cross-project
+fallback не распознавался как один logical request. G6 это заменил.
 
-**Проблема кратко (`NEW-AI-001`):** live-путь использует
-`_run_chat_with_pool()` с `CHAT_PRIMARY_ATTEMPT_LIMIT = 2`. После двух медленных
-попыток цикл останавливается и запускает 3.6, даже если 3.7 доступна на других
-ключах. Плюс один 403 прекращает всю primary-фазу, один 404 открывает общий model
-circuit, а CUSTOM-key добавляется без дедупликации с ENV.
+**Историческая проблема (`NEW-AI-001`):** live-путь использовал
+`_run_chat_with_pool()` с `CHAT_PRIMARY_ATTEMPT_LIMIT = 2`; после двух медленных
+attempts происходил premature downgrade, а CUSTOM мог дублировать ENV. G1/G2/G5
+заменили этот путь model-major plan и identity dedupe.
 
 **Шаги — ledger:**
 
-- [ ] Единый durable request/decision ledger
-- [ ] Для каждого **distinct** кандидата фиксировать `attempted`, `skipped` либо
+- [x] Единый durable request/decision ledger
+- [x] Для каждого **distinct** кандидата фиксировать `attempted`, `skipped` либо
       `not_attempted_reason`, project identity confidence, lease/circuit snapshot и
       downgrade decision — под одним request ID
-- [ ] Correlation ID, фактические alias/model и planner policy/version сохранять на
+- [x] Correlation ID, фактические project/model и planner policy/version сохранять на
       reply/outbox строке (пересекается с Э3.6)
-- [ ] UI агрегирует fallback **по request**, не по alias
-- [ ] **Не хранить:** key value, prompt, provider body
-- [ ] Тест: cross-key «3.7 fail API1 → 3.6 success API4» отображается одним
+- [x] UI агрегирует fallback **по request**, не по alias
+- [x] **Не хранить:** key value, prompt, provider body
+- [x] Тест: cross-project «3.7 failure → 3.6 success» отображается одним
       доказанным fallback
 
 **Шаги — планировщик (после ledger):**
 
-- [ ] Планировать primary-фазу по distinct project/credential capacity
-- [ ] Дедуплицировать CUSTOM/ENV credentials
-- [ ] 403 исключает доказанный credential/project, **не** всю модель
-- [ ] 404-model circuit открывать только после достаточного независимого evidence
-- [ ] Model downgrade выполнять по chain выбранного task class. Для complex live
+- [x] Планировать primary-фазу по distinct project/credential capacity
+- [x] Дедуплицировать CUSTOM/ENV credentials
+- [x] 403 исключает доказанный credential/project, **не** всю модель
+- [x] Model-unavailable outcome отделён от project-specific 403/404 и сохраняет
+      typed evidence в attempt graph
+- [x] Model downgrade выполнять по chain выбранного task class. Для complex live
       учитывать все допустимые 3.7-кандидаты, но deadline может остановить
       dispatch и обязан записать `not_attempted_reason`; ordinary live начинает
       с Lite и не обязано сначала тратить 3.7
-- [ ] Освободившийся до дедлайна `lease_busy` кандидат **перепланировать**
-- [ ] Transient 408/5xx/timeout в live-handler должен вызывать
-      `mark_model_overloaded()` либо иметь доказанную policy-причину не вызывать
-- [ ] Не увеличивать последовательный лимит до шести: шесть таймаутов разрушат SLA
+- [-] Динамически перепланировать `lease_busy` после freeze отменено: persisted
+      plan immutable; candidate сохраняет bounded `not_attempted_reason`, а новый
+      logical request получает новый atomic snapshot
+- [-] Отдельный вызов legacy `mark_model_overloaded()` отменён как второй
+      authority: typed attempt/provider block и G8 snapshot владеют решением
+- [x] Последовательный лимит не увеличивается до шести: deadline останавливает
+      dispatch и сохраняет remaining candidates как not attempted
 
 **Готово когда:** ledger показывает `not_attempted_reason` для каждого
 непроверенного кандидата; complex-сценарий использует отвечающий 3.7 project,
@@ -5208,10 +5211,10 @@ circuit, а CUSTOM-key добавляется без дедупликации с
 **Метрика:** доля ответов 3.7 против 3.6; число `not_attempted`; p95 времени до
 ответа.
 
-**Откат:** ledger безопасен всегда; планировщик — за флагом с возвратом к
-`CHAT_PRIMARY_ATTEMPT_LIMIT = 2`.
+**Откат:** durable ledger сохраняется; policy version может вернуться к
+предыдущему model-major order без удаления telemetry.
 
-- [ ] **Коммит + push + деплой** (ledger и планировщик — отдельными коммитами)
+- [x] **Коммит + push + production deploy/proof G1/G2/G5/G6**
 
 ## Э3.16 — SSRF-политика URL для загрузчика медиа (валидация)
 
@@ -5359,12 +5362,20 @@ non-erasure случаев).
 > (`catalog_purchase`, `custom_print`, `repeat_purchase`, `gift_recipient`,
 > `payment_follow`, `post_purchase_ltv`, `exchange_return`, `support_case`,
 > `ugc_reward`) используют тот же интерфейс. Не создавать второй funnel/memory
-> механизм параллельно `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> механизм параллельно Э4/Э5. `09_GEMINI_QUOTA_ROUTING_PLAN.md` владеет только
+> provider routing/quota boundary и не является funnel registry.
 > VisualPlan из [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md)
 > только отображает current typed nodes и отправляет signed actions; он не
 > становится владельцем funnel state.
 
-> **Статус registry `0186`: `[!]` NO-GO, не в current main.** Перед merge/deploy
+> **Статус прежней funnel migration `0186`: `[!]` NO-GO, не в current main.**
+> Номер `management.0186` теперь занят текущим Gemini calibration/ranking
+> foundation slice из `09`; authoritative enforcement G7 остаётся отдельным
+> последующим release. Старую funnel branch нельзя cherry-pick как есть: после
+> Gemini `0186`
+> merge её обязательно rebase на актуальный `main`, присвоить следующий
+> свободный номер, направить dependency на deployed Gemini `0186` и повторить
+> migration graph/engine/MariaDB review. Перед funnel merge/deploy также
 > закрыть quoted/fail-closed JSON paths, element-level positive unique evidence
 > IDs, index direction validation, current artifact digest, reset continuation
 > после 500 rows, opaque/HMAC line/recipient IDs, Decimal canonicalization,
@@ -5899,8 +5910,9 @@ L, он носит его и в другой модели. Обнуление п
 > **Связь с Gemini V2:** `IgMemoryFact` — reviewed typed projection snapshots,
 > а не второй LLM-summary. Analysis предлагает факты с evidence; projector
 > проверяет episode/line/revision/source role. Narrative хранится отдельно как
-> untrusted display artifact. Контракт полей и materiality cadence — раздел 5
-> `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> untrusted display artifact. Контракт полей, materiality cadence и prompt
+> selection принадлежит Э3.4/Э3.5/Э3.12, Э5 и Э8.2 этого файла. `09` предоставляет
+> только общий provider gateway/quota boundary и не владеет memory semantics.
 
 > **Статус 2026-08-31:** migration `0185` и Typed Memory shadow schema deployed,
 > но mode/prompt consumer остаются off; legacy `MEMORY_EVERY=8` ещё не удалён.
@@ -6362,8 +6374,8 @@ post-delivery событие; заказ без привязки — не пор
 > auto-send остаётся запрещён без доказанной Meta capability; иначе manager task
 > или ожидание нового inbound. Общие отложенные намерения (включая «после
 > зарплаты») хранят `episode/revision/evidence/desired_at`; расплывчатая дата
-> уточняется, а не выдумывается. См. раздел 8
-> `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> уточняется, а не выдумывается. Полный contract принадлежит Э1.1/Э6 и
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md).
 
 **Три обязательных gate, порядок обязателен:**
 
@@ -7422,6 +7434,26 @@ order status, readiness (который сам читает продукт, ва
       суммы
 - [ ] Требование `02`: явно указывать модель/версию атрибуции в отчёте
 
+**Sanitized last-100 read model — перенесено из прежнего scope `09`.**
+
+- [ ] Materialize одну current projection на `episode + revision`: source/ad/
+      product, highest node, current/final outcome, probability timeline,
+      objection/drop-off, discount steps, takeover, repeat/LTV, authoritative
+      order/payment truth, turn counts, model/fallback/failure/apology/latency и
+      analysis freshness
+- [ ] Запрос «последние 100 клиентов» читает только episode projections, funnel
+      nodes, analysis snapshots и technical aggregates; обычный путь выполняет
+      zero raw-message reads
+- [ ] Зафиксировать distinct client/episode cohort, timezone, time window,
+      sample cutoff и exclusions; корреляция patterns с purchase не называется
+      причинностью
+- [ ] Raw transcript drilldown разрешён только для выбранной anomaly и имеет
+      audit actor/reason; default aggregate не экспортирует customer text
+
+Этот read model принадлежит analytics/CRM этапу `04`. Он переиспользует Gemini
+request/attempt telemetry, но не добавляет provider call и не входит в completion
+`09`.
+
 **`NEW-PERF-001` — hedged Gemini (только при условиях).**
 
 - [ ] Блокер: Э3.15 (ledger) — без него эффект недоказуем и неоткатываем
@@ -7542,8 +7574,8 @@ order status, readiness (который сам читает продукт, ва
 > callback; первая ступень 5%, после явного отказа именно из-за цены допустим один
 > 10%-review. После отказа от 10% ladder закрывается для текущего episode.
 > Callback перед send повторно проверяет evidence, opt-out, service/refund case и
-> Meta eligibility. Полный контракт — раздел 8 файла
-> `09_GEMINI_QUOTA_ROUTING_PLAN.md`.
+> Meta eligibility. Полный contract принадлежит Э9.4 и visual choreography
+> [`10_VISUAL_MESSAGING.md`](10_VISUAL_MESSAGING.md), не `09`.
 
 - [ ] **`ADD-CODE-010`:** текст `price_d1` говорит «це максимум без окремого
       узгодження», хотя текущий gate требует одобрения для **любого**
@@ -7583,7 +7615,7 @@ order status, readiness (который сам читает продукт, ва
 
 Большинство пунктов ниже всё ещё требуют отдельного policy/legal решения.
 Исключение — `NEW-UGC-001`: владелец уже утвердил его typed manager-review
-контракт в разделе 8 файла `09`; реализация разрешена, но customer send всё ещё
+контракт в этом Э9.5/Э1.1; реализация разрешена, но customer send всё ещё
 зависит от transport/window и legal/platform gates.
 
 - [ ] **`NEW-LTV-002`** — LTV score и реактивация. Расчёт score из фактов можно
