@@ -132,6 +132,54 @@ class TemplateLimitValidatorTests(TestCase):
         self.assertEqual(element["title"], "Худі Vortex")
         self.assertEqual(element["buttons"][0]["type"], "postback")
 
+    def test_button_template_payload_matches_the_documented_shape(self):
+        normalized = templates.normalize_button_template(
+            templates.ButtonTemplate(
+                text="Отримувати ТТН і статус замовлення тут у Direct?",
+                buttons=(
+                    templates.TemplateButton(
+                        templates.BUTTON_POSTBACK,
+                        "Так, отримувати",
+                        payload=templates.build_payload("preview", "2", "yes", "7"),
+                    ),
+                    templates.TemplateButton(
+                        templates.BUTTON_WEB_URL,
+                        "Розмірна сітка",
+                        url="https://twocomms.shop/uk/rozmirna-sitka/",
+                    ),
+                ),
+            )
+        )
+        message = templates.button_template_message_payload(normalized)
+        payload = message["attachment"]["payload"]
+        self.assertEqual(payload["template_type"], "button")
+        self.assertEqual(payload["text"], normalized.text)
+        self.assertEqual(payload["buttons"][0]["type"], "postback")
+        self.assertEqual(payload["buttons"][1]["type"], "web_url")
+
+    def test_button_template_is_bounded_to_three_buttons_and_640_chars(self):
+        normalized = templates.normalize_button_template(
+            templates.ButtonTemplate(
+                text="слово " * 200,
+                fallback_text="Оберіть потрібну дію у відповіді.",
+                buttons=tuple(
+                    templates.TemplateButton(
+                        templates.BUTTON_POSTBACK,
+                        f"Варіант {index}",
+                        payload=templates.build_payload("preview", str(index), "yes", "7"),
+                    )
+                    for index in range(5)
+                ),
+            )
+        )
+        self.assertLessEqual(
+            len(normalized.text),
+            templates.MAX_BUTTON_TEMPLATE_TEXT_CHARS,
+        )
+        self.assertEqual(len(normalized.buttons), 3)
+        self.assertIn("button_template_text_truncated", normalized.degraded_fields)
+        self.assertIn("buttons_truncated", normalized.degraded_fields)
+
 
 class TemplateTransportTests(TestCase):
     """Э1.2 — отклонённая карточка даёт текстовый эквивалент, а не молчание."""
@@ -236,6 +284,44 @@ class TemplateTransportTests(TestCase):
             ],
         )
 
+    def test_button_template_transport_is_receipt_first_and_registers_echo(self):
+        button_template = templates.ButtonTemplate(
+            text="Отримувати ТТН і статус замовлення тут у Direct?",
+            buttons=(
+                templates.TemplateButton(
+                    templates.BUTTON_POSTBACK,
+                    "Так, отримувати",
+                    payload=router.build_preview_payload(7, "2", "order_updates"),
+                ),
+            ),
+        )
+        with patch(
+            "management.services.instagram_bot._provider_account_id", return_value="1"
+        ), patch(
+            "management.services.instagram_bot.get_page_token", return_value="t"
+        ), patch(
+            "management.services.instagram_bot._provider_http",
+            return_value=(200, '{"message_id":"mid-button-template"}'),
+        ) as http, patch(
+            "management.services.instagram_bot._register_outgoing_message"
+        ) as register:
+            delivery = templates.send_button_template(
+                self.settings,
+                "igsid-1",
+                button_template,
+            )
+
+        self.assertTrue(delivery.ok)
+        self.assertEqual(delivery.provider_message_id, "mid-button-template")
+        payload = json.loads(http.call_args.kwargs["data"].decode("utf-8"))
+        self.assertEqual(
+            payload["message"]["attachment"]["payload"]["template_type"],
+            "button",
+        )
+        register.assert_called_once_with(
+            "mid-button-template", "igsid-1", kind="template"
+        )
+
 
 class PostbackIngestionTests(TestCase):
     """Э1.4 — нажатие кнопки доходит как ход клиента, а не теряется."""
@@ -319,6 +405,28 @@ class ParcelReminderTests(TestCase):
         for invalid in (None, "", "0", "-1", "not-an-id"):
             with self.assertRaises(ValueError):
                 router.inout_test_quick_replies(invalid)
+
+    def test_visual_preview_payload_is_client_bound_and_has_no_business_action(self):
+        payload = router.build_preview_payload(
+            self.ig_client.pk,
+            "3",
+            "bonuses",
+        )
+        self.assertEqual(
+            payload,
+            f"twc:1:preview:3:bonuses:{self.ig_client.pk}",
+        )
+        outcome = router.dispatch_postback(self._tap(payload, text="Бонуси й новинки"))
+        self.assertIsNotNone(outcome)
+        self.assertEqual(outcome.action, "preview:3:bonuses")
+        self.assertIn("preview", outcome.reply_text)
+        self.assertFalse(outcome.quick_replies)
+
+        other = IgClient.get_or_create_for_sender("other-preview-client")
+        foreign_payload = router.build_preview_payload(other.pk, "3", "bonuses")
+        self.assertIsNone(
+            router.dispatch_postback(self._tap(foreign_payload, text="Бонуси й новинки"))
+        )
 
     def test_remind_later_schedules_inside_the_reopened_window(self):
         row = self._tap("twc:1:parcel:later:42", text="Нагадати пізніше")

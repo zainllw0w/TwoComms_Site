@@ -38,6 +38,7 @@ MAX_POSTBACK_PAYLOAD_CHARS = 1000
 MAX_QUICK_REPLIES = 13
 MAX_QUICK_REPLY_TITLE_CHARS = 20
 MAX_TEXT_BYTES = 1000
+MAX_BUTTON_TEMPLATE_TEXT_CHARS = 640
 
 BUTTON_POSTBACK = "postback"
 BUTTON_WEB_URL = "web_url"
@@ -82,6 +83,17 @@ class GenericTemplate:
     quick_replies: tuple = ()
     # Стабільний ключ карточки для звірки з входящим postback.
     correlation_key: str = ""
+    degraded_fields: tuple = field(default=())
+
+
+@dataclass(frozen=True)
+class ButtonTemplate:
+    """Compact text card with 1–3 native Meta buttons."""
+
+    text: str
+    buttons: tuple
+    fallback_text: str = ""
+    projection_text: str = ""
     degraded_fields: tuple = field(default=())
 
 
@@ -272,6 +284,59 @@ def normalize_template(template: GenericTemplate) -> GenericTemplate:
     )
 
 
+def normalize_button_template(template: ButtonTemplate) -> ButtonTemplate:
+    """Normalize Meta's compact button template without hiding lost actions."""
+    degraded: list[str] = []
+    source_text = _clean(template.text)
+    if not source_text:
+        raise TemplateValidationError("button template requires text")
+    text = _truncate(source_text, MAX_BUTTON_TEMPLATE_TEXT_CHARS)
+    if len(source_text) > MAX_BUTTON_TEMPLATE_TEXT_CHARS:
+        degraded.append("button_template_text_truncated")
+
+    buttons: list[TemplateButton] = []
+    for button in tuple(template.buttons or ()):
+        if len(buttons) >= MAX_BUTTONS_PER_ELEMENT:
+            degraded.append("buttons_truncated")
+            break
+        title = _truncate(button.title, MAX_BUTTON_TITLE_CHARS)
+        if not title:
+            degraded.append("button_without_title")
+            continue
+        if button.kind == BUTTON_POSTBACK:
+            payload = str(button.payload or "").strip()
+            if not payload or len(payload) > MAX_POSTBACK_PAYLOAD_CHARS:
+                degraded.append("button_payload_invalid")
+                continue
+            buttons.append(TemplateButton(BUTTON_POSTBACK, title, payload=payload))
+        elif button.kind == BUTTON_WEB_URL:
+            url = str(button.url or "").strip()
+            if not url.startswith("https://"):
+                degraded.append("button_url_invalid")
+                continue
+            buttons.append(TemplateButton(BUTTON_WEB_URL, title, url=url))
+        else:
+            degraded.append("button_kind_unsupported")
+    if not buttons:
+        raise TemplateValidationError("button template requires a valid button")
+
+    fallback = _clean(template.fallback_text or text)
+    if len(fallback.encode("utf-8")) > MAX_TEXT_BYTES:
+        raise TemplateValidationError("fallback text exceeds the provider limit")
+    projection = template.projection_text or (
+        f"(надіслано кнопковий шаблон: {text}; кнопки: "
+        f"{' / '.join(button.title for button in buttons)})"
+    )
+    return replace(
+        template,
+        text=text,
+        buttons=tuple(buttons),
+        fallback_text=fallback,
+        projection_text=projection,
+        degraded_fields=tuple(dict.fromkeys(degraded)),
+    )
+
+
 def build_projection(cards: tuple) -> str:
     """Текстова проєкція карточки для історії моделі й для оператора.
 
@@ -311,6 +376,34 @@ def template_message_payload(template: GenericTemplate) -> dict:
             for reply in template.quick_replies
         ]
     return message
+
+
+def button_template_message_payload(template: ButtonTemplate) -> dict:
+    return {
+        "attachment": {
+            "type": "template",
+            "payload": {
+                "template_type": "button",
+                "text": template.text,
+                "buttons": [
+                    (
+                        {
+                            "type": BUTTON_POSTBACK,
+                            "title": button.title,
+                            "payload": button.payload,
+                        }
+                        if button.kind == BUTTON_POSTBACK
+                        else {
+                            "type": BUTTON_WEB_URL,
+                            "title": button.title,
+                            "url": button.url,
+                        }
+                    )
+                    for button in template.buttons
+                ],
+            },
+        }
+    }
 
 
 def _element_payload(card: TemplateCard) -> dict:
@@ -386,18 +479,6 @@ def send_template(
     вважається невідомим і НЕ повторюється), і текстовий еквівалент при
     відхиленні карточки провайдером.
     """
-    from contextlib import nullcontext
-
-    from management.services.instagram_bot import (
-        _provider_account_id,
-        _provider_http,
-        _provider_message_id,
-        _provider_url,
-        get_page_token,
-        log,
-        send_text,
-    )
-
     try:
         normalized = normalize_template(template)
     except TemplateValidationError as exc:
@@ -413,18 +494,85 @@ def send_template(
             )
         return TemplateDelivery(False, "invalid", str(exc))
 
+    return _deliver_template_payload(
+        settings_row,
+        recipient_id,
+        message=template_message_payload(normalized),
+        fallback_text=normalized.fallback_text,
+        degraded_fields=normalized.degraded_fields,
+        projection_text=normalized.projection_text,
+        permission_boundary_factory=permission_boundary_factory,
+        allow_text_fallback=allow_text_fallback,
+    )
+
+
+def send_button_template(
+    settings_row,
+    recipient_id: str,
+    template: ButtonTemplate,
+    *,
+    permission_boundary_factory=None,
+    allow_text_fallback: bool = True,
+) -> TemplateDelivery:
+    """Send Meta's compact text-and-buttons template receipt-first."""
+    try:
+        normalized = normalize_button_template(template)
+    except TemplateValidationError as exc:
+        fallback = _clean(template.fallback_text or template.text)
+        if allow_text_fallback and fallback:
+            return _text_fallback(
+                settings_row,
+                recipient_id,
+                fallback,
+                permission_boundary_factory=permission_boundary_factory,
+                degraded_fields=("button_template_invalid",),
+                projection_text=template.projection_text,
+                hint=str(exc),
+            )
+        return TemplateDelivery(False, "invalid", str(exc))
+    return _deliver_template_payload(
+        settings_row,
+        recipient_id,
+        message=button_template_message_payload(normalized),
+        fallback_text=normalized.fallback_text,
+        degraded_fields=normalized.degraded_fields,
+        projection_text=normalized.projection_text,
+        permission_boundary_factory=permission_boundary_factory,
+        allow_text_fallback=allow_text_fallback,
+    )
+
+
+def _deliver_template_payload(
+    settings_row,
+    recipient_id: str,
+    *,
+    message: dict,
+    fallback_text: str,
+    degraded_fields: tuple,
+    projection_text: str,
+    permission_boundary_factory,
+    allow_text_fallback: bool,
+) -> TemplateDelivery:
+    from contextlib import nullcontext
+
+    from management.services.instagram_bot import (
+        _classify_send_error,
+        _provider_account_id,
+        _provider_http,
+        _provider_message_id,
+        _provider_url,
+        _register_outgoing_message,
+        get_page_token,
+        log,
+    )
+
     account_id = _provider_account_id(settings_row)
     page_token = get_page_token(settings_row)
     if not account_id or not page_token:
         return TemplateDelivery(False, "config", "provider_not_configured")
-
     body = json.dumps(
-        {
-            "recipient": {"id": recipient_id},
-            "message": template_message_payload(normalized),
-        }
+        {"recipient": {"id": recipient_id}, "message": message}
     ).encode("utf-8")
-
     boundary = (
         permission_boundary_factory() if permission_boundary_factory else nullcontext(True)
     )
@@ -439,16 +587,13 @@ def send_template(
                 data=body,
             )
         except Exception:
-            # Межа Meta перетнута, результат невідомий. Повторна відправка
-            # заборонена: у Send API немає ключа ідемпотентності.
             return TemplateDelivery(
                 False,
                 "unknown",
                 "provider_exception",
-                degraded_fields=normalized.degraded_fields,
-                projection_text=normalized.projection_text,
+                degraded_fields=degraded_fields,
+                projection_text=projection_text,
             )
-
     if code == 200:
         message_id = _provider_message_id(response)
         if not message_id:
@@ -456,18 +601,18 @@ def send_template(
                 False,
                 "unknown",
                 "provider_message_id_missing",
-                degraded_fields=normalized.degraded_fields,
-                projection_text=normalized.projection_text,
+                degraded_fields=degraded_fields,
+                projection_text=projection_text,
             )
+        _register_outgoing_message(message_id, recipient_id, kind="template")
         return TemplateDelivery(
             True,
             "sent",
             "",
             provider_message_id=message_id,
-            degraded_fields=normalized.degraded_fields,
-            projection_text=normalized.projection_text,
+            degraded_fields=degraded_fields,
+            projection_text=projection_text,
         )
-
     if allow_text_fallback and _is_template_rejection(code, response):
         log(
             "warning",
@@ -477,22 +622,19 @@ def send_template(
         return _text_fallback(
             settings_row,
             recipient_id,
-            normalized.fallback_text,
+            fallback_text,
             permission_boundary_factory=permission_boundary_factory,
-            degraded_fields=(*normalized.degraded_fields, f"template_rejected_{code}"),
-            projection_text=normalized.projection_text,
+            degraded_fields=(*degraded_fields, f"template_rejected_{code}"),
+            projection_text=projection_text,
             hint=f"http_{code}",
         )
-
-    from management.services.instagram_bot import _classify_send_error
-
     kind, hint = _classify_send_error(code, response)
     return TemplateDelivery(
         False,
         kind,
         hint,
-        degraded_fields=normalized.degraded_fields,
-        projection_text=normalized.projection_text,
+        degraded_fields=degraded_fields,
+        projection_text=projection_text,
     )
 
 

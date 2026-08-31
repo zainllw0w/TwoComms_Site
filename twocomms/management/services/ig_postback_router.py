@@ -13,6 +13,7 @@ Payload версіонований (`twc:1:<action>:...`, див. `ig_message_te
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from django.utils import timezone
@@ -26,6 +27,8 @@ PARCEL_PICKED_UP = "got"
 PARCEL_REMIND_LATER = "later"
 ACTION_DIAGNOSTIC = "diagnostic"
 DIAGNOSTIC_INOUT = "inout"
+ACTION_PREVIEW = "preview"
+_PREVIEW_CODE_RE = re.compile(r"^[a-z0-9_-]{1,32}$")
 
 # Скільки чекати до повторного нагадування, якщо клієнт натиснув «нагадати».
 REMIND_LATER_DELAY_HOURS = 20
@@ -68,6 +71,25 @@ def inout_test_quick_replies(client_id) -> tuple:
     )
 
 
+def build_preview_payload(client_id, variant: str, choice: str) -> str:
+    """Build an inert, client-bound payload for visual format comparisons."""
+    normalized_client_id = str(client_id or "").strip()
+    normalized_variant = str(variant or "").strip().lower()
+    normalized_choice = str(choice or "").strip().lower()
+    if not normalized_client_id.isdigit() or int(normalized_client_id) <= 0:
+        raise ValueError("preview payload requires a positive client id")
+    if not _PREVIEW_CODE_RE.fullmatch(normalized_variant):
+        raise ValueError("preview variant code is invalid")
+    if not _PREVIEW_CODE_RE.fullmatch(normalized_choice):
+        raise ValueError("preview choice code is invalid")
+    return build_payload(
+        ACTION_PREVIEW,
+        normalized_variant,
+        normalized_choice,
+        normalized_client_id,
+    )
+
+
 def dispatch_postback(row: InstagramBotMessage) -> PostbackOutcome | None:
     """Виконати відому дію по натисканню кнопки або повернути None.
 
@@ -82,6 +104,8 @@ def dispatch_postback(row: InstagramBotMessage) -> PostbackOutcome | None:
     args = parsed.get("args") or ()
     if action == ACTION_DIAGNOSTIC:
         return _handle_diagnostic(row, args)
+    if action == ACTION_PREVIEW:
+        return _handle_preview(row, args)
     if action != ACTION_PARCEL:
         return None
     if not args:
@@ -121,6 +145,39 @@ def _handle_diagnostic(row, args: tuple) -> PostbackOutcome | None:
         action=f"{ACTION_DIAGNOSTIC}:{DIAGNOSTIC_INOUT}",
         reply_text=texts[language],
         reason="diagnostic_inout_roundtrip",
+    )
+
+
+def _handle_preview(row, args: tuple) -> PostbackOutcome | None:
+    """Acknowledge a visual preview tap without granting consent or mutating CRM."""
+    if len(args) != 3:
+        return None
+    variant, choice, expected_client_id = (str(value or "").strip() for value in args)
+    if (
+        expected_client_id != str(row.client_id)
+        or not _PREVIEW_CODE_RE.fullmatch(variant)
+        or not _PREVIEW_CODE_RE.fullmatch(choice)
+    ):
+        return None
+    language = _language(row)
+    texts = {
+        "uk": (
+            f"Демо-натискання отримано ✅ Варіант {variant}. "
+            "Налаштування не змінено — це лише візуальний preview."
+        ),
+        "ru": (
+            f"Демо-нажатие получено ✅ Вариант {variant}. "
+            "Настройки не изменены — это только визуальный preview."
+        ),
+        "en": (
+            f"Preview tap received ✅ Variant {variant}. "
+            "No settings were changed; this is a visual preview only."
+        ),
+    }
+    return PostbackOutcome(
+        action=f"{ACTION_PREVIEW}:{variant}:{choice}",
+        reply_text=texts[language],
+        reason=f"visual_preview:{variant}:{choice}",
     )
 
 
