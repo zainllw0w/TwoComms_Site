@@ -41,6 +41,7 @@ ACCOUNTING_POLICY_VERSION = "gemini-accounting-shadow-v1"
 OWNER_PROFILE_VERSION = "owner-observed-2026-08-29.v1"
 ATTEMPT_PERMIT_SECONDS = 180
 DB_RETRY_DELAYS = (0.0, 0.01, 0.03)
+OWNERSHIP_RETRY_DELAYS = (0.0, 0.005, 0.02, 0.05, 0.1)
 _SAFE_TOKEN = re.compile(r"^[A-Za-z0-9_.:-]{1,120}$")
 _SAFE_REASON = re.compile(r"^[a-z0-9_]{0,32}$")
 _PLAN_FIELDS = frozenset({
@@ -103,6 +104,33 @@ def _safe_token(value, *, limit: int) -> str:
 def _safe_reason(value) -> str:
     text = str(value or "").strip().casefold()[:32]
     return text if _SAFE_REASON.fullmatch(text) else ""
+
+
+def _ownership_contention(error: OperationalError) -> bool:
+    """Identify only retryable row/table lock contention.
+
+    Accounting remains fail-soft for a genuine database outage.  A duplicate
+    source/lane race is different: SQLite reports it as ``database ... locked``
+    because ``select_for_update`` is a no-op there, while MariaDB reports a
+    deadlock or lock-wait timeout.  Those cases must retry and ultimately fail
+    closed instead of silently returning a provider-permitting null observer.
+    """
+    raw_args = tuple(getattr(getattr(error, "__cause__", None), "args", ()) or ())
+    raw_args += tuple(getattr(error, "args", ()) or ())
+    codes = {
+        int(value)
+        for value in raw_args
+        if isinstance(value, int) and not isinstance(value, bool)
+    }
+    if codes.intersection({1205, 1213}):
+        return True
+    text = " ".join(str(value or "") for value in raw_args).casefold()
+    return any(token in text for token in (
+        "database is locked",
+        "database table is locked",
+        "deadlock found",
+        "lock wait timeout",
+    ))
 
 
 def sanitize_candidate_plan(candidate_plan) -> list[dict]:
@@ -298,6 +326,8 @@ NULL_OBSERVER = NullRequestObserver()
 
 
 class RejectedAttemptBoundary(NullAttemptBoundary):
+    admitted = False
+
     def validate_ownership(self) -> bool:
         return False
 
@@ -393,78 +423,120 @@ def begin_request(
         deadline_ms = max(0, int(float(deadline_seconds or 0) * 1000))
         profile_version = _quota_profile_version_for_plan(safe_plan, now=now)
         source_message_id = lineage.get("source_message_id") or None
-        with transaction.atomic():
-            locked_message = None
-            if source_message_id:
-                locked_message = (
-                    InstagramBotMessage.objects.select_for_update()
-                    .filter(pk=source_message_id)
-                    .only("pk", "gemini_task_class")
-                    .first()
-                )
-                if locked_message is None:
-                    return blocked_observer("source_message_missing")
-                message_task_class = str(
-                    locked_message.gemini_task_class or ""
-                )
-                if (
-                    (task_class == "no_model" and message_task_class not in {"", "no_model"})
-                    or (task_class != "no_model" and message_task_class == "no_model")
-                ):
-                    return blocked_observer("message_route_conflict")
-                existing = list(
-                    GeminiRequest.objects.select_for_update()
-                    .filter(
-                        source_message_id=source_message_id,
+        last_contention = None
+        for delay in OWNERSHIP_RETRY_DELAYS:
+            if delay:
+                time.sleep(delay)
+            try:
+                with transaction.atomic():
+                    locked_message = None
+                    if source_message_id:
+                        locked_message = (
+                            InstagramBotMessage.objects.select_for_update()
+                            .filter(pk=source_message_id)
+                            .only("pk", "gemini_task_class")
+                            .first()
+                        )
+                        if locked_message is None:
+                            return blocked_observer("source_message_missing")
+                        message_task_class = str(
+                            locked_message.gemini_task_class or ""
+                        )
+                        if (
+                            (
+                                task_class == "no_model"
+                                and message_task_class not in {"", "no_model"}
+                            )
+                            or (
+                                task_class != "no_model"
+                                and message_task_class == "no_model"
+                            )
+                        ):
+                            return blocked_observer("message_route_conflict")
+                        existing = list(
+                            GeminiRequest.objects.select_for_update()
+                            .filter(
+                                source_message_id=source_message_id,
+                                lane=resolved_lane,
+                            )
+                            .order_by("id")[:2]
+                        )
+                        if existing:
+                            # The database uniqueness constraint is the final
+                            # cross-backend invariant.  The inbound row remains
+                            # the MariaDB mutex and this explicit read provides
+                            # a deterministic blocked reason on both engines.
+                            return blocked_observer(
+                                "duplicate_source_lane"
+                                if len(existing) == 1
+                                else "multiple_source_lane"
+                            )
+                    graph = GeminiRequest.objects.create(
+                        request_id=str(request_id or uuid.uuid4().hex)[:40],
                         lane=resolved_lane,
+                        task_class=task_class,
+                        reasoning_task=str(reasoning_task or "")[:40],
+                        logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
+                        source_message_id=source_message_id,
+                        client_id=lineage.get("client_id") or None,
+                        recovery_job_id=lineage.get("recovery_job_id") or None,
+                        routing_policy_version=str(
+                            _routing_value(routing_decision, "policy_version", "")
+                        )[:32],
+                        accounting_policy_version=ACCOUNTING_POLICY_VERSION,
+                        quota_profile_version=profile_version,
+                        authority_snapshot_version=str(
+                            _routing_value(
+                                routing_decision,
+                                "authority_snapshot_version",
+                                "",
+                            )
+                        )[:32],
+                        routing_mode=str(
+                            _routing_value(routing_decision, "routing_mode", "")
+                        )[:12],
+                        commercial_risk=str(
+                            _routing_value(routing_decision, "commercial_risk", "")
+                        )[:16],
+                        requires_media_reasoning=bool(
+                            _routing_value(
+                                routing_decision,
+                                "requires_media_reasoning",
+                                False,
+                            )
+                        ),
+                        candidate_plan=safe_plan,
+                        candidate_plan_digest=canonical_candidate_plan_digest(
+                            safe_plan
+                        ),
+                        deadline_ms=deadline_ms,
+                        deadline_at=(
+                            now + dt.timedelta(milliseconds=deadline_ms)
+                            if deadline_ms
+                            else None
+                        ),
+                        accounting_mode=GeminiRequest.AccountingMode.SHADOW,
                     )
-                    .order_by("id")[:2]
+                return RequestObserver(
+                    graph_id=graph.pk,
+                    request_id=graph.request_id,
+                    raw_plan=candidate_plan,
+                    source_message_id=source_message_id,
+                    lane=resolved_lane,
                 )
-                if existing:
-                    # The locked inbound row is the durable mutex for this
-                    # source/lane.  Without a separate lease/token column no
-                    # existing graph is safe to hand to a second caller: even
-                    # an identical request could race the original boundary.
-                    return blocked_observer(
-                        "duplicate_source_lane"
-                        if len(existing) == 1
-                        else "multiple_source_lane"
-                    )
-            graph = GeminiRequest.objects.create(
-                request_id=str(request_id or uuid.uuid4().hex)[:40],
-                lane=resolved_lane,
-                task_class=task_class,
-                reasoning_task=str(reasoning_task or "")[:40],
-                logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
-                source_message_id=source_message_id,
-                client_id=lineage.get("client_id") or None,
-                recovery_job_id=lineage.get("recovery_job_id") or None,
-                routing_policy_version=str(_routing_value(routing_decision, "policy_version", ""))[:32],
-                accounting_policy_version=ACCOUNTING_POLICY_VERSION,
-                quota_profile_version=profile_version,
-                authority_snapshot_version=str(
-                    _routing_value(routing_decision, "authority_snapshot_version", "")
-                )[:32],
-                routing_mode=str(_routing_value(routing_decision, "routing_mode", ""))[:12],
-                commercial_risk=str(_routing_value(routing_decision, "commercial_risk", ""))[:16],
-                requires_media_reasoning=bool(
-                    _routing_value(routing_decision, "requires_media_reasoning", False)
-                ),
-                candidate_plan=safe_plan,
-                candidate_plan_digest=canonical_candidate_plan_digest(safe_plan),
-                deadline_ms=deadline_ms,
-                deadline_at=(now + dt.timedelta(milliseconds=deadline_ms) if deadline_ms else None),
-                accounting_mode=GeminiRequest.AccountingMode.SHADOW,
-            )
-        return RequestObserver(
-            graph_id=graph.pk,
-            request_id=graph.request_id,
-            raw_plan=candidate_plan,
-            source_message_id=source_message_id,
-            lane=resolved_lane,
-        )
-    except IntegrityError:
-        return blocked_observer("request_conflict")
+            except IntegrityError:
+                # ``request_id`` and non-null ``source_message_id + lane`` are
+                # both durable ownership conflicts.  Neither may degrade into
+                # a provider-permitting null observer.
+                return blocked_observer("request_conflict")
+            except OperationalError as exc:
+                if source_message_id and _ownership_contention(exc):
+                    last_contention = exc
+                    continue
+                return NULL_OBSERVER
+        if last_contention is not None:
+            return blocked_observer("ownership_contention")
+        return NULL_OBSERVER
     except Exception:
         return NULL_OBSERVER
 
@@ -639,6 +711,7 @@ class RequestObserver:
         self._candidate_identities: dict[tuple[str, str], str] = {}
         self._candidate_identity_status: dict[tuple[str, str], str] = {}
         self._plan_candidates: list[tuple[str, str, int]] = []
+        self._plan_membership: set[tuple[str, str, int]] = set()
         self._plan_skip_reasons: dict[int, str] = {}
         for position, raw in enumerate(raw_plan or (), start=1):
             if not isinstance(raw, dict):
@@ -656,6 +729,7 @@ class RequestObserver:
                 key, str(raw.get("identity_status") or "unknown").casefold()
             )
             self._plan_candidates.append((key[0], key[1], index))
+            self._plan_membership.add((key[0], key[1], index))
             initial_skip = _safe_reason(raw.get("skip_reason"))[:24]
             if initial_skip:
                 self._plan_skip_reasons[index] = initial_skip
@@ -720,6 +794,11 @@ class RequestObserver:
                     for item in prior_items
                 ):
                     return None
+                if GeminiRequestAttempt.objects.filter(
+                    request_graph=graph,
+                    candidate_index=boundary.candidate_index,
+                ).exists():
+                    return None
                 attempt = GeminiRequestAttempt.objects.create(
                     request_id=self.request_id,
                     request_graph=graph,
@@ -781,6 +860,11 @@ class RequestObserver:
                     for key in outcomes
                     if str(key).isdigit()
                 }
+                observed.update(
+                    GeminiRequestAttempt.objects.filter(request_graph=graph)
+                    .exclude(candidate_index=0)
+                    .values_list("candidate_index", flat=True)
+                )
                 rows = []
                 for key_name, model, candidate_index in self._plan_candidates:
                     if model_filter and str(model) != str(model_filter):
@@ -900,16 +984,18 @@ class RequestObserver:
             .first()
         )
 
-    def _lock_valid_boundary_graph(self, boundary: AttemptBoundary):
-        """Lock message -> canonical graph and validate one planned candidate."""
+    def _lock_canonical_graph(self):
+        """Lock and return exactly this observer's canonical source/lane graph.
+
+        Every provider admission and settlement follows the same prefix:
+        source message (when present), then canonical graph.  Callers may add a
+        quota-state and attempt lock only after this helper returns.
+        """
         from management.models import (
             GeminiRequest,
-            GeminiRequestAttempt,
             InstagramBotMessage,
         )
 
-        if boundary.attempt_id is not None:
-            return None
         source_message_id = self.source_message_id
         lane = self.lane
         if not lane:
@@ -919,7 +1005,7 @@ class RequestObserver:
                 .first()
             )
             if identity_row is None:
-                return None
+                return None, None
             source_message_id = identity_row["source_message_id"]
             lane = str(identity_row["lane"] or "")
         locked_message = None
@@ -931,14 +1017,14 @@ class RequestObserver:
                 .first()
             )
             if locked_message is None:
-                return None
+                return None, None
             graphs = list(
                 GeminiRequest.objects.select_for_update()
                 .filter(source_message_id=source_message_id, lane=lane)
                 .order_by("id")[:2]
             )
             if len(graphs) != 1 or graphs[0].pk != self.graph_id:
-                return None
+                return None, locked_message
             graph = graphs[0]
         else:
             graph = (
@@ -947,6 +1033,24 @@ class RequestObserver:
                 .first()
             )
         if graph is None or graph.request_id != self.request_id:
+            return None, locked_message
+        return graph, locked_message
+
+    def _lock_valid_boundary_graph(self, boundary: AttemptBoundary):
+        """Lock message -> canonical graph and validate one planned candidate."""
+        from management.models import GeminiRequestAttempt
+
+        if boundary.attempt_id is not None:
+            return None
+        exact_member = (
+            boundary.key_name,
+            boundary.model,
+            int(boundary.candidate_index),
+        )
+        if exact_member not in self._plan_membership:
+            return None
+        graph, locked_message = self._lock_canonical_graph()
+        if graph is None:
             return None
         if (
             graph.task_class == "no_model"
@@ -1392,6 +1496,16 @@ class RequestObserver:
         )
         classified = classify_failure(error, http_code=http_code, failure_kind=failure_kind)
         with transaction.atomic():
+            # Use the same lock order as final provider admission:
+            # message -> canonical graph -> quota state -> attempt.
+            graph, _locked_message = self._lock_canonical_graph()
+            if graph is None:
+                return
+            state = None
+            if boundary.state_id:
+                state = GeminiQuotaState.objects.select_for_update().get(
+                    pk=boundary.state_id
+                )
             attempt = GeminiRequestAttempt.objects.select_for_update().get(
                 pk=boundary.attempt_id
             )
@@ -1454,11 +1568,7 @@ class RequestObserver:
                 "settled_at", "permit_released_at",
             ])
 
-            state = None
-            if boundary.state_id:
-                state = GeminiQuotaState.objects.select_for_update().get(
-                    pk=boundary.state_id
-                )
+            if state is not None:
                 if permit_was_active:
                     state.in_flight_count = max(
                         0, int(state.in_flight_count or 0) - 1
@@ -1516,7 +1626,6 @@ class RequestObserver:
                 state.revision = F("revision") + 1
                 state.save()
 
-            graph = GeminiRequest.objects.select_for_update().get(pk=self.graph_id)
             outcomes = dict(graph.candidate_outcomes or {})
             outcome_key = str(boundary.candidate_index or boundary.attempt_index)
             outcome_payload = {
@@ -1675,65 +1784,59 @@ def link_reply_if_present(*, request_id: str, reply_message_id: int) -> bool:
 
         bounded_request_id = str(request_id)[:40]
         requested_reply_id = int(reply_message_id)
-        for _retry in range(3):
-            snapshot = GeminiRequest.objects.filter(
-                request_id=bounded_request_id
-            ).values("id", "winner_attempt_id").first()
-            if snapshot is None:
+        with transaction.atomic():
+            # Graph identity and winner are locked before the attempt, matching
+            # provider admission/settlement and avoiding attempt -> graph
+            # inversion with a concurrent winner settlement.
+            graph = (
+                GeminiRequest.objects.select_for_update()
+                .filter(request_id=bounded_request_id)
+                .first()
+            )
+            if graph is None:
                 return False
-            winner_id = snapshot["winner_attempt_id"]
-            retry = False
-            with transaction.atomic():
-                winner = (
-                    GeminiRequestAttempt.objects.select_for_update().filter(
-                        pk=winner_id
-                    ).first()
-                    if winner_id
-                    else None
+            winner = (
+                GeminiRequestAttempt.objects.select_for_update().filter(
+                    pk=graph.winner_attempt_id
+                ).first()
+                if graph.winner_attempt_id
+                else None
+            )
+            existing_graph_id = int(graph.reply_message_id or 0)
+            existing_attempt_id = int(
+                getattr(winner, "reply_message_id", 0) or 0
+            )
+            conflict = next(
+                (
+                    value
+                    for value in (existing_graph_id, existing_attempt_id)
+                    if value and value != requested_reply_id
+                ),
+                0,
+            )
+            if conflict:
+                AdminAuditLog.objects.create(
+                    actor=None,
+                    actor_role="system",
+                    action="ig_gemini.reply_link_conflict",
+                    entity_type="GeminiRequest",
+                    entity_id=str(graph.pk),
+                    before={"reply_message_id": conflict},
+                    after={"requested_reply_message_id": requested_reply_id},
+                    reason="immutable_reply_link_conflict",
                 )
-                graph = GeminiRequest.objects.select_for_update().get(
-                    pk=snapshot["id"]
+                return False
+            now = timezone.now()
+            if not existing_graph_id:
+                GeminiRequest.objects.filter(pk=graph.pk).update(
+                    reply_message_id=requested_reply_id,
+                    updated_at=now,
                 )
-                if graph.winner_attempt_id != winner_id:
-                    retry = True
-                else:
-                    existing_graph_id = int(graph.reply_message_id or 0)
-                    existing_attempt_id = int(
-                        getattr(winner, "reply_message_id", 0) or 0
-                    )
-                    conflict = next(
-                        (
-                            value
-                            for value in (existing_graph_id, existing_attempt_id)
-                            if value and value != requested_reply_id
-                        ),
-                        0,
-                    )
-                    if conflict:
-                        AdminAuditLog.objects.create(
-                            actor=None,
-                            actor_role="system",
-                            action="ig_gemini.reply_link_conflict",
-                            entity_type="GeminiRequest",
-                            entity_id=str(graph.pk),
-                            before={"reply_message_id": conflict},
-                            after={"requested_reply_message_id": requested_reply_id},
-                            reason="immutable_reply_link_conflict",
-                        )
-                        return False
-                    now = timezone.now()
-                    if not existing_graph_id:
-                        GeminiRequest.objects.filter(pk=graph.pk).update(
-                            reply_message_id=requested_reply_id,
-                            updated_at=now,
-                        )
-                    if winner is not None and not existing_attempt_id:
-                        GeminiRequestAttempt.objects.filter(pk=winner.pk).update(
-                            reply_message_id=requested_reply_id
-                        )
-                    return True
-            if not retry:
-                break
+            if winner is not None and not existing_attempt_id:
+                GeminiRequestAttempt.objects.filter(pk=winner.pk).update(
+                    reply_message_id=requested_reply_id
+                )
+            return True
         return False
     except Exception:
         return False

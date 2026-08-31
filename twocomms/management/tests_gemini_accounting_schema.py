@@ -209,6 +209,37 @@ class GeminiAccountingSchemaTests(TestCase):
                 attempt_index=1,
             )
 
+    def test_non_null_source_lane_has_one_graph_while_null_sources_remain_plural(self):
+        GeminiRequest.objects.create(
+            request_id="source-lane-canonical",
+            source_message_id=991,
+            lane="live",
+        )
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            GeminiRequest.objects.create(
+                request_id="source-lane-duplicate",
+                source_message_id=991,
+                lane="live",
+            )
+
+        GeminiRequest.objects.create(
+            request_id="source-lane-null-1",
+            source_message_id=None,
+            lane="analysis",
+        )
+        GeminiRequest.objects.create(
+            request_id="source-lane-null-2",
+            source_message_id=None,
+            lane="analysis",
+        )
+        self.assertEqual(
+            GeminiRequest.objects.filter(
+                source_message_id__isnull=True,
+                lane="analysis",
+            ).count(),
+            2,
+        )
+
     def test_provider_started_attempt_requires_original_dispatch_day(self):
         request = GeminiRequest.objects.create(request_id="schema-request-day")
         with self.assertRaises(IntegrityError), transaction.atomic():
@@ -658,6 +689,44 @@ class GeminiAccountingMigrationContractTests(TestCase):
             for operation in schema.Migration.operations
         ))
 
+    def test_source_lane_unique_operation_is_exact_shape_and_drift_detecting(self):
+        schema = importlib.import_module(
+            "management.migrations.0179_gemini_accounting_v2_schema"
+        )
+        operation = next(
+            item
+            for item in schema.Migration.operations
+            if getattr(getattr(item, "constraint", None), "name", "")
+            == "gem_req_source_lane_uniq"
+        )
+        self.assertEqual(
+            operation.__class__.__name__,
+            "IdempotentAddExactUniqueConstraint",
+        )
+        self.assertEqual(
+            tuple(operation.constraint.fields),
+            ("source_message_id", "lane"),
+        )
+
+        model = Mock()
+        model._meta.get_field.side_effect = lambda name: SimpleNamespace(
+            column=name
+        )
+        valid = {
+            "columns": ["source_message_id", "lane"],
+            "unique": True,
+            "primary_key": False,
+            "check": False,
+            "foreign_key": None,
+        }
+        operation._validate(Mock(), model, valid)
+        with self.assertRaisesMessage(RuntimeError, "unexpected shape"):
+            operation._validate(
+                Mock(),
+                model,
+                {**valid, "columns": ["lane", "source_message_id"]},
+            )
+
     def test_prerequisite_conversion_is_retry_idempotent_after_partial_progress(self):
         migration = importlib.import_module(
             "management.migrations.0178_gemini_accounting_prerequisite_innodb"
@@ -1006,12 +1075,23 @@ class GeminiAccountingMigrationContractTests(TestCase):
                         cursor, "management_geminirequestattempt"
                     )
                 }
+                request_constraints = connection.introspection.get_constraints(
+                    cursor, "management_geminirequest"
+                )
+            source_lane_unique = request_constraints.get(
+                "gem_req_source_lane_uniq", {}
+            )
             print("MIGRATION_RETRY_RESULT=" + json.dumps({
                 "interrupted": interrupted,
                 "completed_before_interrupt": counter["completed"],
                 "recorded_after_interrupt": recorded_after_interrupt,
                 "partial_accounting_mode": "accounting_mode" in partial_columns,
                 "final_request_graph": "request_graph_id" in final_columns,
+                "source_lane_unique": bool(
+                    source_lane_unique.get("unique")
+                    and source_lane_unique.get("columns")
+                    == ["source_message_id", "lane"]
+                ),
                 "profiles": apps.get_model(
                     "management", "GeminiQuotaProfile"
                 ).objects.count(),
@@ -1050,4 +1130,5 @@ class GeminiAccountingMigrationContractTests(TestCase):
             "partial_accounting_mode": True,
             "profiles": 4,
             "recorded_after_interrupt": False,
+            "source_lane_unique": True,
         })

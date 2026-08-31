@@ -48,6 +48,12 @@ EXPECTED_COLUMNS = {
     },
 }
 
+EXPECTED_UNIQUE_CONSTRAINTS = {
+    "management_geminirequest": {
+        "gem_req_source_lane_uniq": ["source_message_id", "lane"],
+    },
+}
+
 
 def verify_gemini_accounting_schema(apps, schema_editor):
     """Fail closed if an interrupted DDL run did not fully reconcile columns."""
@@ -70,6 +76,23 @@ def verify_gemini_accounting_schema(apps, schema_editor):
                     f"Gemini accounting schema is incomplete for {table}: "
                     + ", ".join(missing)
                 )
+        for table, expected_constraints in EXPECTED_UNIQUE_CONSTRAINTS.items():
+            constraints = introspection.get_constraints(cursor, table)
+            for name, columns in expected_constraints.items():
+                actual = constraints.get(name)
+                if (
+                    actual is None
+                    or not bool(actual.get("unique"))
+                    or bool(actual.get("primary_key"))
+                    or bool(actual.get("check"))
+                    or actual.get("foreign_key") is not None
+                    or [str(value) for value in actual.get("columns") or ()]
+                    != columns
+                ):
+                    raise RuntimeError(
+                        "Gemini accounting unique constraint is missing or "
+                        f"has unexpected shape: {name}"
+                    )
 
 
 def ensure_gemini_accounting_tables_innodb(apps, schema_editor):

@@ -4522,6 +4522,12 @@ class GeminiRequest(models.Model):
                 name="gem_req_resolution_deadline",
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_message_id", "lane"],
+                name="gem_req_source_lane_uniq",
+            ),
+        ]
 
     def __str__(self):
         return f"GeminiRequest({self.request_id}:{self.terminal_resolution or 'open'})"

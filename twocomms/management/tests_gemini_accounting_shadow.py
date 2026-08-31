@@ -1,12 +1,21 @@
 import datetime as dt
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Barrier
 from unittest.mock import patch
 
 import requests
-from django.db import DatabaseError, connection
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.db import (
+    DatabaseError,
+    IntegrityError,
+    OperationalError,
+    close_old_connections,
+    connection,
+    transaction,
+)
+from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
@@ -719,8 +728,7 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
 
     @override_settings(**SHADOW)
-    @patch("management.services.call_ai_analysis.requests.post")
-    def test_stale_boundary_rejects_historical_competing_source_lane_graph(self, post):
+    def test_database_rejects_historical_competing_source_lane_graph(self):
         from management.models import IgClient, InstagramBotMessage
         from management.services.gemini_accounting_contract import (
             canonical_candidate_plan_digest,
@@ -754,26 +762,72 @@ class GeminiShadowRuntimeTests(TestCase):
                 routing_decision=ordinary,
             )
         safe_plan = runtime.sanitize_candidate_plan(raw_plan)
-        GeminiRequest.objects.create(
-            request_id="competing-source-lane-historical",
-            lane=Lane.LIVE,
-            task_class="ordinary_live",
-            reasoning_task="customer_chat",
-            logical_turn_id=f"t{client.pk}:{message.pk}",
-            source_message_id=message.pk,
-            client_id=client.pk,
-            routing_policy_version=ordinary.policy_version,
-            accounting_policy_version=runtime.ACCOUNTING_POLICY_VERSION,
-            authority_snapshot_version=ordinary.authority_snapshot_version,
-            routing_mode=ordinary.routing_mode.value,
-            commercial_risk=ordinary.commercial_risk,
-            candidate_plan=safe_plan,
-            candidate_plan_digest=canonical_candidate_plan_digest(safe_plan),
-            deadline_ms=35_000,
-            accounting_mode=GeminiRequest.AccountingMode.SHADOW,
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            GeminiRequest.objects.create(
+                request_id="competing-source-lane-historical",
+                lane=Lane.LIVE,
+                task_class="ordinary_live",
+                reasoning_task="customer_chat",
+                logical_turn_id=f"t{client.pk}:{message.pk}",
+                source_message_id=message.pk,
+                client_id=client.pk,
+                routing_policy_version=ordinary.policy_version,
+                accounting_policy_version=runtime.ACCOUNTING_POLICY_VERSION,
+                authority_snapshot_version=ordinary.authority_snapshot_version,
+                routing_mode=ordinary.routing_mode.value,
+                commercial_risk=ordinary.commercial_risk,
+                candidate_plan=safe_plan,
+                candidate_plan_digest=canonical_candidate_plan_digest(safe_plan),
+                deadline_ms=35_000,
+                accounting_mode=GeminiRequest.AccountingMode.SHADOW,
+            )
+
+        self.assertTrue(canonical.enabled)
+        self.assertEqual(GeminiRequest.objects.count(), 1)
+        self.assertEqual(GeminiRequestAttempt.objects.count(), 0)
+        self.assertEqual(GeminiQuotaState.objects.count(), 0)
+
+    @override_settings(**SHADOW)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_same_index_model_nonmember_key_is_rejected_before_provider(self, post):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("nonmember-admission")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="nonmember-admission-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
         )
-        boundary = canonical.attempt(
-            key_name="GEMINI_API",
+        ordinary = classify_live_turn(TurnFacts())
+        persist_decision(message, ordinary)
+        manual_plan = [{
+            "candidate_index": 1,
+            "key_name": "(manual)",
+            "project_identity": "",
+            "identity_status": "unknown",
+            "model": "gemini-3.5-flash-lite",
+            "skip_reason": "",
+        }]
+        with turn_lineage(
+            lane=Lane.LIVE,
+            client_id=client.pk,
+            source_message_id=message.pk,
+            logical_turn_id=f"t{client.pk}:{message.pk}",
+        ):
+            observer = runtime.begin_request(
+                request_id="nonmember-admission-request",
+                role="chat",
+                reasoning_task="customer_chat",
+                candidate_plan=manual_plan,
+                deadline_seconds=35,
+                routing_decision=ordinary,
+            )
+        boundary = observer.attempt(
+            key_name="NOT_A_PLAN_MEMBER",
             model="gemini-3.5-flash-lite",
             candidate_index=1,
         )
@@ -781,16 +835,60 @@ class GeminiShadowRuntimeTests(TestCase):
         with self.assertRaises(ai._GeminiAdmissionRejected):
             ai._gemini_call_once(
                 "gemini-3.5-flash-lite",
-                {"contents": [{"parts": [{"text": "stale"}]}]},
-                "private-key",
+                {"contents": [{"parts": [{"text": "spoof"}]}]},
+                "unplanned-private-key",
                 parse=False,
                 attempt_boundary=boundary,
             )
 
         post.assert_not_called()
-        self.assertEqual(GeminiRequest.objects.count(), 2)
+        graph = GeminiRequest.objects.get(request_id=observer.request_id)
+        self.assertIsNone(graph.provider_phase_started_at)
         self.assertEqual(GeminiRequestAttempt.objects.count(), 0)
         self.assertEqual(GeminiQuotaState.objects.count(), 0)
+        self.assertEqual(GeminiModelQuotaUsage.objects.count(), 0)
+
+    @override_settings(**SHADOW)
+    def test_source_noncontention_database_outage_remains_shadow_fail_soft(self):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("source-db-outage")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="source-db-outage-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        ordinary = classify_live_turn(TurnFacts())
+        persist_decision(message, ordinary)
+        with (
+            turn_lineage(
+                lane=Lane.LIVE,
+                client_id=client.pk,
+                source_message_id=message.pk,
+                logical_turn_id=f"t{client.pk}:{message.pk}",
+            ),
+            patch(
+                "management.models.GeminiRequest.objects.create",
+                side_effect=OperationalError("server has gone away"),
+            ),
+        ):
+            observer = runtime.begin_request(
+                request_id="source-db-outage-request",
+                role="chat",
+                reasoning_task="customer_chat",
+                candidate_plan=_raw_plan("gemini-3.5-flash-lite"),
+                deadline_seconds=35,
+                routing_decision=ordinary,
+            )
+
+        self.assertFalse(observer.enabled)
+        self.assertFalse(observer.provider_blocked)
+        self.assertTrue(observer.attempt().before_provider(serialized_bytes=1))
+        self.assertEqual(GeminiRequest.objects.count(), 0)
 
     @override_settings(**SHADOW)
     @patch.dict(
@@ -1256,8 +1354,25 @@ class GeminiShadowRuntimeTests(TestCase):
             ("gemini-3.7-flash", ""),
             ("gemini-2.5-flash", "gemini-project-1"),
         ):
-            observer = self._observer(model, identity=identity)
             key_name = "GEMINI_API" if identity else "(manual)"
+            observer = (
+                self._observer(model, identity=identity)
+                if identity
+                else runtime.begin_request(
+                    request_id=uuid_for_test(),
+                    role="management",
+                    reasoning_task="customer_intelligence",
+                    candidate_plan=[{
+                        "candidate_index": 1,
+                        "key_name": key_name,
+                        "project_identity": "",
+                        "identity_status": "unknown",
+                        "model": model,
+                        "skip_reason": "",
+                    }],
+                    lane="analysis",
+                )
+            )
             boundary = observer.attempt(
                 key_name=key_name, model=model, candidate_index=1
             )
@@ -2220,6 +2335,89 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertTrue(runtime.link_reply_if_present(request_id=observer.request_id, reply_message_id=77))
         self.assertEqual(GeminiRequest.objects.get(pk=observer.graph_id).reply_message_id, 77)
         self.assertEqual(GeminiRequestAttempt.objects.get(pk=boundary.attempt_id).reply_message_id, 77)
+
+
+@override_settings(**SHADOW)
+class GeminiSourceLaneConcurrencyTests(TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        seed_shadow_profiles()
+
+    @patch("management.services.call_ai_analysis.requests.post", return_value=_Response())
+    def test_two_callers_create_one_graph_and_only_canonical_dispatches(self, post):
+        from management.models import IgClient, InstagramBotMessage
+        from management.services.gemini_routing import persist_decision
+
+        client = IgClient.get_or_create_for_sender("source-lane-thread-race")
+        message = InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="bounded",
+            mid="source-lane-thread-race-mid",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        ordinary = classify_live_turn(TurnFacts())
+        persist_decision(message, ordinary)
+        plan = _raw_plan("gemini-3.5-flash-lite")
+        start = Barrier(2)
+
+        def worker(index):
+            close_old_connections()
+            try:
+                with turn_lineage(
+                    lane=Lane.LIVE,
+                    client_id=client.pk,
+                    source_message_id=message.pk,
+                    logical_turn_id=f"t{client.pk}:{message.pk}",
+                ):
+                    start.wait(timeout=10)
+                    observer = runtime.begin_request(
+                        request_id=f"source-lane-thread-race-{index}",
+                        role="chat",
+                        reasoning_task="customer_chat",
+                        candidate_plan=plan,
+                        deadline_seconds=35,
+                        routing_decision=ordinary,
+                    )
+                boundary = observer.attempt(
+                    key_name="GEMINI_API",
+                    model="gemini-3.5-flash-lite",
+                    candidate_index=1,
+                )
+                try:
+                    ai._gemini_call_once(
+                        "gemini-3.5-flash-lite",
+                        {"contents": [{"parts": [{"text": "bounded"}]}]},
+                        "private-key",
+                        parse=False,
+                        attempt_boundary=boundary,
+                    )
+                except ai._GeminiAdmissionRejected:
+                    return "blocked", bool(boundary.admitted)
+                return "canonical", bool(boundary.admitted)
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            outcomes = list(executor.map(worker, (1, 2)))
+
+        self.assertEqual(
+            sorted(outcomes),
+            [("blocked", False), ("canonical", True)],
+        )
+        self.assertEqual(post.call_count, 1)
+        graph = GeminiRequest.objects.get(
+            source_message_id=message.pk,
+            lane=Lane.LIVE,
+        )
+        self.assertEqual(graph.terminal_resolution, "succeeded")
+        self.assertEqual(GeminiRequest.objects.count(), 1)
+        self.assertEqual(
+            GeminiRequestAttempt.objects.filter(request_graph=graph).count(),
+            1,
+        )
 
 
 def uuid_for_test():

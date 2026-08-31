@@ -221,3 +221,119 @@ class GeminiShadowMariaDbConcurrencyTests(TransactionTestCase):
             ).count(),
             1,
         )
+
+    def test_admission_and_settlement_share_lock_order_without_deadlock(self):
+        model = "gemini-3.7-flash"
+        for iteration in range(8):
+            client = IgClient.get_or_create_for_sender(
+                f"maria-admit-settle-{iteration}"
+            )
+            message = InstagramBotMessage.objects.create(
+                sender_id=client.igsid,
+                client=client,
+                role=InstagramBotMessage.Role.USER,
+                text="bounded",
+                mid=f"maria-admit-settle-{iteration}-mid",
+                status=InstagramBotMessage.Status.PROCESSING,
+            )
+            decision = classify_live_turn(TurnFacts(has_image=True))
+            persist_decision(message, decision)
+            plan = [
+                {
+                    "candidate_index": candidate_index,
+                    "key_name": "GEMINI_API",
+                    "project_identity": "gemini-project-race",
+                    "identity_status": "known",
+                    "model": model,
+                    "skip_reason": "",
+                }
+                for candidate_index in (1, 2)
+            ]
+            with turn_lineage(
+                lane=Lane.LIVE,
+                client_id=client.pk,
+                source_message_id=message.pk,
+                logical_turn_id=f"t{client.pk}:{message.pk}",
+            ):
+                observer = runtime.begin_request(
+                    request_id=f"maria-admit-settle-{iteration}",
+                    role="chat",
+                    reasoning_task="media_analysis",
+                    candidate_plan=plan,
+                    deadline_seconds=45,
+                    routing_decision=decision,
+                )
+            first = observer.attempt(
+                key_name="GEMINI_API",
+                model=model,
+                candidate_index=1,
+            )
+            self.assertTrue(first.before_provider(
+                serialized_bytes=128,
+                inline_count=1,
+            ))
+            second = observer.attempt(
+                key_name="GEMINI_API",
+                model=model,
+                candidate_index=2,
+            )
+            start = Barrier(2)
+
+            def settle_first():
+                close_old_connections()
+                try:
+                    start.wait(timeout=10)
+                    first.manual_result(
+                        succeeded=True,
+                        http_code=200,
+                        usage={
+                            "promptTokenCount": 12,
+                            "candidatesTokenCount": 2,
+                            "totalTokenCount": 14,
+                        },
+                    )
+                finally:
+                    close_old_connections()
+
+            def admit_and_settle_second():
+                close_old_connections()
+                try:
+                    start.wait(timeout=10)
+                    admitted = second.before_provider(
+                        serialized_bytes=128,
+                        inline_count=1,
+                    )
+                    if admitted:
+                        second.manual_result(
+                            succeeded=False,
+                            http_code=503,
+                            failure_kind="http_5xx",
+                        )
+                    return admitted
+                finally:
+                    close_old_connections()
+
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                finish_future = executor.submit(settle_first)
+                admit_future = executor.submit(admit_and_settle_second)
+                finish_future.result(timeout=20)
+                admitted = admit_future.result(timeout=20)
+
+            graph = GeminiRequest.objects.get(pk=observer.graph_id)
+            first_row = GeminiRequestAttempt.objects.get(pk=first.attempt_id)
+            self.assertEqual(
+                first_row.fsm_state,
+                GeminiRequestAttempt.FsmState.SUCCEEDED,
+            )
+            self.assertEqual(graph.winner_attempt_id, first_row.pk)
+            if admitted:
+                second_row = GeminiRequestAttempt.objects.get(pk=second.attempt_id)
+                self.assertEqual(
+                    second_row.fsm_state,
+                    GeminiRequestAttempt.FsmState.FAILED,
+                )
+            state = GeminiQuotaState.objects.get(
+                project_identity="gemini-project-race",
+                model=model,
+            )
+            self.assertEqual(state.in_flight_count, 0)

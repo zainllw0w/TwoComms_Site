@@ -112,3 +112,52 @@ class IdempotentAddConstraint(migrations.AddConstraint):
         return super().database_backwards(
             app_label, schema_editor, from_state, to_state
         )
+
+
+class IdempotentAddExactUniqueConstraint(migrations.AddConstraint):
+    """Replay-safe unique constraint that refuses a same-name wrong shape."""
+
+    def _existing(self, schema_editor, model):
+        with schema_editor.connection.cursor() as cursor:
+            return schema_editor.connection.introspection.get_constraints(
+                cursor,
+                model._meta.db_table,
+            ).get(self.constraint.name)
+
+    def _validate(self, schema_editor, model, existing) -> None:
+        expected_columns = [
+            str(model._meta.get_field(field_name).column)
+            for field_name in self.constraint.fields
+        ]
+        actual_columns = [str(value) for value in existing.get("columns") or ()]
+        if (
+            not bool(existing.get("unique"))
+            or bool(existing.get("primary_key"))
+            or bool(existing.get("check"))
+            or existing.get("foreign_key") is not None
+            or actual_columns != expected_columns
+        ):
+            raise RuntimeError(
+                "existing unique constraint has unexpected shape: "
+                f"{self.constraint.name}"
+            )
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.model_name)
+        existing = self._existing(schema_editor, model)
+        if existing is not None:
+            self._validate(schema_editor, model, existing)
+            return
+        return super().database_forwards(
+            app_label, schema_editor, from_state, to_state
+        )
+
+    def database_backwards(self, app_label, schema_editor, from_state, to_state):
+        model = from_state.apps.get_model(app_label, self.model_name)
+        existing = self._existing(schema_editor, model)
+        if existing is None:
+            return
+        self._validate(schema_editor, model, existing)
+        return super().database_backwards(
+            app_label, schema_editor, from_state, to_state
+        )

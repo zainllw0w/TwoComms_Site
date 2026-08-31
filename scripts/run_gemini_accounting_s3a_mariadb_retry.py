@@ -117,8 +117,22 @@ def _orchestrate(args):
             list(tables),
         )
         engines = {str(table): str(engine).upper() for table, engine in cursor.fetchall()}
+        request_constraints = resumed_connection.introspection.get_constraints(
+            cursor,
+            "management_geminirequest",
+        )
     if set(engines) != set(tables) or set(engines.values()) != {"INNODB"}:
         raise RuntimeError(f"unexpected accounting engines: {engines}")
+    source_lane_unique = request_constraints.get("gem_req_source_lane_uniq")
+    if (
+        source_lane_unique is None
+        or not bool(source_lane_unique.get("unique"))
+        or list(source_lane_unique.get("columns") or ())
+        != ["source_message_id", "lane"]
+    ):
+        raise RuntimeError(
+            "unexpected Gemini request source/lane unique constraint"
+        )
     result = {
         "database": database,
         "kill_exit_code": child.returncode,
@@ -128,6 +142,7 @@ def _orchestrate(args):
         "states": apps.get_model("management", "GeminiQuotaState").objects.count(),
         "requests": apps.get_model("management", "GeminiRequest").objects.count(),
         "engines": engines,
+        "source_lane_unique": list(source_lane_unique.get("columns") or ()),
     }
     print("GEMINI_S3A_MARIADB_RETRY=" + json.dumps(result, sort_keys=True))
 

@@ -5,6 +5,7 @@ from django.db import migrations as django_migrations, models
 
 from management.migration_operations import (
     IdempotentAddConstraint,
+    IdempotentAddExactUniqueConstraint,
     IdempotentAddField,
     IdempotentAddIndex,
     IdempotentCreateModel,
@@ -19,6 +20,7 @@ class _RetrySafeOperations:
     CreateModel = IdempotentCreateModel
     AddIndex = IdempotentAddIndex
     AddConstraint = IdempotentAddConstraint
+    AddExactUniqueConstraint = IdempotentAddExactUniqueConstraint
 
 
 migrations = _RetrySafeOperations
@@ -305,5 +307,9 @@ class Migration(migrations.Migration):
         migrations.AddIndex(
             model_name='geminirequest',
             index=models.Index(fields=['terminal_resolution', 'deadline_at'], name='gem_req_resolution_deadline'),
+        ),
+        migrations.AddExactUniqueConstraint(
+            model_name='geminirequest',
+            constraint=models.UniqueConstraint(fields=('source_message_id', 'lane'), name='gem_req_source_lane_uniq'),
         ),
     ]
