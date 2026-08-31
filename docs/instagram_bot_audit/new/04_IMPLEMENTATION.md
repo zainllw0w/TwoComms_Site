@@ -3974,6 +3974,16 @@ attach, то есть `MAX_TURN_WAIT` — мёртвая константа.
 - [ ] Зафиксировать production replay `media + greeting + continuation` как RED
       fixture с provider/local clocks
 
+**Production acceptance Phase 1 (2026-08-31, SHA `3a5fa2dce`).** Миграция `0187`
+применена; демон перезапущен на новом коде (PID 1464196, старт 19:46:02 UTC) и
+через 5 секунд реконсилировал все 7 застрявших `CLAIMED` ходов с причиной
+`replied` — включая ходы `8` и `9`, то есть ровно тот production-кейс `фото →
+Вітаю → Отримав сертифікат`, из-за которого написан Э2.2B. Сейчас в
+`IgCustomerTurn` 14/14 `processed` и ни одного `CLAIMED`. Бюджет на сервере:
+`effective_wait=6.0`, `declared=102`, `heartbeat window=122`,
+`notice_threshold=51.0` (было 65.0), `turn lease=204`. `manage.py
+ig_turn_lifecycle` на production: `scanned=0`.
+
 ### Schema и state machine
 
 - [ ] Expand `IgCustomerTurn`: revision, local first/last ingress, quiet/hard
