@@ -2802,6 +2802,172 @@ def archive_historical_paid_review(
 
 
 @transaction.atomic
+def correct_false_historical_purchase(review, *, actor, reason: str):
+    """Auditably retract a false legacy-purchase classification.
+
+    The original manager decision and episode event remain append-only audit
+    evidence.  Only the current projection is superseded; no order, payment,
+    provider event, customer message, or active funnel is created.
+    """
+    from management.ig_bot_models import (
+        IgClient,
+        IgCommercialEpisode,
+        IgPaymentConfirmationReview,
+        IgPaymentReviewDecision,
+    )
+    from management.services.bot_payment_truth import (
+        recalculate_client_payment_aggregates,
+        verified_payment_deals,
+    )
+    from management.services.ig_commercial_episodes import (
+        append_episode_event,
+        payment_truth_snapshot,
+    )
+
+    note = str(reason or "").strip()
+    if not note:
+        raise ValueError("Причина виправлення історичної покупки обов'язкова.")
+    if not actor or not getattr(actor, "pk", None) or not (
+        getattr(actor, "is_staff", False) or getattr(actor, "is_superuser", False)
+    ):
+        raise ValueError("Виправити історичну покупку може лише менеджер.")
+
+    locked = (
+        IgPaymentConfirmationReview.objects.select_for_update()
+        .select_related("client", "deal", "order")
+        .get(pk=review.pk)
+    )
+    client = IgClient.objects.select_for_update().get(pk=locked.client_id)
+    previous_retraction = (
+        IgPaymentReviewDecision.objects.filter(
+            review=locked,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_REJECTED,
+            reason_code="false_historical_purchase_corrected",
+        )
+        .order_by("-id")
+        .first()
+    )
+    if (
+        locked.status == IgPaymentConfirmationReview.Status.SUPERSEDED
+        and previous_retraction is not None
+    ):
+        return locked
+    if locked.status != IgPaymentConfirmationReview.Status.CONFIRMED or (
+        locked.resolution_kind
+        != IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+    ):
+        raise ValueError("Виправлення доступне лише для підтвердженої історичної покупки.")
+    if locked.order_id:
+        raise ValueError("Не можна виправити історичну покупку з прив'язаним замовленням.")
+    if locked.deal_id and verified_payment_deals(
+        locked.client.deals.filter(pk=locked.deal_id)
+    ).exists():
+        raise ValueError("Не можна скасувати історичну покупку з provider-підтвердженою оплатою.")
+
+    episodes = list(
+        IgCommercialEpisode.objects.select_for_update()
+        .select_related("deal", "intended_order")
+        .filter(client_id=client.pk, primary_payment_review_id=locked.pk)
+    )
+    for episode in episodes:
+        if episode.intended_order_id:
+            raise ValueError("Не можна виправити історичну покупку з епізодом замовлення.")
+        if episode.deal_id and verified_payment_deals(
+            client.deals.filter(pk=episode.deal_id)
+        ).exists():
+            raise ValueError("Епізод має provider-підтверджену оплату.")
+
+    now = timezone.now()
+    decision = IgPaymentReviewDecision.objects.create(
+        review=locked,
+        client=client,
+        decision=IgPaymentReviewDecision.Decision.MANAGER_REJECTED,
+        verification_source="manager",
+        verification_scope=IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED,
+        confirmed_amount=None,
+        order_total_amount=None,
+        order_total_source="",
+        currency=str(getattr(locked.deal, "currency", "") or "UAH")[:8],
+        amount_source="owner_correction",
+        amount_evidence_message_ids=[],
+        reason_code="false_historical_purchase_corrected",
+        reason_text=note[:500],
+        evidence_watermark_message_id=locked.watermark_message_id or 0,
+        review_status_before=IgPaymentConfirmationReview.Status.CONFIRMED,
+        review_status_after=IgPaymentConfirmationReview.Status.SUPERSEDED,
+        stage_before=client.stage or "",
+        stage_after=client.stage or "",
+        actor=actor,
+        actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+        actor_external_id=str(actor.pk)[:128],
+        actor_label=str(getattr(actor, "get_username", lambda: "")() or actor.pk)[:150],
+    )
+
+    locked.status = IgPaymentConfirmationReview.Status.SUPERSEDED
+    locked.superseded_at = now
+    locked.supersede_reason = "false_historical_purchase_corrected"
+    locked.resolution_kind = IgPaymentConfirmationReview.ResolutionKind.NONE
+    locked.resolution_outcome = None
+    locked.resolution_note = f"Correction: {note}"[:2000]
+    locked.resolved_at = now
+    locked.resolved_by = actor
+    locked.save(
+        update_fields=[
+            "status",
+            "superseded_at",
+            "supersede_reason",
+            "resolution_kind",
+            "resolution_outcome",
+            "resolution_note",
+            "resolved_at",
+            "resolved_by",
+            "updated_at",
+        ]
+    )
+
+    for episode in episodes:
+        previous_state = episode.state
+        episode.primary_payment_review = None
+        episode.state = IgCommercialEpisode.State.CANCELLED
+        episode.outcome = "historical_purchase_corrected"
+        episode.open_slot = None
+        episode.closed_at = now
+        episode.payment_snapshot = payment_truth_snapshot(
+            episode=episode,
+            review=None,
+            allow_deal_review_fallback=False,
+        )
+        episode.save(
+            update_fields=[
+                "primary_payment_review",
+                "state",
+                "outcome",
+                "open_slot",
+                "closed_at",
+                "payment_snapshot",
+                "updated_at",
+            ]
+        )
+        append_episode_event(
+            episode,
+            dedupe_key=f"episode:{episode.pk}:historical-purchase-corrected:{locked.pk}",
+            event_type="historical_purchase_corrected",
+            from_state=previous_state,
+            to_state=episode.state,
+            stage=client.stage,
+            source="manager_correction",
+            evidence={
+                "review_id": locked.pk,
+                "decision_id": decision.pk,
+                "reason_code": "false_historical_purchase_corrected",
+            },
+        )
+
+    recalculate_client_payment_aggregates(client)
+    return locked
+
+
+@transaction.atomic
 def resolve_historical_paid_review(
     review,
     *,

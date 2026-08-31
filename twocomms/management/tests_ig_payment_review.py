@@ -1816,3 +1816,162 @@ class IgPaymentTelegramCallbackTests(TestCase):
         notification.refresh_from_db()
         self.assertEqual(notification.status, IgBotNotification.Status.RESOLVED)
         answer.assert_called_once_with("token", "cb-retry-2", "Дію вже виконано")
+
+
+class FalseHistoricalPurchaseCorrectionTests(TestCase):
+    def test_correction_supersedes_false_truth_and_preserves_current_funnel(self):
+        from django.contrib.auth import get_user_model
+
+        from management.ig_bot_models import (
+            IgCommercialEpisode,
+            IgCommercialEpisodeEvent,
+            IgPaymentConfirmationReview,
+            IgPaymentReviewDecision,
+        )
+        from management.models import IgClient
+        from management.services.bot_payment_truth import (
+            client_has_confirmed_purchase,
+            historical_purchase_confirmation,
+            recalculate_client_payment_aggregates,
+        )
+        from management.services.ig_payment_review import (
+            correct_false_historical_purchase,
+        )
+
+        actor = get_user_model().objects.create_user(
+            "false-historical-correction-actor",
+            password="x",
+            is_staff=True,
+        )
+        client = IgClient.get_or_create_for_sender("false-historical-correction-client")
+        original_stage = client.stage
+        review = IgPaymentConfirmationReview.objects.create(
+            client=client,
+            dedupe_key="false-historical-correction-review",
+            status=IgPaymentConfirmationReview.Status.CONFIRMED,
+            watermark_message_id=17,
+            confirmed_by=actor,
+            confirmed_at=timezone.now(),
+            resolution_kind=(
+                IgPaymentConfirmationReview.ResolutionKind.HISTORICAL_PAID_ARCHIVED
+            ),
+            resolution_outcome=(
+                IgPaymentConfirmationReview.ResolutionOutcome.ALREADY_RECEIVED
+            ),
+            resolution_note="Original false classification",
+            resolved_at=timezone.now(),
+            resolved_by=actor,
+        )
+        original_decision = IgPaymentReviewDecision.objects.create(
+            review=review,
+            client=client,
+            decision=IgPaymentReviewDecision.Decision.MANAGER_VERIFIED,
+            verification_source="manager",
+            verification_scope=(
+                IgPaymentReviewDecision.VerificationScope.HISTORICAL_FULFILLED
+            ),
+            currency="UAH",
+            amount_source="historical_amount_unrecoverable",
+            reason_code="historical_paid_fulfilled",
+            reason_text="Original classification",
+            evidence_watermark_message_id=review.watermark_message_id,
+            review_status_before=IgPaymentConfirmationReview.Status.PENDING,
+            review_status_after=IgPaymentConfirmationReview.Status.CONFIRMED,
+            stage_before=client.stage,
+            stage_after=client.stage,
+            actor=actor,
+            actor_source=IgPaymentReviewDecision.ActorSource.MANAGEMENT_USER,
+            actor_external_id=str(actor.pk),
+            actor_label=actor.get_username(),
+        )
+        historical_episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=1,
+            open_slot=None,
+            materialization_key="false-history-episode",
+            state=IgCommercialEpisode.State.ACTIVE,
+            primary_payment_review=review,
+            payment_snapshot={"review_id": review.pk, "decision_id": original_decision.pk},
+        )
+        current_episode = IgCommercialEpisode.objects.create(
+            client=client,
+            sequence=2,
+            open_slot=1,
+            materialization_key="current-real-prospect-episode",
+            state=IgCommercialEpisode.State.ACTIVE,
+        )
+        client.current_commercial_episode = current_episode
+        client.save(update_fields=["current_commercial_episode", "updated_at"])
+        recalculate_client_payment_aggregates(client)
+        self.assertTrue(client_has_confirmed_purchase(client))
+
+        corrected = correct_false_historical_purchase(
+            review,
+            actor=actor,
+            reason="Owner confirmed that no historical purchase occurred",
+        )
+
+        corrected.refresh_from_db()
+        historical_episode.refresh_from_db()
+        current_episode.refresh_from_db()
+        client.refresh_from_db()
+        decisions = list(review.decisions.order_by("id"))
+        self.assertEqual(len(decisions), 2)
+        self.assertEqual(decisions[0].pk, original_decision.pk)
+        self.assertEqual(
+            decisions[1].decision,
+            IgPaymentReviewDecision.Decision.MANAGER_REJECTED,
+        )
+        self.assertEqual(
+            decisions[1].reason_code,
+            "false_historical_purchase_corrected",
+        )
+        self.assertEqual(
+            corrected.status,
+            IgPaymentConfirmationReview.Status.SUPERSEDED,
+        )
+        self.assertEqual(
+            corrected.resolution_kind,
+            IgPaymentConfirmationReview.ResolutionKind.NONE,
+        )
+        self.assertIsNone(corrected.resolution_outcome)
+        self.assertIsNotNone(corrected.superseded_at)
+        self.assertIsNone(historical_episode.primary_payment_review_id)
+        self.assertEqual(
+            historical_episode.state,
+            IgCommercialEpisode.State.CANCELLED,
+        )
+        self.assertEqual(
+            historical_episode.outcome,
+            "historical_purchase_corrected",
+        )
+        self.assertIsNone(historical_episode.payment_snapshot["review_id"])
+        event = IgCommercialEpisodeEvent.objects.get(
+            event_type="historical_purchase_corrected"
+        )
+        self.assertEqual(event.episode_id, historical_episode.pk)
+        self.assertEqual(
+            event.evidence["reason_code"],
+            "false_historical_purchase_corrected",
+        )
+        self.assertEqual(current_episode.state, IgCommercialEpisode.State.ACTIVE)
+        self.assertEqual(client.current_commercial_episode_id, current_episode.pk)
+        self.assertEqual(client.stage, original_stage)
+        self.assertEqual(client.purchases_count, 0)
+        self.assertFalse((client.conversion_flags or {}).get("is_buyer"))
+        self.assertFalse(client_has_confirmed_purchase(client))
+        self.assertFalse(historical_purchase_confirmation(client)["confirmed"])
+
+        replay = correct_false_historical_purchase(
+            corrected,
+            actor=actor,
+            reason="Owner confirmed that no historical purchase occurred",
+        )
+        self.assertEqual(replay.pk, corrected.pk)
+        self.assertEqual(review.decisions.count(), 2)
+        self.assertEqual(
+            IgCommercialEpisodeEvent.objects.filter(
+                event_type="historical_purchase_corrected"
+            ).count(),
+            1,
+        )
