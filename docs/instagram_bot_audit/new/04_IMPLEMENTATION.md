@@ -14,8 +14,10 @@
 > `09_GEMINI_QUOTA_ROUTING_PLAN.md`. Определения `NO_MODEL`, `ORDINARY_LIVE`,
 > `COMPLEX_LIVE`, `DURABLE_ANALYSIS`, event-driven health, quota ledger,
 > analysis/memory и связей с будущими подворонками поддерживаются только там.
-> Исторические закрытые пункты ЭА/Э-Б/Э-HEDGE ниже доказывают выполненные ранее
-> срезы, но не означают, что Gemini V2 уже реализован.
+> Production release `e7258a059` уже содержит Router V2, event-driven health,
+> 4×6 cockpit, accounting shadow и additive migrations 0177–0185/0057–0058.
+> Analysis/Memory/Assisted Checkout остаются off, а funnel/analytics/
+> consent/reminders всё ещё открыты; подробный актуальный статус хранится в `09`.
 
 ---
 
