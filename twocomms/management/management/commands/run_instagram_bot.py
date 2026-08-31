@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+from datetime import timedelta
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -258,6 +259,171 @@ def _bounded_reload_lock_wait(value: int | float | None) -> float:
     return wait_seconds
 
 
+# =============================================================================
+# ЭА.14 — операции «в полёте»: прогресс внутри длинной работы, а не после неё
+# =============================================================================
+#
+# Что было не так. Пульс процесса обновлял фоновый поток каждые 10 секунд, и это
+# доказывало ровно одно: процесс и его планировщик потоков живы. Прогресс же
+# двигался ТОЛЬКО на границе `_run_work_cycle()`. Значит один провайдерский ход
+# длиной 34–44 секунды (а по заявленному бюджету Э2.10 — до 102) не оставлял
+# внутри себя ни одного следа продвижения, и надзор не мог отличить «работает
+# долго» от «висит». Из одного признака выводились два взаимоисключающих
+# действия, поэтому живой процесс заменялся: в источнике `daemon_spawn` почти
+# равен `daemon_start` (≈101 за сутки).
+#
+# Решение — реестр операций «в полёте» с тремя наблюдаемыми величинами:
+#
+#   inflight_operation      что именно выполняется сейчас (имя полосы);
+#   progress_at             когда последний раз что-то РЕАЛЬНО продвинулось;
+#   last_completed_cycle_at когда последний раз завершился полный рабочий цикл.
+#
+# Ключевое свойство, без которого весь механизм был бы вреден: `progress_at`
+# двигают только явные шаги работы (начало/шаг/конец операции и граница цикла).
+# Фоновый пульс его НЕ трогает. Иначе свежий пульс маскировал бы зависший цикл —
+# ровно та ошибка, от которой защищает отдельный ключ `MAIN_PROGRESS_KEY`.
+#
+# Почему это кэш, а не поля `InstagramBotTaskHeartbeat`. Долгая операция обязана
+# отчитываться вне транзакции и не удерживая row-lock (раздел 9.3 источника:
+# внешний I/O внутри `select_for_update` запрещён). Кэш даёт запись без
+# транзакции и без миграции; durable-поля — отдельный шаг со своей миграцией.
+DEFAULT_OPERATION_LEASE_SECONDS = 300.0
+
+
+class _InflightOperations:
+    """Потокобезопасный реестр операций «в полёте» одного процесса демона.
+
+    Реестр, а не одно значение, потому что ЭА.15 требует СВОЙ pulse у каждой
+    вынесенной полосы: без разделения надзор видел бы прогресс уведомлений там,
+    где стоит клиентская обработка, и наоборот.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._lanes: dict[str, dict] = {}
+        self._progress_at = 0.0
+        self._last_completed_cycle_at = 0.0
+
+    def reset(self) -> None:
+        """Только для тестов: реестр живёт столько же, сколько процесс демона."""
+        with self._lock:
+            self._lanes.clear()
+            self._progress_at = 0.0
+            self._last_completed_cycle_at = 0.0
+
+    def begin(self, name: str, *, lease_seconds: float | None = None) -> None:
+        started_at = time.time()
+        lease = float(lease_seconds or DEFAULT_OPERATION_LEASE_SECONDS)
+        with self._lock:
+            lane = self._lanes.get(name)
+            if lane is None:
+                self._lanes[name] = {
+                    "started_at": started_at,
+                    "progress_at": started_at,
+                    "lease_until": started_at + lease,
+                    "depth": 1,
+                }
+            else:
+                # Вложенный вход в ту же полосу не открывает вторую операцию:
+                # иначе выход из внутренней снял бы отчётность внешней.
+                lane["depth"] += 1
+                lane["progress_at"] = started_at
+                lane["lease_until"] = started_at + lease
+            self._progress_at = max(self._progress_at, started_at)
+
+    def beat(self, name: str, *, lease_seconds: float | None = None) -> None:
+        """Шаг внутри долгой операции: единственный законный способ подтвердить
+        прогресс, не дожидаясь её конца."""
+        observed_at = time.time()
+        lease = float(lease_seconds or DEFAULT_OPERATION_LEASE_SECONDS)
+        with self._lock:
+            lane = self._lanes.get(name)
+            if lane is not None:
+                lane["progress_at"] = observed_at
+                lane["lease_until"] = observed_at + lease
+            self._progress_at = max(self._progress_at, observed_at)
+
+    def end(self, name: str) -> None:
+        finished_at = time.time()
+        with self._lock:
+            lane = self._lanes.get(name)
+            if lane is not None:
+                lane["depth"] -= 1
+                if lane["depth"] <= 0:
+                    self._lanes.pop(name, None)
+            self._progress_at = max(self._progress_at, finished_at)
+
+    def note_completed_cycle(self) -> None:
+        """Граница полного рабочего цикла — самое сильное доказательство хода."""
+        finished_at = time.time()
+        with self._lock:
+            self._last_completed_cycle_at = finished_at
+            self._progress_at = max(self._progress_at, finished_at)
+
+    def snapshot(self) -> dict:
+        """Наблюдаемое состояние для payload-а пульса; без клиентских данных."""
+        with self._lock:
+            names = sorted(self._lanes, key=lambda key: self._lanes[key]["started_at"])
+            # Самая старая операция — та, которая рискует выглядеть зависанием.
+            oldest = names[0] if names else ""
+            lease_until = min(
+                (lane["lease_until"] for lane in self._lanes.values()),
+                default=0.0,
+            )
+            return {
+                "inflight_operation": oldest[:64],
+                "inflight_operations": ",".join(names)[:200],
+                "progress_at": self._progress_at,
+                "last_completed_cycle_at": self._last_completed_cycle_at,
+                "operation_lease_until": lease_until,
+            }
+
+
+_INFLIGHT = _InflightOperations()
+
+
+def reset_inflight_operations() -> None:
+    """Точка сброса реестра для тестов (в production вызывать незачем)."""
+    _INFLIGHT.reset()
+
+
+def operation_pulse_enabled() -> bool:
+    """ЭА.14 «Откат»: без флага payload остаётся прежним, надзор — прежним."""
+    try:
+        from management.services.ig_task_health import daemon_supervision_enabled
+
+        return bool(daemon_supervision_enabled())
+    except Exception:
+        return True
+
+
+class _OperationHandle:
+    """Дескриптор операции: позволяет отчитаться о шаге, не зная реестра."""
+
+    __slots__ = ("name",)
+
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+    def beat(self, *, lease_seconds: float | None = None) -> None:
+        _INFLIGHT.beat(self.name, lease_seconds=lease_seconds)
+
+
+@contextmanager
+def operation_pulse(name: str, *, lease_seconds: float | None = None):
+    """Объявить операцию «в полёте» на время блока.
+
+    Никогда не глотает исключение вызывающего и никогда не делает I/O: реестр —
+    это память процесса, а публикация в кэш остаётся делом фонового пульса. Так
+    долгая операция отчитывается о себе, не входя ни в транзакцию, ни в lock.
+    """
+    _INFLIGHT.begin(name, lease_seconds=lease_seconds)
+    try:
+        yield _OperationHandle(name)
+    finally:
+        _INFLIGHT.end(name)
+
+
 def _daemon_alive() -> bool:
     hb = cache.get(PROCESS_PULSE_KEY)
     try:
@@ -268,18 +434,24 @@ def _daemon_alive() -> bool:
 
 
 def _publish_process_pulse(*, owner: str, start_sentinel: float, state: str) -> None:
-    cache.set(
-        PROCESS_PULSE_KEY,
-        {
-            "at": time.time(),
-            "sentinel": start_sentinel,
-            "kind": "process_pulse",
-            "state": state,
-            "owner": owner,
-            "pid": os.getpid(),
-        },
-        HB_ALIVE_WINDOW * 3,
-    )
+    """Опубликовать пульс процесса и снимок операций «в полёте».
+
+    `at` двигается каждым тиком фонового потока и доказывает только живость
+    процесса. Поля `progress_at` / `last_completed_cycle_at` берутся из реестра и
+    двигаются лишь при реальном продвижении — поэтому свежий пульс здесь не может
+    выдать зависший цикл за работу (ЭА.14).
+    """
+    payload = {
+        "at": time.time(),
+        "sentinel": start_sentinel,
+        "kind": "process_pulse",
+        "state": state,
+        "owner": owner,
+        "pid": os.getpid(),
+    }
+    if operation_pulse_enabled():
+        payload.update(_INFLIGHT.snapshot())
+    cache.set(PROCESS_PULSE_KEY, payload, HB_ALIVE_WINDOW * 3)
     cache.set(DAEMON_LOCK_KEY, owner, HB_ALIVE_WINDOW * 3)
 
 
@@ -291,20 +463,25 @@ def _publish_main_progress(
     state: str,
     error_kind: str = "",
 ) -> None:
-    cache.set(
-        MAIN_PROGRESS_KEY,
-        {
-            "at": time.time(),
-            "sentinel": start_sentinel,
-            "kind": "main_progress",
-            "state": state,
-            "owner": owner,
-            "pid": os.getpid(),
-            "cycle": max(0, int(cycle)),
-            "error_kind": str(error_kind or "")[:80],
-        },
-        HB_ALIVE_WINDOW * 3,
-    )
+    payload = {
+        "at": time.time(),
+        "sentinel": start_sentinel,
+        "kind": "main_progress",
+        "state": state,
+        "owner": owner,
+        "pid": os.getpid(),
+        "cycle": max(0, int(cycle)),
+        "error_kind": str(error_kind or "")[:80],
+    }
+    if operation_pulse_enabled():
+        snapshot = _INFLIGHT.snapshot()
+        # `at` остаётся границей цикла (прежний контракт наблюдаемости), а
+        # `progress_at` добавляется рядом: надзор смотрит на самое свежее
+        # доказательство хода, не теряя различия между ними.
+        payload["progress_at"] = snapshot["progress_at"]
+        payload["last_completed_cycle_at"] = snapshot["last_completed_cycle_at"]
+        payload["inflight_operation"] = snapshot["inflight_operation"]
+    cache.set(MAIN_PROGRESS_KEY, payload, HB_ALIVE_WINDOW * 3)
 
 
 # Маркери деплою. Демон стежить за НАЙНОВІШИМ з них.
@@ -672,8 +849,218 @@ def _daemon_runtime_hooks(stop_event: threading.Event):
             signal.signal(signum, handler)
 
 
-def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
-    """Run durable operational work, then reply work only when enabled."""
+# =============================================================================
+# ЭА.15 — изоляция клиентской полосы от обслуживающих задач цикла
+# =============================================================================
+#
+# Что было не так. В одном цикле последовательно выполнялись drain уведомлений
+# менеджеру, обновление профилей и только ЗАТЕМ обработка входящих. То есть ответ
+# клиенту стоял в очереди за обслуживающими задачами, и время его начала зависело
+# от их объёма: медленный Telegram или большой батч профилей прямо увеличивали
+# задержку живого ответа. Ни одна из этих задач не имеет отношения к тому
+# сообщению, которое клиент ждёт прямо сейчас.
+#
+# Честная граница. Полная сервисная декомпозиция — вариант C раздела 10 источника,
+# и источник прямо советует НЕ брать его как первый шаг. Поэтому здесь сделан
+# минимум: клиентская полоса не ждёт обслуживающих задач.
+#
+# Почему НЕ отдельный поток на уведомления. Соблазн очевиден, но `IgBotNotification`
+# уже пишет фоновый `_ai_reply_recovery_worker`. Вынос drain-а в свой поток создал
+# бы второго писателя одной строки — то есть заменил бы задержку ответа на гонку
+# доставки уведомлений. Поэтому обслуживающие полосы остаются на том же потоке,
+# что и цикл, но ПОСЛЕ клиентской полосы и с собственным бюджетом. Требование
+# «своя частота либо свой поток» выполняется через свой интервал и свой бюджет.
+CUSTOMER_LANE = "customer_inbound"
+SERVICE_LANE_NOTIFICATIONS = "manager_notifications"
+SERVICE_LANE_PROFILES = "profile_refresh"
+SERVICE_LANE_RECLAIM_GUARD = "reclaim_lease_guard"
+
+# Бюджет одной обслуживающей полосы на цикл. Величины разные, потому что цена
+# перерасхода разная: уведомления — сетевой I/O с внешним лимитом, профили —
+# батч к Meta, guard — один запрос по индексу.
+SERVICE_LANE_BUDGET_SECONDS = {
+    SERVICE_LANE_NOTIFICATIONS: 10.0,
+    SERVICE_LANE_PROFILES: 15.0,
+    SERVICE_LANE_RECLAIM_GUARD: 5.0,
+}
+# Перерасход бюджета не прерывает уже начатый вызов (прервать чужой сетевой вызов
+# извне нельзя), но снимает у полосы право на следующие циклы. Так одна полоса не
+# может занимать цикл подряд: она получает не больше одного цикла из четырёх.
+SERVICE_LANE_DEFER_CYCLES = 3
+# Guard над reclaim-ом — наблюдение, а не горячий путь: раз в минуту достаточно.
+RECLAIM_GUARD_EVERY_SECONDS = 60.0
+
+
+class _ServiceLaneScheduler:
+    """Свой интервал, свой бюджет и своя телеметрия у каждой полосы.
+
+    Состояние живёт в процессе демона, как и сам цикл. `reset()` существует для
+    тестов: без него порядок выполнения тестов влиял бы на решения планировщика.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._cycle = 0
+        self._deferred_until: dict[str, int] = {}
+        self._last_ran_at: dict[str, float] = {}
+        self._last_duration_ms: dict[str, int] = {}
+
+    def reset(self) -> None:
+        with self._lock:
+            self._cycle = 0
+            self._deferred_until.clear()
+            self._last_ran_at.clear()
+            self._last_duration_ms.clear()
+
+    def begin_cycle(self) -> int:
+        with self._lock:
+            self._cycle += 1
+            return self._cycle
+
+    def timings(self) -> dict:
+        """Замер ЭА.15: сколько времени занимает каждая полоса. Без клиентских данных."""
+        with self._lock:
+            return {
+                "lane_ms": dict(self._last_duration_ms),
+                "lane_deferred": sorted(
+                    name
+                    for name, until in self._deferred_until.items()
+                    if until > self._cycle
+                ),
+            }
+
+    def may_run(self, name: str, min_interval_seconds: float = 0.0) -> bool:
+        with self._lock:
+            if self._deferred_until.get(name, 0) > self._cycle:
+                return False
+            if min_interval_seconds > 0:
+                last = self._last_ran_at.get(name)
+                if last is not None and (time.monotonic() - last) < min_interval_seconds:
+                    return False
+            return True
+
+    def record(self, name: str, duration_seconds: float, budget_seconds: float) -> bool:
+        """Вернуть True, если полоса вышла за бюджет и должна быть отложена."""
+        with self._lock:
+            self._last_ran_at[name] = time.monotonic()
+            self._last_duration_ms[name] = int(max(0.0, duration_seconds) * 1000)
+            if duration_seconds > budget_seconds:
+                self._deferred_until[name] = self._cycle + SERVICE_LANE_DEFER_CYCLES
+                return True
+            self._deferred_until.pop(name, None)
+            return False
+
+
+_SERVICE_LANES = _ServiceLaneScheduler()
+
+
+def reset_service_lanes() -> None:
+    """Точка сброса планировщика полос для тестов."""
+    _SERVICE_LANES.reset()
+
+
+def service_lane_timings() -> dict:
+    """Наблюдаемость ЭА.15: длительности полос последнего цикла."""
+    return _SERVICE_LANES.timings()
+
+
+def _run_service_lane(
+    name: str,
+    work,
+    *,
+    error_event: str,
+    error_level: str = "error",
+    min_interval_seconds: float = 0.0,
+) -> bool:
+    """Выполнить обслуживающую полосу под собственным pulse и собственным бюджетом.
+
+    Возвращает True, если полоса действительно выполнялась. Исключение полосы
+    никогда не выходит наружу: доступность обслуживающей задачи не имеет права
+    становиться глобальным выключателем ответов клиенту.
+    """
+    budget = float(SERVICE_LANE_BUDGET_SECONDS.get(name, 10.0))
+    if not _SERVICE_LANES.may_run(name, min_interval_seconds):
+        return False
+    started = time.monotonic()
+    try:
+        with operation_pulse(name, lease_seconds=budget * 4):
+            work()
+    except Exception as exc:
+        bot.log(error_level, error_event, repr(exc))
+    finally:
+        duration = time.monotonic() - started
+        if _SERVICE_LANES.record(name, duration, budget):
+            try:
+                bot.log(
+                    "warning",
+                    "service_lane_overrun",
+                    f"lane={name} spent={duration:.1f}s budget={budget:.1f}s "
+                    f"deferred_cycles={SERVICE_LANE_DEFER_CYCLES}",
+                )
+            except Exception:
+                pass
+    return True
+
+
+def _reclaim_lease_guard() -> None:
+    """Guardrail ЭА.14: строки, которые абсолютный порог отобрал бы у живого владельца.
+
+    Первичный отбор в `instagram_bot.reclaim_stale_processing()` идёт по
+    абсолютному возрасту `processing_started_at`, а операционный lease там —
+    только вторичный предохранитель (`client_automation_busy`). Пока первичный
+    ключ не переведён на lease, важно хотя бы ВИДЕТЬ расхождение: строка старше
+    конфигурационного порога, но её операционный lease ещё не истёк. Каждая такая
+    строка — кандидат на отбор у живого владельца, а значит на неопределённую
+    доставку клиенту.
+    """
+    from django.conf import settings as django_settings
+
+    from management.models import InstagramBotMessage
+    from management.services.ig_task_health import (
+        operational_reclaim_age_seconds,
+        processing_lease_expired,
+    )
+
+    try:
+        absolute_threshold = int(
+            getattr(django_settings, "IG_BOT_STALE_PROCESSING_SECONDS", 300)
+        )
+    except (TypeError, ValueError):
+        absolute_threshold = 300
+    now = timezone.now()
+    absolute_cutoff = now - timedelta(seconds=max(1, absolute_threshold))
+    lease_age = operational_reclaim_age_seconds()
+    candidates = list(
+        InstagramBotMessage.objects.filter(
+            role=InstagramBotMessage.Role.USER,
+            status=InstagramBotMessage.Status.PROCESSING,
+            processing_started_at__lt=absolute_cutoff,
+        )
+        .select_related("client")
+        .order_by("processing_started_at")[:50]
+    )
+    protected = 0
+    for row in candidates:
+        client = row.client if row.client_id else None
+        renewed_at = getattr(client, "automation_lease_until", None)
+        if not processing_lease_expired(
+            claimed_at=row.processing_started_at,
+            progress_at=renewed_at,
+            now=now,
+            lease_seconds=lease_age,
+        ):
+            protected += 1
+    if protected:
+        bot.log(
+            "warning",
+            "reclaim_lease_conflict",
+            f"rows={protected} absolute_threshold={absolute_threshold}s "
+            f"operational_lease={lease_age}s",
+        )
+
+
+def _run_legacy_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
+    """Порядок цикла до ЭА.15 — сохранён целиком для отката по флагу."""
     enabled = bool(settings_obj.is_enabled)
     interval = max(2, settings_obj.poll_interval_seconds or 3)
     try:
@@ -720,6 +1107,190 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
             bot_followups.process_due_followups(settings_obj)
         last_poll = now
     return enabled, last_poll
+
+
+def _service_task_isolation_enabled() -> bool:
+    """ЭА.15 «Откат»: флаг на новый порядок цикла."""
+    try:
+        from management.services.ig_provider_incidents import flag
+
+        return flag("IG_BOT_SERVICE_TASK_ISOLATION", True)
+    except Exception:
+        return True
+
+
+def _customer_lane(settings_obj, last_poll: float) -> tuple[bool, float, bool]:
+    """Клиентская полоса: приём входящих и ответ. Ничего обслуживающего внутри.
+
+    Третий элемент результата — признак «цикл прерван по maintenance»: тогда
+    обслуживающие полосы запускать нельзя, иначе граница обслуживания не была бы
+    границей.
+    """
+    enabled = bool(settings_obj.is_enabled)
+    interval = max(2, settings_obj.poll_interval_seconds or 3)
+    with operation_pulse(CUSTOMER_LANE) as pulse:
+        if enabled:
+            bot.process_pending(settings_obj)
+            pulse.beat()
+            if maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                return enabled, last_poll, True
+            bot_followups.process_due_followups(settings_obj)
+            pulse.beat()
+        now = time.time()
+        if settings_obj.receive_via_poll and (now - last_poll) >= interval:
+            poll_result = bot.poll_ingest(settings_obj)
+            pulse.beat()
+            if isinstance(poll_result, dict) and settings_obj.pk:
+                poll_ok = bool(poll_result.get("ok")) and not bool(
+                    poll_result.get("degraded") or poll_result.get("refresh_pending")
+                )
+                if poll_ok:
+                    settings_obj.last_poll_at = timezone.now()
+                    if settings_obj.last_error.startswith("polling:"):
+                        settings_obj.last_error = ""
+                else:
+                    reason = (
+                        poll_result.get("error")
+                        or poll_result.get("reason")
+                        or "provider_unavailable"
+                    )
+                    settings_obj.last_error = f"polling:{reason}"[:2000]
+                settings_obj.save(
+                    update_fields=["last_poll_at", "last_error", "updated_at"]
+                )
+            if enabled:
+                bot.process_pending(settings_obj)
+                pulse.beat()
+                if maintenance_status(path=MAINTENANCE_FILE)["active"]:
+                    return enabled, last_poll, True
+                bot_followups.process_due_followups(settings_obj)
+                pulse.beat()
+            last_poll = now
+    return enabled, last_poll, False
+
+
+def _run_service_lanes(settings_obj) -> None:
+    """Обслуживающие полосы — ПОСЛЕ клиентской, каждая со своим pulse и бюджетом."""
+    _run_service_lane(
+        SERVICE_LANE_NOTIFICATIONS,
+        lambda: bot.drain_manager_notifications(limit=10),
+        error_event="notification_outbox",
+    )
+    profile_key = f"ig_profile_batch:{bot._provider_owner_id(settings_obj)}"
+    if cache.add(profile_key, "1", timeout=bot.PROFILE_REFRESH_INTERVAL):
+        _run_service_lane(
+            SERVICE_LANE_PROFILES,
+            lambda: bot.refresh_profiles_batch(settings_obj),
+            error_event="profile_refresh_batch",
+            error_level="warning",
+        )
+    _run_service_lane(
+        SERVICE_LANE_RECLAIM_GUARD,
+        _reclaim_lease_guard,
+        error_event="reclaim_lease_guard",
+        error_level="warning",
+        min_interval_seconds=RECLAIM_GUARD_EVERY_SECONDS,
+    )
+
+
+def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
+    """Один рабочий цикл. Порядок полос задан ЯВНО, и вот почему именно такой.
+
+    1. КЛИЕНТСКАЯ полоса — первая. Это единственная задача, у которой есть
+       внешний наблюдатель, ждущий прямо сейчас. Всё, что стоит перед ней,
+       превращается в задержку живого ответа; ни уведомление менеджеру, ни
+       обновление профилей не становятся от ожидания хуже, а ответ клиенту —
+       становится.
+    2. ОБСЛУЖИВАЮЩИЕ полосы — после, каждая со своим pulse и своим бюджетом на
+       цикл. Свой pulse обязателен: без него ЭА.14 видел бы прогресс уведомлений
+       и считал, что двигается клиентская обработка. Свой бюджет обязателен:
+       иначе одна медленная полоса снова заняла бы цикл целиком и вернула бы
+       задержку ответа через заднюю дверь.
+    3. maintenance проверяется ВНУТРИ клиентской полосы и прерывает цикл до
+       обслуживающих полос: иначе граница обслуживания не была бы границей.
+
+    Порядок до ЭА.15 сохранён в `_run_legacy_work_cycle` и включается флагом.
+    """
+    if not _service_task_isolation_enabled():
+        return _run_legacy_work_cycle(settings_obj, last_poll)
+    _SERVICE_LANES.begin_cycle()
+    enabled, last_poll, interrupted = _customer_lane(settings_obj, last_poll)
+    if interrupted:
+        return enabled, last_poll
+    _run_service_lanes(settings_obj)
+    return enabled, last_poll
+
+
+def daemon_supervision_verdict(
+    *,
+    lock_held: bool | None = None,
+    child_exit_code: int | None = None,
+    child_exit_signal: int | None = None,
+):
+    """Свести наблюдения этого хоста к одному из четырёх состояний ЭА.14.
+
+    Наблюдения собираются здесь (кэш + файл-lock), а решение принимает чистая
+    функция в `ig_task_health`. Разделение сделано ради теста: гонку «живой
+    процесс vs watchdog» иначе пришлось бы воспроизводить, поднимая демон.
+    """
+    from management.services.ig_task_health import classify_daemon_supervision
+
+    if lock_held is None:
+        lock_held = _process_lock_held(DAEMON_LOCK_FILE)
+    try:
+        pulse = cache.get(PROCESS_PULSE_KEY)
+    except Exception:
+        pulse = None
+    try:
+        progress = cache.get(MAIN_PROGRESS_KEY)
+    except Exception:
+        progress = None
+    return classify_daemon_supervision(
+        pulse=pulse if isinstance(pulse, dict) else None,
+        progress=progress if isinstance(progress, dict) else None,
+        lock_held=bool(lock_held),
+        child_exit_code=child_exit_code,
+        child_exit_signal=child_exit_signal,
+        alive_window_seconds=HB_ALIVE_WINDOW,
+    )
+
+
+def observe_daemon_supervision(
+    *,
+    lock_held: bool | None = None,
+    child_exit_code: int | None = None,
+    child_exit_signal: int | None = None,
+):
+    """Действие watchdog зависит от состояния, а не от одного признака живости.
+
+    Ключевое различие ЭА.14 и есть здесь: `process_alive_and_progressing` →
+    НИЧЕГО; `process_alive_but_no_progress` → эскалация без перезапуска
+    (перезапуск не лечит зависание, зато делает доставку клиенту неопределённой);
+    `lock_stale_no_owner` и `child_exited` → поднять демона.
+
+    Возвращает verdict или None, если флаг этапа выключен (тогда watchdog ведёт
+    себя как до этапа — один булев признак `_daemon_alive()`).
+    """
+    from management.services.ig_task_health import (
+        DAEMON_ACTION_ESCALATE,
+        daemon_supervision_enabled,
+        escalate_daemon_supervision,
+    )
+
+    if not daemon_supervision_enabled():
+        return None
+    verdict = daemon_supervision_verdict(
+        lock_held=lock_held,
+        child_exit_code=child_exit_code,
+        child_exit_signal=child_exit_signal,
+    )
+    if verdict.action == DAEMON_ACTION_ESCALATE:
+        try:
+            bot.log("error", "daemon_no_progress", verdict.as_log_suffix())
+        except Exception:
+            pass
+        escalate_daemon_supervision(verdict)
+    return verdict
 
 
 class Command(BaseCommand):
@@ -875,11 +1446,20 @@ class Command(BaseCommand):
             # never race the supervisor for child ownership.
             if _supervisor_active():
                 if _daemon_code_current() and _daemon_alive():
+                    # ЭА.14: свежий пульс доказывает живость, но не движение.
+                    # Если прогресса нет дольше порога — эскалация, а НЕ замена
+                    # владельца: перезапуск не лечит зависание, зато превращает
+                    # уже сделанный вызов Meta в неизвестный результат доставки.
+                    observe_daemon_supervision(lock_held=True)
                     self.stdout.write("daemon alive under supervisor — ok")
                     return
                 if _wait_for_daemon_ready(timeout=DAEMON_START_WAIT_SECONDS):
                     self.stdout.write("daemon ready under supervisor — ok")
                     return
+                # Guardrail: «start pending» не имеет права длиться вечно молча.
+                # Ребёнок supervisor-а может быть жив и при этом не двигаться —
+                # это состояние обязано быть видно человеку.
+                observe_daemon_supervision()
                 self.stdout.write("supervisor active — daemon start pending")
                 return
             if _process_lock_held(DAEMON_LOCK_FILE):
@@ -888,6 +1468,10 @@ class Command(BaseCommand):
                 # let the bounded reload path recover it instead of reporting
                 # a false healthy daemon to cron.
                 if _daemon_code_current() and _daemon_alive():
+                    # Тот же контракт для fallback-пути: прогресс есть — ничего
+                    # не делаем, прогресса нет — эскалируем, но не подменяем
+                    # живого владельца singleton-lock.
+                    observe_daemon_supervision(lock_held=True)
                     _clear_starting_child()
                     self.stdout.write("daemon alive — ok")
                     return
@@ -990,12 +1574,19 @@ class Command(BaseCommand):
         if maintenance_status(path=MAINTENANCE_FILE)["active"]:
             self.stdout.write("maintenance active — daemon exit")
             return
-        # This process starts only after the previous daemon released the
-        # singleton lock. Reconcile once with the newly deployed code before
-        # any notification, analysis, payment, or reply work can run.
-        _reconcile_commercial_episodes_after_reload()
         owner = f"{os.getpid()}:{time.time_ns()}"
         start_sentinel = _restart_sentinel_mtime()
+        stop_event = threading.Event()
+        # ЭА.14. Порядок здесь — исправление, а не косметика. Раньше первым шагом
+        # был `_reconcile_commercial_episodes_after_reload()`, и лишь ПОСЛЕ его
+        # возврата процесс публиковал пульс и писал pid-файл. Всё это время
+        # процесс уже держал singleton-lock, но не был наблюдаем: `_daemon_alive()`
+        # ложен (пульса нет), `_daemon_code_current()` ложен (mtime pid-файла
+        # старше маркера деплоя). Ровно эта комбинация ведёт watchdog в ветку
+        # замены владельца — то есть окно старта выглядело зависшим демоном.
+        # Реконсиляция релизного окна ограничена тремя проходами и на живой базе
+        # занимает секунды, но её длительность не наша: она зависит от объёма
+        # данных, поэтому наблюдаемость обязана начинаться ДО неё.
         _publish_process_pulse(
             owner=owner,
             start_sentinel=start_sentinel,
@@ -1013,6 +1604,27 @@ class Command(BaseCommand):
                 f.write(str(os.getpid()))
         except Exception:
             pass
+        # Пульс живости стартует раньше любой работы: пока идёт реконсиляция,
+        # процесс уже обязан доказывать, что он жив. Поток остановится в `finally`
+        # ниже даже если реконсиляция бросит исключение.
+        progress_pulse = threading.Thread(
+            name="ig-process-pulse",
+            target=_progress_pulse,
+            args=(stop_event, owner, start_sentinel),
+            daemon=True,
+        )
+        progress_pulse.start()
+        try:
+            # This process starts only after the previous daemon released the
+            # singleton lock. Reconcile once with the newly deployed code before
+            # any notification, analysis, payment, or reply work can run.
+            with operation_pulse("release_reconcile") as reconcile_pulse:
+                _reconcile_commercial_episodes_after_reload()
+                reconcile_pulse.beat()
+        except BaseException:
+            stop_event.set()
+            progress_pulse.join(timeout=1)
+            raise
         _clear_starting_child(expected_pid=os.getpid())
         bot.log("success", "daemon_start", f"Демон онлайн (pid {os.getpid()}).")
 
@@ -1020,7 +1632,8 @@ class Command(BaseCommand):
         # Якщо файл змінився — демон штатно виходить, watchdog (--ensure) підніме
         # процес із НОВИМ кодом. Без цього --forever крутив би старий код у пам'яті.
         # Фоновий потік для важкого /conversations (поза гарячим циклом).
-        stop_event = threading.Event()
+        # `stop_event` і потік пульсу вже створені вище: наглядність мусить
+        # починатись до реконсиляції релізного вікна, а не після неї.
         refresher = threading.Thread(
             name="ig-conversation-refresh",
             target=_conv_refresher,
@@ -1073,14 +1686,7 @@ class Command(BaseCommand):
         # Process pulse remains fresh during a long provider call, proving only
         # process liveness. MAIN_PROGRESS_KEY is advanced by the main loop and
         # independently exposes a stuck cycle instead of triggering a duplicate
-        # daemon over a valid OS singleton.
-        progress_pulse = threading.Thread(
-            name="ig-process-pulse",
-            target=_progress_pulse,
-            args=(stop_event, owner, start_sentinel),
-            daemon=True,
-        )
-        progress_pulse.start()
+        # daemon over a valid OS singleton. Потік уже запущено до реконсиляції.
 
         from django.utils import timezone as tz
 
@@ -1123,6 +1729,11 @@ class Command(BaseCommand):
                             task_expectations_registered = ensure_task_expectations()
                         s = InstagramBotSettings.load()
                         enabled, last_poll = _run_work_cycle(s, last_poll)
+                        # Завершённый цикл — самое сильное доказательство хода;
+                        # только оно двигает `last_completed_cycle_at`. Фоновый
+                        # пульс этого сделать не вправе, иначе свежий пульс снова
+                        # маскировал бы зависший цикл (ЭА.14).
+                        _INFLIGHT.note_completed_cycle()
                         if time.monotonic() - last_task_health_check >= TASK_HEALTH_CHECK_EVERY:
                             check_task_health()
                             last_task_health_check = time.monotonic()

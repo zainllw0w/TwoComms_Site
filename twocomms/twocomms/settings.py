@@ -270,6 +270,13 @@ IG_CUSTOMER_TURNS = _env_bool('IG_CUSTOMER_TURNS', True)
 # ход (прежнее поведение), но записи ходов продолжают вестись.
 IG_TURN_DEBOUNCE = _env_bool('IG_TURN_DEBOUNCE', True)
 
+# ЭА.14 / ЭА.15 — надзор за демоном: четыре состояния вместо одного,
+# операционный lease вместо абсолютного времени, изоляция клиентской полосы.
+# Откат: при выключении надзор работает как до этапа (один булев признак живости).
+IG_DAEMON_SUPERVISION_STATES = _env_bool('IG_DAEMON_SUPERVISION_STATES', True)
+IG_BOT_OPERATIONAL_RECLAIM_LEASE = _env_bool('IG_BOT_OPERATIONAL_RECLAIM_LEASE', True)
+IG_BOT_SERVICE_TASK_ISOLATION = _env_bool('IG_BOT_SERVICE_TASK_ISOLATION', True)
+
 # W1-10 (NEW-502): лимиты на загрузку файлов — защита shared-хостинга от
 # произвольно больших аплоадов (аватар/УБД-док и другие формы).
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
