@@ -1846,3 +1846,15 @@ NOVA_POSHTA_UPDATE_INTERVAL = _env_int('NOVA_POSHTA_UPDATE_INTERVAL', 5)
 # Legacy compatibility only. Tracking batches are owned exclusively by the
 # guarded management-command cron and must never run from an HTTP request.
 NOVA_POSHTA_FALLBACK_ENABLED = False
+
+# Э1.х — прогон візуальних форматів на власному акаунті.
+# Список свідомо вузький: команда `ig_visual_walkthrough` надсилає РЕАЛЬНЕ
+# повідомлення в Instagram, тому дозволені лише власні акаунти. Порожній список
+# означає, що прогон вимкнений повністю.
+IG_VISUAL_WALKTHROUGH_ALLOWLIST = tuple(
+    name.strip().lstrip('@')
+    for name in os.environ.get(
+        'IG_VISUAL_WALKTHROUGH_ALLOWLIST', 'zainllw0w,zinllw0w'
+    ).split(',')
+    if name.strip()
+)
