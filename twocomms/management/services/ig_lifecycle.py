@@ -48,6 +48,27 @@ LIFECYCLE_MESSAGE_KEY_PREFIX = "ig-lifecycle:"
 STALE_ASSIGNMENT_ERROR = "order assignment no longer belongs to lifecycle client"
 PAYMENT_NOT_VERIFIED_ERROR = "payment_not_verified"
 STANDARD_RESPONSE_WINDOW_CLOSED = "standard_response_window_closed"
+ORDER_MISSING_ERROR = "order_missing"
+PARCEL_ALREADY_RECEIVED_ERROR = "parcel_already_received"
+TRACKING_NUMBER_CHANGED_ERROR = "tracking_number_changed"
+CARRIER_DELIVERY_NOT_CONFIRMED_ERROR = "carrier delivery not confirmed"
+CUSTOMER_SEND_NOT_ALLOWED_ERROR = "customer_send_not_allowed"
+PROVIDER_MESSAGE_ID_MISSING_ERROR = "provider_message_id_missing"
+PROVIDER_IO_STARTED_PREFIX = "provider_io_started:"
+LEASE_EXPIRED_AFTER_PROVIDER_IO_ERROR = (
+    "processing lease expired after provider I/O started; "
+    "delivery outcome requires manager review"
+)
+PROVIDER_MARKER_BEFORE_LEASE_ERROR = (
+    "provider I/O marker exists before a new lease"
+)
+LEASE_WITHOUT_EXPIRY_ERROR = (
+    "processing lease has no expiry; delivery outcome requires manager review"
+)
+LEGACY_LEASE_MARKER_ERROR = (
+    "legacy processing lease lacks the current claim marker; "
+    "delivery outcome requires manager review"
+)
 LIFECYCLE_PROJECTION_STAGE = {
     IgLifecycleEvent.Kind.PAYMENT_VERIFIED: 1,
     IgLifecycleEvent.Kind.TTN_CREATED: 2,
@@ -66,8 +87,8 @@ PROVIDER_BOUNDARY_CLAIM_MARKER = "provider_boundary_v1"
 RECOVERABLE_CANCELLATION_REASONS = frozenset({
     PAYMENT_NOT_VERIFIED_ERROR,
     STALE_ASSIGNMENT_ERROR,
-    "tracking_number_changed",
-    "carrier delivery not confirmed",
+    TRACKING_NUMBER_CHANGED_ERROR,
+    CARRIER_DELIVERY_NOT_CONFIRMED_ERROR,
 })
 TRANSIENT_PERMISSION_REASONS = {
     "client_paused",
@@ -76,6 +97,28 @@ TRANSIENT_PERMISSION_REASONS = {
     "permission_epoch_changed",
     "permission_transition_pending",
 }
+# Э0.3: единственный реестр ФИКСИРОВАННЫХ строк `last_error`, которые пишет этот
+# модуль. Воронка терминальных причин (`ig_lifecycle_reasons`) обязана дать тип
+# каждой из них, и тест сравнивает реестр с картой кодов — поэтому новую строку
+# нельзя завести, не дав ей типа. Строки, склеенные из `kind`/`hint` провайдера,
+# реестром сознательно НЕ покрываются: у них префиксные правила, а незнакомый
+# `kind` попадает в явный бакет `unknown`, а не исчезает из знаменателя.
+LAST_ERROR_REASONS = frozenset({
+    PAYMENT_NOT_VERIFIED_ERROR,
+    STALE_ASSIGNMENT_ERROR,
+    STANDARD_RESPONSE_WINDOW_CLOSED,
+    ORDER_MISSING_ERROR,
+    PARCEL_ALREADY_RECEIVED_ERROR,
+    TRACKING_NUMBER_CHANGED_ERROR,
+    CARRIER_DELIVERY_NOT_CONFIRMED_ERROR,
+    CUSTOMER_SEND_NOT_ALLOWED_ERROR,
+    PROVIDER_MESSAGE_ID_MISSING_ERROR,
+    LEASE_EXPIRED_AFTER_PROVIDER_IO_ERROR,
+    PROVIDER_MARKER_BEFORE_LEASE_ERROR,
+    LEASE_WITHOUT_EXPIRY_ERROR,
+    LEGACY_LEASE_MARKER_ERROR,
+    *TRANSIENT_PERMISSION_REASONS,
+})
 
 
 def _locale(value: str | None) -> str:
@@ -1111,27 +1154,27 @@ def _business_truth_cancellation_reason(
     ):
         return PAYMENT_NOT_VERIFIED_ERROR
     if order is None:
-        return "order_missing"
+        return ORDER_MISSING_ERROR
     if kind == IgLifecycleEvent.Kind.PARCEL_ARRIVED:
         # Гонка між оновленням трекінгу і відправкою: якщо клієнт уже забрав,
         # нагадування скасовується БЕЗ звернення до провайдера.
         if nova_poshta_order_fulfillment_confirmed(order):
-            return "parcel_already_received"
+            return PARCEL_ALREADY_RECEIVED_ERROR
         if str(order.tracking_number or "").strip() != str(
             payload.get("tracking_number") or ""
         ).strip():
-            return "tracking_number_changed"
+            return TRACKING_NUMBER_CHANGED_ERROR
     if (
         kind == IgLifecycleEvent.Kind.DELIVERED_REVIEW_REQUESTED
         and not nova_poshta_order_fulfillment_confirmed(order)
     ):
-        return "carrier delivery not confirmed"
+        return CARRIER_DELIVERY_NOT_CONFIRMED_ERROR
     if (
         kind == IgLifecycleEvent.Kind.TTN_CREATED
         and str(order.tracking_number or "").strip()
         != str(payload.get("tracking_number") or "").strip()
     ):
-        return "tracking_number_changed"
+        return TRACKING_NUMBER_CHANGED_ERROR
     if not assignment_matches:
         return STALE_ASSIGNMENT_ERROR
     return ""
@@ -1685,10 +1728,9 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             event.lease_token = ""
             event.lease_expires_at = None
             event.last_error = (
-                "processing lease expired after provider I/O started; "
-                "delivery outcome requires manager review"
+                LEASE_EXPIRED_AFTER_PROVIDER_IO_ERROR
                 if was_processing
-                else "provider I/O marker exists before a new lease"
+                else PROVIDER_MARKER_BEFORE_LEASE_ERROR
             )
             event.due_at = now
             event.save(
@@ -1707,9 +1749,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
             if event.lease_expires_at is None:
                 event.state = IgLifecycleEvent.State.AMBIGUOUS
                 event.lease_token = ""
-                event.last_error = (
-                    "processing lease has no expiry; delivery outcome requires manager review"
-                )
+                event.last_error = LEASE_WITHOUT_EXPIRY_ERROR
                 event.due_at = now
                 event.save(
                     update_fields=[
@@ -1725,10 +1765,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                 event.state = IgLifecycleEvent.State.AMBIGUOUS
                 event.lease_token = ""
                 event.lease_expires_at = None
-                event.last_error = (
-                    "legacy processing lease lacks the current claim marker; "
-                    "delivery outcome requires manager review"
-                )
+                event.last_error = LEGACY_LEASE_MARKER_ERROR
                 event.due_at = now
                 event.save(
                     update_fields=[
@@ -1791,7 +1828,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
         if _lifecycle_message_has_provider_io(lifecycle_message):
             return _mark_event_ambiguous(
                 event_id,
-                "provider I/O marker exists before a new lease",
+                PROVIDER_MARKER_BEFORE_LEASE_ERROR,
                 lease=lease,
             )
         cancellation_reason = _preflight_cancellation_reason(event)
@@ -1827,7 +1864,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                     )
                 return _cancel_event(
                     event_id,
-                    permission.reason or "customer_send_not_allowed",
+                    permission.reason or CUSTOMER_SEND_NOT_ALLOWED_ERROR,
                     lease=lease,
                 )
 
@@ -1839,7 +1876,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                     owned.state = IgLifecycleEvent.State.MANAGER_REVIEW
                     owned.lease_token = ""
                     owned.lease_expires_at = None
-                    owned.last_error = "standard_response_window_closed"
+                    owned.last_error = STANDARD_RESPONSE_WINDOW_CLOSED
                     owned.due_at = now
                     owned.save(update_fields=["state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at"])
                 _project_order_channel(owned)
@@ -1958,7 +1995,7 @@ def dispatch_lifecycle_event(event_id: int) -> str:
     if receipt_incomplete:
         ok = False
         kind = "unknown"
-        hint = "provider_message_id_missing"
+        hint = PROVIDER_MESSAGE_ID_MISSING_ERROR
     needs_manager_review = (not ok and kind in {"unknown", "transient", "permanent"})
     permission_review_required = False
     with transaction.atomic():
@@ -1979,11 +2016,13 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                 owned.last_error = ""
             elif ok:
                 owned.state = IgLifecycleEvent.State.AMBIGUOUS
-                owned.last_error = "provider_message_id_missing"
+                owned.last_error = PROVIDER_MESSAGE_ID_MISSING_ERROR
                 owned.due_at = timezone.now() + timedelta(hours=6)
             elif provider_io_started:
                 owned.state = IgLifecycleEvent.State.AMBIGUOUS
-                owned.last_error = f"provider_io_started:{kind}:{hint}"[:1000]
+                owned.last_error = (
+                    f"{PROVIDER_IO_STARTED_PREFIX}{kind}:{hint}"[:1000]
+                )
                 owned.due_at = timezone.now() + timedelta(hours=6)
             elif transient_permission_reason:
                 permission_review_required = _apply_permission_deferral(
