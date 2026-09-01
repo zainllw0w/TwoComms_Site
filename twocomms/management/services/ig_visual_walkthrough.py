@@ -157,12 +157,18 @@ def _price_text(product, lang: str) -> str:
     pricing = getattr(product, "pricing", None)
     if pricing is None:
         return ""
+    unit = {"uk": "грн", "ru": "грн", "en": "UAH"}[lang]
     display = str(getattr(pricing, "display", "") or "").strip()
     if display:
+        # `display` у каталозі — це «1090», без валюти: у сітці сайту одиниця
+        # намальована окремо. У subtitle карточки такої підказки немає, і бачити
+        # «1090» без «грн» клієнту доводиться домислювати. Додаємо одиницю лише
+        # коли її справді немає, щоб не отримати «1090 грн грн».
+        if not any(ch.isalpha() for ch in display) and "₴" not in display:
+            return f"{display} {unit}"
         return display
     minimum = getattr(pricing, "minimum", None)
     maximum = getattr(pricing, "maximum", None)
-    unit = {"uk": "грн", "ru": "грн", "en": "UAH"}[lang]
     if minimum and maximum and minimum != maximum and not getattr(pricing, "exact", False):
         return f"{minimum}–{maximum} {unit}"
     amount = minimum or maximum
