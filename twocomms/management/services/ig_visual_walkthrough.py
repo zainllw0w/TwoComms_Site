@@ -147,11 +147,26 @@ def _product_url(product) -> str:
 
 
 def _price_text(product, lang: str) -> str:
+    """Ціна для subtitle карточки з `PriceSnapshot`.
+
+    Поля саме такі: `display` (готовий рядок), інакше `minimum`/`maximum` і
+    прапорець `exact`. Порожній subtitle — теж валідний результат: карточка без
+    ціни краща за карточку з вигаданою ціною, а `10` §6 вимагає перепроверять
+    price перед кожним `Обрати` в реальному потоці.
+    """
     pricing = getattr(product, "pricing", None)
-    amount = getattr(pricing, "current_price", None) or getattr(pricing, "price", None)
-    if not amount:
+    if pricing is None:
         return ""
-    return {"uk": f"{amount} грн", "ru": f"{amount} грн", "en": f"{amount} UAH"}[lang]
+    display = str(getattr(pricing, "display", "") or "").strip()
+    if display:
+        return display
+    minimum = getattr(pricing, "minimum", None)
+    maximum = getattr(pricing, "maximum", None)
+    unit = {"uk": "грн", "ru": "грн", "en": "UAH"}[lang]
+    if minimum and maximum and minimum != maximum and not getattr(pricing, "exact", False):
+        return f"{minimum}–{maximum} {unit}"
+    amount = minimum or maximum
+    return f"{amount} {unit}" if amount else ""
 
 
 def build_step(step: str, *, client, lang: str = "uk") -> StepPlan:
