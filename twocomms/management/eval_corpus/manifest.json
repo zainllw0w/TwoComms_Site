@@ -1,0 +1,29 @@
+{
+  "corpus_version": "0.1.0",
+  "authored_by": "human",
+  "pins": {
+    "gemini_model": "gemini-2.0-flash-exp",
+    "system_prompt_digest": "placeholder",
+    "structured_output_contract_digest": "placeholder"
+  },
+  "determinism": {
+    "random_seed_policy": "fixed_per_scenario",
+    "timestamp_policy": "frozen",
+    "note": "Кожен сценарій виконується з однаковим насінням і замороженим timezone.now()"
+  },
+  "scenarios": {
+    "ref001_simple_reply.json": "f49e5d0038adfe3be420ef6847f7c787e7d42a2da8655e6797085f005f40599f"
+  },
+  "integrity": "e3539267271623ae974d60b35a77b8e848c1d62624783e285babf3d1496d2977",
+  "history": [
+    {
+      "version": "0.1.0",
+      "integrity": "e3539267271623ae974d60b35a77b8e848c1d62624783e285babf3d1496d2977",
+      "note": "Початкова версія корпусу: структура, формат, NetworkGuard, харнес, один референсний сценарій"
+    }
+  ],
+  "rubric_baseline": {
+    "note": "Рубрика формулювання — окрема доля прохождення, з записаною базовою лінією, яка може поліпшуватись без ламання сценарію",
+    "scenarios": {}
+  }
+}

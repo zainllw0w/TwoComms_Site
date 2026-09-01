@@ -1,0 +1,66 @@
+{
+  "id": "ref001_simple_reply",
+  "cohort": "ordinary_sale",
+  "title": "Простий діалог без коммерції — лише текстова відповідь",
+  "why": "Перевіряє базовий шлях: клієнт написав, модель відповіла, жодного durаble-ефекту не було. Референсний сценарій для перевірки формату корпуса і NetworkGuard.",
+  "authored_by": "human",
+  "authored_at": "2026-09-01",
+  "hard_safety": false,
+  "pre_state": {
+    "stage": "new",
+    "language": "uk"
+  },
+  "admissible": {
+    "evidence": ["none"],
+    "tools": ["gemini_generate", "send_text"]
+  },
+  "inbound": [
+    {
+      "text": "Привіт!",
+      "role": "user"
+    }
+  ],
+  "provider": {
+    "kind": "structured",
+    "payload": {
+      "reply_text": "Привіт! Чим можу допомогти?",
+      "controls": []
+    }
+  },
+  "expect": {
+    "action_classes": ["reply.text"],
+    "forbidden_actions": [
+      "reply.duplicate",
+      "reply.media",
+      "handoff.manager",
+      "state.stage_change",
+      "state.spam_mark",
+      "commerce.proposal_created",
+      "commerce.proposal_second",
+      "commerce.paylink_issued",
+      "commerce.price_quoted",
+      "commerce.order_created",
+      "catalog.products_shown",
+      "catalog.link_sent",
+      "followup.scheduled",
+      "objection.recorded",
+      "postback.dispatched",
+      "degradation.hold",
+      "net.external_call"
+    ],
+    "final_state": {
+      "stage": "new"
+    }
+  },
+  "rubric": {
+    "tone": "friendly",
+    "brevity": "concise",
+    "forbidden_phrases": []
+  },
+  "budget": {
+    "max_provider_calls": 1,
+    "max_customer_messages": 1,
+    "max_seconds": 5.0,
+    "max_queries": 100
+  }
+}
