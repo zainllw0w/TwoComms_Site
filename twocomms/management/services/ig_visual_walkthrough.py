@@ -308,7 +308,7 @@ def _build_size_quick_replies(*, client, lang: str) -> StepPlan:
             note="каталог не віддав compatible_sizes — вигаданої сітки не показуємо",
         )
 
-    order = {"XS": 0, "S": 1, "M": 2, "L": 3, "XL": 4, "2XL": 5, "XXL": 5}
+    order = {"XS": 0, "S": 1, "M": 2, "L": 3, "XL": 4, "XXL": 5, "XXXL": 6}
     sizes.sort(key=lambda value: order.get(value, 99))
 
     if len(sizes) == 1:
@@ -337,8 +337,8 @@ def _build_size_quick_replies(*, client, lang: str) -> StepPlan:
         )
 
     key_map = {
-        "XS": "size_xs", "S": "size_s", "M": "size_m",
-        "L": "size_l", "XL": "size_xl", "2XL": "size_2xl", "XXL": "size_2xl",
+        "XS": "size_xs", "S": "size_s", "M": "size_m", "L": "size_l",
+        "XL": "size_xl", "XXL": "size_xxl", "XXXL": "size_xxxl",
     }
     quick = [
         tpl.QuickReply(

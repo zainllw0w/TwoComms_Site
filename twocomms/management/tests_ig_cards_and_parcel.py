@@ -615,19 +615,28 @@ class ButtonLabelDictionaryTests(TestCase):
                 self.assertNotIn(key, templates.BUTTON_LABELS)
 
     def test_size_grid_covers_the_real_classic_range(self):
-        """Класика доходить до шести значень: XS…2XL."""
-        for key in ("size_xs", "size_s", "size_m", "size_l", "size_xl", "size_2xl"):
+        """Сітка доходить до семи значень: XS…XXXL — у нотації каталогу.
+
+        Нотація саме XXL/XXXL, а не 2XL/3XL. Це не косметика: клієнт бачить
+        розміри на сайті у нотації каталогу, тому вона й лишається джерелом
+        істини. Розходження було видно на production як змішаний набір кнопок
+        «XL / 2XL / XXXL» — половина сітки в одній нотації, половина в іншій.
+        """
+        for key in (
+            "size_xs", "size_s", "size_m", "size_l",
+            "size_xl", "size_xxl", "size_xxxl",
+        ):
             with self.subTest(key=key):
                 self.assertIn(key, templates.BUTTON_LABELS)
 
-    def test_six_sizes_fit_quick_replies_but_not_card_buttons(self):
+    def test_size_grid_fits_quick_replies_but_not_card_buttons(self):
         """Саме тому розміри — quick replies, а не кнопки карточки.
 
-        Кнопок на елемент максимум три, quick replies — до тринадцяти. Шість
+        Кнопок на елемент максимум три, quick replies — до тринадцяти. Сім
         розмірів фізично не влазять у карточку, і це не питання смаку.
         """
         sizes = [k for k in templates.BUTTON_LABELS if k.startswith("size_") and k != "size_help"]
-        self.assertEqual(len(sizes), 6)
+        self.assertEqual(len(sizes), 7)
         self.assertGreater(len(sizes), templates.MAX_BUTTONS_PER_ELEMENT)
         self.assertLessEqual(len(sizes), templates.MAX_QUICK_REPLIES)
 
