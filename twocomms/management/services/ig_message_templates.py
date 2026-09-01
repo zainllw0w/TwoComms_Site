@@ -40,6 +40,141 @@ MAX_QUICK_REPLY_TITLE_CHARS = 20
 MAX_TEXT_BYTES = 1000
 MAX_BUTTON_TEMPLATE_TEXT_CHARS = 640
 
+# Фіксований словник підписів кнопок з гарантованою довжиною ≤20 символів.
+# Автоматичні підписи беруться ТІЛЬКИ звідси; це запобігає випадковому
+# перевищенню ліміту через зміну фразування в промпті чи налаштуваннях
+# (NEW-TMPL-002: обрізка з'їдала номер відділення — найважливіше поле).
+BUTTON_LABELS = {
+    # Контекстні: підтвердження отримання посилки (після доставки)
+    "parcel_received": {
+        "uk": "Отримав посилку",
+        "ru": "Получил посылку",
+        "en": "Package received",
+    },
+    "parcel_not_received": {
+        "uk": "Ще не отримав",
+        "ru": "Ещё не получил",
+        "en": "Not yet",
+    },
+    
+    # Контекстні: вибір розміру (під час вибору товару)
+    "size_s": {"uk": "S", "ru": "S", "en": "S"},
+    "size_m": {"uk": "M", "ru": "M", "en": "M"},
+    "size_l": {"uk": "L", "ru": "L", "en": "L"},
+    "size_xl": {"uk": "XL", "ru": "XL", "en": "XL"},
+    "size_xxl": {"uk": "XXL", "ru": "XXL", "en": "XXL"},
+    
+    # Контекстні: вибір кольору (під час вибору товару)
+    "color_black": {"uk": "Чорне", "ru": "Чёрное", "en": "Black"},
+    "color_white": {"uk": "Біле", "ru": "Белое", "en": "White"},
+    
+    # Контекстні: каталог (старт розмови або після запитання)
+    "catalog_view": {
+        "uk": "Переглянути каталог",
+        "ru": "Посмотреть каталог",
+        "en": "View catalog",
+    },
+    
+    # Контекстні: підтвердження замовлення (під час оформлення)
+    "order_confirm": {
+        "uk": "Підтвердити заказ",
+        "ru": "Подтвердить заказ",
+        "en": "Confirm order",
+    },
+    
+    # Універсальні: так/ні (рідко, тільки для критичних питань)
+    "yes": {"uk": "Так", "ru": "Да", "en": "Yes"},
+    "no": {"uk": "Ні", "ru": "Нет", "en": "No"},
+    
+    # Контекстні: відстеження посилки (після відправлення)
+    "track_parcel": {
+        "uk": "Де моя посилка?",
+        "ru": "Где моя посылка?",
+        "en": "Track my parcel",
+    },
+}
+
+def button_label(key: str, lang: str = "uk") -> str:
+    """Отримати підпис кнопки з багатомовного словника.
+    
+    Args:
+        key: Ключ кнопки (наприклад, "parcel_received")
+        lang: Мова ("uk", "ru", "en"), за замовчуванням "uk"
+    
+    Returns:
+        Підпис кнопки або порожній рядок
+    
+    Примітка:
+        Кнопки показуються КОНТЕКСТНО, не всі завжди:
+        - Розміри/кольори — під час вибору товару
+        - Підтвердження посилки — після доставки
+        - Каталог — старт або після запитання
+        - Замовлення — під час оформлення
+    """
+    labels = BUTTON_LABELS.get(str(key or "").strip(), {})
+    if isinstance(labels, dict):
+        return labels.get(lang, labels.get("uk", ""))
+    return ""
+
+
+MAX_DISPLAY_SHORT_CHARS = 40
+# Нижче цієї межі назва перестає бути описовою: «Vortex» не каже, худі це чи
+# футболка, і карточка з таким заголовком гірша за довшу.
+MIN_DESCRIPTIVE_CHARS = 12
+
+
+def display_short(full_name: str, manual: str = "") -> str:
+    """Коротке ім'я товару для карточки — без вигляду обрубка.
+
+    Автообрізка по ліміту давала «Худі Vortex Tactical Editi…»: клієнт читає це
+    як баг інтерфейсу, а не як скорочення. Тому три правила по спаданню
+    надійності, і еліпсис — останній засіб, а не перший.
+
+    1. Задане вручну коротке ім'я, якщо воно влазить. Людина знає бренд краще за
+       правило.
+    2. Кома як **семантична** межа. У назвах виду «Худі Premium, оверсайз,
+       чорне» після коми починаються атрибути, а не назва, тому ліва частина —
+       це і є ім'я товару. Дефіс такою межею НЕ вважається: у «Vortex -
+       Tactical Edition Оверсайз» ліва частина втрачає тип товару, і карточка з
+       заголовком «Vortex» стає неоднозначною.
+    3. Обрізка по межі слова **без** еліпсиса. «Худі Vortex Tactical Edition
+       Оверсайз» читається як повне ім'я, а «Худі Vortex Tactical Editi…» — як
+       поломка.
+
+    Еліпсис лишається тільки для випадку, коли навіть перше слово довше за
+    ліміт: там будь-який варіант поганий, і краще явно показати, що текст
+    урізаний.
+    """
+    manual_clean = _clean(manual)
+    if manual_clean and len(manual_clean) <= MAX_DISPLAY_SHORT_CHARS:
+        return manual_clean
+
+    full_clean = _clean(full_name)
+    if len(full_clean) <= MAX_DISPLAY_SHORT_CHARS:
+        return full_clean
+
+    # Правило 2: кома відділяє атрибути від імені.
+    if ", " in full_clean:
+        head = full_clean.split(", ", 1)[0].strip()
+        if MIN_DESCRIPTIVE_CHARS <= len(head) <= MAX_DISPLAY_SHORT_CHARS:
+            return head
+
+    # Правило 3: стільки перших слів, скільки влазить, без еліпсиса.
+    words = full_clean.split(" ")
+    kept: list = []
+    for word in words:
+        candidate = " ".join(kept + [word])
+        if len(candidate) > MAX_DISPLAY_SHORT_CHARS:
+            break
+        kept.append(word)
+    trimmed = " ".join(kept)
+    if len(trimmed) >= MIN_DESCRIPTIVE_CHARS:
+        return trimmed
+
+    # Останній засіб: одне слово довше за ліміт.
+    return _truncate(full_clean, MAX_DISPLAY_SHORT_CHARS)
+
+
 BUTTON_POSTBACK = "postback"
 BUTTON_WEB_URL = "web_url"
 

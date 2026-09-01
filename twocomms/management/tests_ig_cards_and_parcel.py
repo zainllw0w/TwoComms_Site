@@ -543,3 +543,132 @@ class ParcelReminderTests(TestCase):
                 assignment_matches=True,
             )
         self.assertEqual(reason, "parcel_already_received")
+"""Э1.3 — фіксований словарь підписів з перевіркою довжини."""
+from django.test import TestCase
+
+from management.services import ig_message_templates as templates
+
+
+
+
+class ButtonLabelDictionaryTests(TestCase):
+    """Э1.3 — багатомовний контекстний словник підписів."""
+
+    def test_every_label_fits_the_meta_limit_in_all_languages(self):
+        """Кожна підпис ≤20 символів у всіх мовах."""
+        for key, langs in templates.BUTTON_LABELS.items():
+            if isinstance(langs, dict):
+                for lang, label in langs.items():
+                    with self.subTest(key=key, lang=lang):
+                        self.assertLessEqual(
+                            len(label), 20,
+                            f"{key}[{lang}] = {label!r} ({len(label)} > 20)"
+                        )
+
+    def test_all_labels_have_uk_fallback(self):
+        """Кожна кнопка має українську версію (fallback)."""
+        for key, langs in templates.BUTTON_LABELS.items():
+            with self.subTest(key=key):
+                self.assertIn("uk", langs, f"{key} має мати 'uk' версію")
+
+    def test_button_label_returns_requested_language(self):
+        """button_label повертає правильну мову."""
+        self.assertEqual(templates.button_label("parcel_received", "uk"), "Отримав посилку")
+        self.assertEqual(templates.button_label("parcel_received", "ru"), "Получил посылку")
+        self.assertEqual(templates.button_label("parcel_received", "en"), "Package received")
+
+    def test_button_label_falls_back_to_uk_for_missing_language(self):
+        """Якщо мови немає, fallback на uk."""
+        result = templates.button_label("yes", "fr")  # французької немає
+        self.assertEqual(result, "Так")  # uk fallback
+
+    def test_button_label_unknown_key_returns_empty(self):
+        """Невідомий ключ повертає порожній рядок."""
+        self.assertEqual(templates.button_label("nonexistent_key", "uk"), "")
+
+    def test_eliminated_buttons_are_not_in_dictionary(self):
+        """Видалені кнопки (manager_contact, repeat_order) відсутні."""
+        eliminated = ["manager_contact", "manager_call", "repeat_order", "cancel"]
+        for key in eliminated:
+            with self.subTest(key=key):
+                self.assertNotIn(key, templates.BUTTON_LABELS,
+                    f"{key} має бути видалена — це шум без користі")
+
+    def test_contextual_buttons_are_present(self):
+        """Контекстні кнопки (посилка, каталог, замовлення) є."""
+        required = [
+            "parcel_received", "parcel_not_received",
+            "catalog_view", "order_confirm", "track_parcel",
+            "size_s", "color_black", "yes", "no"
+        ]
+        for key in required:
+            with self.subTest(key=key):
+                self.assertIn(key, templates.BUTTON_LABELS)
+
+
+class DisplayShortTests(TestCase):
+    """Э1.3 — коротке ім'я товару замість обрубка з еліпсисом."""
+
+    def test_manual_short_name_takes_precedence(self):
+        result = templates.display_short(
+            "Худі Vortex Tactical Edition Оверсайз Чорне Бавовна",
+            manual="Худі Vortex",
+        )
+        self.assertEqual(result, "Худі Vortex")
+
+    def test_name_within_the_limit_stays_intact(self):
+        short = "Футболка Minimal"
+        self.assertEqual(templates.display_short(short), short)
+
+    def test_exactly_at_the_limit_is_not_shortened(self):
+        name = "V" * templates.MAX_DISPLAY_SHORT_CHARS
+        self.assertEqual(templates.display_short(name), name)
+
+    def test_comma_separates_attributes_from_the_name(self):
+        """«Худі Premium, оверсайз, чорне» → «Худі Premium»: після коми атрибути."""
+        result = templates.display_short(
+            "Худі Premium, оверсайз, чорне, натуральна бавовна"
+        )
+        self.assertEqual(result, "Худі Premium")
+
+    def test_dash_is_not_treated_as_a_boundary(self):
+        """«Vortex - …» НЕ стає «Vortex»: заголовок втратив би тип товару.
+
+        Це свідоме рішення про смак, а не спрощення: карточка з заголовком
+        «Vortex» не каже, худі це чи футболка, і клієнту вона гірша за довшу
+        назву.
+        """
+        result = templates.display_short(
+            "Vortex - Tactical Edition Оверсайз Чорне Бавовна Преміум"
+        )
+        self.assertNotEqual(result, "Vortex")
+        self.assertTrue(result.startswith("Vortex - "), result)
+        self.assertLessEqual(len(result), templates.MAX_DISPLAY_SHORT_CHARS)
+
+    def test_long_name_is_trimmed_on_a_word_boundary_without_an_ellipsis(self):
+        """Обрубок з «…» читається як баг інтерфейсу, тому його тут немає."""
+        result = templates.display_short(
+            "Худі Vortex Tactical Edition Оверсайз Чорне Натуральна Бавовна"
+        )
+        self.assertLessEqual(len(result), templates.MAX_DISPLAY_SHORT_CHARS)
+        self.assertNotIn("…", result)
+        self.assertEqual(result, "Худі Vortex Tactical Edition Оверсайз")
+
+    def test_ellipsis_is_the_last_resort_for_one_very_long_word(self):
+        """Одне слово довше за ліміт — тут будь-який варіант поганий."""
+        result = templates.display_short("Х" * 60)
+        self.assertLessEqual(len(result), templates.MAX_DISPLAY_SHORT_CHARS)
+        self.assertTrue(result.endswith("…"))
+
+    def test_result_leaves_room_for_a_branch_address_in_the_subtitle(self):
+        """Практична межа: коротке ім'я плюс відділення влазить у subtitle."""
+        short = templates.display_short(
+            "Худі Vortex Tactical Edition Оверсайз Чорне Натуральна Бавовна"
+        )
+        subtitle = f"{short}, Відділення №123"
+        self.assertLessEqual(len(subtitle), templates.MAX_SUBTITLE_CHARS)
+
+    def test_whitespace_is_normalised_before_measuring(self):
+        self.assertEqual(
+            templates.display_short("  Худі   Vortex  "), "Худі Vortex"
+        )
