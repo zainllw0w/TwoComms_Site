@@ -263,24 +263,89 @@ def _build_product_carousel(*, client, lang: str) -> StepPlan:
 
 
 def _build_size_quick_replies(*, client, lang: str) -> StepPlan:
-    """Розміри — quick replies, і тільки наявні (`10` §6 «Размеры»)."""
+    """Розміри — quick replies, і ТІЛЬКИ ті, що справді доступні (`10` §6).
+
+    Джерело розмірів — `PriceSnapshot.configurations[*].compatible_sizes`, а не
+    `variants`: варіант у цьому графі — це колір, у нього немає розміру. Помилка
+    була б тиха і найгіршого роду: кнопки все одно показались би, просто набір
+    став би вигаданим, і клієнт обрав би розмір, якого немає.
+
+    Якщо доступний рівно один розмір, кнопок немає взагалі: це факт, а не вибір.
+    """
     products = _catalog_products(limit=1)
-    sizes = []
+    sizes: list = []
+    source = "compatible_sizes"
     if products:
-        for variant in getattr(products[0], "variants", ()) or ():
-            size = str(getattr(variant, "size", "") or "").strip().upper()
-            if size and size not in sizes:
-                sizes.append(size)
+        pricing = getattr(products[0], "pricing", None)
+        for configuration in getattr(pricing, "configurations", ()) or ():
+            for size in getattr(configuration, "compatible_sizes", ()) or ():
+                value = str(size or "").strip().upper()
+                if value and value not in sizes:
+                    sizes.append(value)
     if not sizes:
-        sizes = ["S", "M", "L", "XL"]
+        # Порожній набір — це не привід вигадати сітку. Показуємо текст і кажемо
+        # прямо, що наявність треба уточнити.
+        text = {
+            "uk": "Уточню наявні розміри й повернуся — у каталозі їх зараз не видно.",
+            "ru": "Уточню доступные размеры и вернусь — в каталоге их сейчас не видно.",
+            "en": "Let me check which sizes are in stock and come back to you.",
+        }[lang]
+        return StepPlan(
+            step="size_quick_replies",
+            lang=lang,
+            kind="text",
+            payload=tpl.ButtonTemplate(
+                text=text,
+                buttons=(
+                    tpl.TemplateButton(
+                        tpl.BUTTON_POSTBACK,
+                        _label("size_help", lang),
+                        payload=_wt_payload("size", "help"),
+                    ),
+                ),
+                fallback_text=text,
+            ),
+            note="каталог не віддав compatible_sizes — вигаданої сітки не показуємо",
+        )
+
+    order = {"XS": 0, "S": 1, "M": 2, "L": 3, "XL": 4, "2XL": 5, "XXL": 5}
+    sizes.sort(key=lambda value: order.get(value, 99))
+
+    if len(sizes) == 1:
+        only = sizes[0]
+        text = {
+            "uk": f"Зараз є тільки розмір {only}.",
+            "ru": f"Сейчас есть только размер {only}.",
+            "en": f"Only size {only} is in stock right now.",
+        }[lang]
+        return StepPlan(
+            step="size_quick_replies",
+            lang=lang,
+            kind="text",
+            payload=tpl.ButtonTemplate(
+                text=text,
+                buttons=(
+                    tpl.TemplateButton(
+                        tpl.BUTTON_POSTBACK,
+                        _label("product_select", lang),
+                        payload=_wt_payload("size", only),
+                    ),
+                ),
+                fallback_text=text,
+            ),
+            note="один доступний розмір — це факт, а не вибір, тому набору кнопок немає",
+        )
+
     key_map = {
         "XS": "size_xs", "S": "size_s", "M": "size_m",
         "L": "size_l", "XL": "size_xl", "2XL": "size_2xl", "XXL": "size_2xl",
     }
-    quick = []
-    for size in sizes[: tpl.MAX_QUICK_REPLIES]:
-        label = _label(key_map.get(size, ""), lang) or size
-        quick.append(tpl.QuickReply(label, _wt_payload("size", size)))
+    quick = [
+        tpl.QuickReply(
+            _label(key_map.get(size, ""), lang) or size, _wt_payload("size", size)
+        )
+        for size in sizes[: tpl.MAX_QUICK_REPLIES]
+    ]
     text = {
         "uk": "Який розмір? Показую тільки ті, що є в наявності.",
         "ru": "Какой размер? Показываю только те, что есть в наличии.",
@@ -295,8 +360,11 @@ def _build_size_quick_replies(*, client, lang: str) -> StepPlan:
             fallback_text=text,
             quick_replies=tuple(quick),
         ),
-        note=f"наявних розмірів {len(sizes)}; кнопок на карточці максимум "
-             f"{tpl.MAX_BUTTONS_PER_ELEMENT}, тому це quick replies",
+        note=(
+            f"джерело: {source}; доступних розмірів {len(sizes)} "
+            f"({', '.join(sizes)}); кнопок на карточці максимум "
+            f"{tpl.MAX_BUTTONS_PER_ELEMENT}, тому це quick replies"
+        ),
     )
 
 
