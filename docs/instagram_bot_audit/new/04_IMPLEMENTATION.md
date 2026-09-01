@@ -730,29 +730,52 @@ audit         не-PII данные для аудита
 
 **Шаги:**
 
-- [ ] Спроектировать **чистую** функцию (без I/O) с входом и выходом выше
-- [ ] `policy_basis` — обязательное поле. Без него нельзя доказать, почему
-      отправка была разрешена
-- [ ] **Правило по умолчанию:** при неизвестной или непроверенной capability
-      возвращать `block` или `defer`, **никогда** `allow`
-- [ ] Покрыть тестами **без** обращения к провайдеру: только политика
-- [ ] Перевести существующие проверки на неё, начиная с одного потока
-      (рекомендуется lifecycle)
-- [ ] Убедиться, что `allow` **не означает отправку**: durable task, финальная
-      revalidation и receipt-first остаются отдельно
-- [ ] Задокументировать коды причин: они попадут в метрики и алерты
-- [ ] Внедрять за флагом в выключенном состоянии; включение — отдельный шаг с
-      фиксацией метрики
+- [x] Спроектировать **чистую** функцию (без I/O) с входом и выходом выше
+      → `ig_outgoing_policy.decide_outgoing`: нет ORM, нет кеша, нет сети, нет
+      `timezone.now()`. Все параметры приходят аргументом; два отдельных теста
+      проверяют отсутствие сетевых импортов и ORM импортов
+- [x] `policy_basis` — обязательное поле. Без него нельзя доказать, почему
+      отправка была разрешена. `OutgoingDecision.__post_init__` проверяет:
+      `allow` требует `policy_basis` из `POLICY_BASES`, любой другой исход
+      требует пустой `policy_basis`
+- [x] **Правило по умолчанию:** при неизвестной или непроверенной capability
+      возвращать `block` или `defer`, **никогда** `allow`. Проверки контракта
+      (версия, app type, event kind, purpose, marketing) идут первыми; тесты
+      покрывают каждую. Непризнанная permission_reason → `block`
+- [x] Покрыть тестами **без** обращения к провайдеру: только политика.
+      `management.tests_ig_outgoing_policy.OutgoingPolicyTests(SimpleTestCase)`
+      с `databases = set()`: любой ORM запрос упадёт. 54 теста, все проходят
+- [x] Перевести существующие проверки на неё, начиная с одного потока
+      (рекомендуется lifecycle). `ig_lifecycle`: хелперы
+      `_lifecycle_outgoing_request`, `_legacy_lifecycle_verdict`,
+      `_apply_lifecycle_policy_decision` + вызов `ig_outgoing_gate.evaluate`
+      внутри permission_boundary в `dispatch_lifecycle_event`
+- [x] Убедиться, что `allow` **не означает отправку**: durable task, финальная
+      revalidation и receipt-first остаются отдельно. В lifecycle: `allow`
+      означает `return None` из `_apply_`, значит поток продолжает к durable
+      claim + финальной revalidation + `send_text`, без изменений
+- [x] Задокументировать коды причин: они попадут в метрики и алерты.
+      `REASON_CODES`: 44 кода, (decision, описание). Импортируется
+      `ig_outgoing_gate.outgoing_policy_telemetry()`, читается тестом
+- [x] Внедрять за флагом в выключенном состоянии; включение — отдельный шаг с
+      фиксацией метрики. `twocomms/settings.py`: `IG_OUTGOING_POLICY_MODE` по
+      умолчанию `'off'`; `ig_outgoing_gate.configured_mode()` читает;
+      `ig_lifecycle.dispatch_lifecycle_event` проверяет `policy_enabled()`
+      перед вычислением; `ig_outgoing_gate.evaluate` возвращает `(None, False)`
+      при `off`
 
 **Готово когда:** один поток использует функцию; тесты политики проходят без
 провайдера; `allow` не отправляет сам; для непроверенной capability нет ни одной
 отправки клиенту.
 
 **Метрика:** распределение исходов по `reason_code` и по `policy_basis`.
+Доступна как `ig_outgoing_gate.outgoing_policy_telemetry()`, опубликована в
+`instagram_bot.bot_status()` → `"outgoing_policy"`.
 
 **Откат:** feature-флаг на переключение старой/новой проверки в одном потоке.
 
-- [ ] **Коммит + push + деплой**
+- [x] **Коммит + push** — 2026-09-01, lifecycle поток использует политику в
+      режиме `off`; deploy требует вмешательства пользователя, оставлен открытым
 
 ## Э0.5 — Корпус оценки: действия, а не только текст
 

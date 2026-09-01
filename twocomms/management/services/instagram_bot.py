@@ -15255,6 +15255,7 @@ def status_snapshot() -> dict:
         permission_transition_snapshot,
     )
     from management.services.ig_reply_boundary import reply_barrier_telemetry
+    from management.services.ig_outgoing_gate import outgoing_policy_telemetry
 
     s = InstagramBotSettings.load()
     maintenance = maintenance_status()
@@ -15465,4 +15466,5 @@ def status_snapshot() -> dict:
         "reply_text": s.reply_text,
         "poll_interval_seconds": s.poll_interval_seconds,
         "reply_barrier": reply_barrier_telemetry(),
+        "outgoing_policy": outgoing_policy_telemetry(),
     }

@@ -957,6 +957,155 @@ def _defer_event_for_permission(event_id: int, reason: str, *, lease: str) -> st
     return state
 
 
+def _escalate_event_to_manager_review(
+    event: IgLifecycleEvent,
+    event_id: int,
+    *,
+    reason: str,
+    lease: str,
+    now,
+) -> str:
+    """Отдать событие человеку, не потратив бюджет доставки.
+
+    Вынесено из `dispatch_lifecycle_event`, потому что теперь этот же исход
+    возвращает объект решения Э0.4 (`escalate`), и две копии кода разошлись бы
+    в первом же изменении.
+    """
+    with transaction.atomic():
+        owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
+        if owned.lease_token != lease:
+            return owned.state
+        owned.state = IgLifecycleEvent.State.MANAGER_REVIEW
+        owned.lease_token = ""
+        owned.lease_expires_at = None
+        owned.last_error = reason
+        owned.due_at = now
+        owned.save(
+            update_fields=[
+                "state",
+                "lease_token",
+                "lease_expires_at",
+                "last_error",
+                "due_at",
+                "updated_at",
+            ]
+        )
+    _project_order_channel(owned)
+    _queue_manager_task(event)
+    _notify_lifecycle_window_review(event)
+    return IgLifecycleEvent.State.MANAGER_REVIEW
+
+
+def _legacy_lifecycle_verdict(event: IgLifecycleEvent, permission, *, now) -> str:
+    """Исход старых проверок в словаре Э0.4 — только чтобы считать расхождение.
+
+    Порядок повторяет порядок ветвей ниже; дополнительных запросов не делает.
+    """
+    from management.services.ig_outgoing_policy import ALLOW, BLOCK, DEFER, ESCALATE
+
+    if not permission:
+        reason = str(getattr(permission, "reason", "") or "")
+        return DEFER if reason in TRANSIENT_PERMISSION_REASONS else BLOCK
+    if not _response_window_open(event.client, now):
+        return ESCALATE
+    return ALLOW
+
+
+def _lifecycle_outgoing_request(event: IgLifecycleEvent, permission, *, settings):
+    """Собрать вход политики из уже прочитанных строк.
+
+    Никаких новых запросов: `event.client` уже select_related, а транспорт
+    читается из настроек. `quiet_hours` не передаём сознательно — таймзоны
+    клиента в модели нет, а выдумывать её значило бы задержать транзакционное
+    подтверждение по несуществующим данным. Жалобу и открытую заявку тоже пока
+    не передаём: их владелец — Э6, и регистрировать вход, которого нет, значило
+    бы соврать в audit.
+    """
+    from management.services.ig_outgoing_policy import (
+        CaseRiskState,
+        FrequencyState,
+        OutgoingRequest,
+        VERIFIED_CONTRACT_VERSION,
+        EVENT_KIND_PURPOSE,
+    )
+    from management.services.instagram_bot import provider_transport
+
+    kind = str(getattr(event.kind, "value", event.kind) or "")
+    event_kind = f"lifecycle.{kind}"
+    return OutgoingRequest(
+        platform_contract_version=VERIFIED_CONTRACT_VERSION,
+        event_kind=event_kind,
+        message_purpose=EVENT_KIND_PURPOSE.get(event_kind, ""),
+        channel_app_type=provider_transport(settings),
+        latest_user_provider_ts=getattr(event.client, "meta_window_anchor", None),
+        frequency_state=FrequencyState(),
+        case_risk_state=CaseRiskState(
+            permission_reason=str(getattr(permission, "reason", "") or ""),
+        ),
+    )
+
+
+def _apply_lifecycle_policy_decision(
+    event: IgLifecycleEvent,
+    event_id: int,
+    decision,
+    permission,
+    *,
+    lease: str,
+    now,
+) -> str | None:
+    """Исполнить решение политики. `None` означает «продолжай».
+
+    `allow` НЕ отправляет: он лишь пропускает поток дальше, к финальной
+    revalidation, durable claim и receipt-first, которые остаются на месте.
+
+    Durable `last_error` сознательно остаётся в реестре `LAST_ERROR_REASONS`:
+    точный `reason_code` политики уходит в метрику и лог, а не в новое
+    нетипизированное состояние. Исход, для которого у этого потока пока нет
+    durable-представления (тихие часы, frequency, жалоба), не исполняется —
+    поток возвращается к старой проверке с предупреждением, а не изобретает
+    состояние.
+    """
+    from management.services.ig_outgoing_policy import ALLOW, BLOCK, DEFER, ESCALATE
+
+    if decision.decision == ALLOW:
+        return None
+    if decision.decision == BLOCK:
+        permission_reason = str(getattr(permission, "reason", "") or "")
+        return _cancel_event(
+            event_id,
+            permission_reason or CUSTOMER_SEND_NOT_ALLOWED_ERROR,
+            lease=lease,
+        )
+    if decision.decision == DEFER:
+        if decision.reason_code in TRANSIENT_PERMISSION_REASONS:
+            return _defer_event_for_permission(
+                event_id,
+                decision.reason_code,
+                lease=lease,
+            )
+        logger.warning(
+            "lifecycle has no durable form for policy defer %s; falling back",
+            decision.reason_code,
+        )
+        return None
+    if decision.decision == ESCALATE:
+        if decision.reason_code == "outside_standard_window":
+            return _escalate_event_to_manager_review(
+                event,
+                event_id,
+                reason=STANDARD_RESPONSE_WINDOW_CLOSED,
+                lease=lease,
+                now=now,
+            )
+        logger.warning(
+            "lifecycle has no durable form for policy escalate %s; falling back",
+            decision.reason_code,
+        )
+        return None
+    return None
+
+
 def _transient_permission_reason(kind: str, hint: str, failure_boundary: str) -> str:
     """Normalize only definite pre-provider permission denials into retryable control state."""
     if kind != "cancelled":
@@ -1855,6 +2004,37 @@ def dispatch_lifecycle_event(event_id: int) -> str:
 
         settings = InstagramBotSettings.load()
         with reply_execution_boundary(settings.pk, event.client_id) as permission:
+            # Э0.4: единый объект решения. При выключенном флаге здесь не
+            # выполняется ни одного лишнего запроса и ни одной записи, а
+            # решают ветви ниже — они же остаются финальной revalidation даже
+            # когда решает политика.
+            from management.services.ig_outgoing_gate import (
+                evaluate as _policy_evaluate,
+                policy_enabled as _policy_enabled,
+            )
+
+            policy_decision = None
+            policy_decides = False
+            if _policy_enabled():
+                policy_decision, policy_decides = _policy_evaluate(
+                    _lifecycle_outgoing_request(event, permission, settings=settings),
+                    now=now,
+                    legacy_decision=_legacy_lifecycle_verdict(
+                        event, permission, now=now
+                    ),
+                )
+            if policy_decides and policy_decision is not None:
+                policy_state = _apply_lifecycle_policy_decision(
+                    event,
+                    event_id,
+                    policy_decision,
+                    permission,
+                    lease=lease,
+                    now=now,
+                )
+                if policy_state is not None:
+                    return policy_state
+
             if not permission:
                 if permission.reason in TRANSIENT_PERMISSION_REASONS:
                     return _defer_event_for_permission(
@@ -1869,40 +2049,13 @@ def dispatch_lifecycle_event(event_id: int) -> str:
                 )
 
             if not _response_window_open(event.client, now):
-                with transaction.atomic():
-                    owned = IgLifecycleEvent.objects.select_for_update().get(pk=event_id)
-                    if owned.lease_token != lease:
-                        return owned.state
-                    owned.state = IgLifecycleEvent.State.MANAGER_REVIEW
-                    owned.lease_token = ""
-                    owned.lease_expires_at = None
-                    owned.last_error = STANDARD_RESPONSE_WINDOW_CLOSED
-                    owned.due_at = now
-                    owned.save(update_fields=["state", "lease_token", "lease_expires_at", "last_error", "due_at", "updated_at"])
-                _project_order_channel(owned)
-                _queue_manager_task(event)
-                try:
-                    from management.services.ig_alerts import format_operator_alert
-                    from management.services.instagram_bot import notify_manager
-
-                    notify_manager(
-                        format_operator_alert(
-                            "⚠️ IG: lifecycle-подія потребує відповіді менеджера",
-                            event_type="ig_lifecycle_window_review",
-                            client_id=event.client_id,
-                            deal_id=event.deal_id,
-                            proposal_id=event.proposal_id,
-                            lifecycle_event_id=event.pk,
-                            status="response_window_closed",
-                            instruction_code="ig_lifecycle_window_review",
-                        ),
-                        dedupe_key=f"ig-lifecycle:window:{event.event_key}",
-                        event_type="ig_lifecycle_window_review",
-                        client=event.client,
-                    )
-                except Exception:
-                    logger.exception("Unable to create manager review for lifecycle event %s", event_id)
-                return IgLifecycleEvent.State.MANAGER_REVIEW
+                return _escalate_event_to_manager_review(
+                    event,
+                    event_id,
+                    reason=STANDARD_RESPONSE_WINDOW_CLOSED,
+                    lease=lease,
+                    now=now,
+                )
 
             cancellation_reason = _preflight_cancellation_reason(event)
             if cancellation_reason:

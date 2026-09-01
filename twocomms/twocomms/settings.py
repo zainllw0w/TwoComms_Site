@@ -167,6 +167,18 @@ IG_TYPED_MEMORY_MODE = os.environ.get(
 ).strip().casefold()
 if IG_TYPED_MEMORY_MODE not in {'off', 'shadow_compare'}:
     IG_TYPED_MEMORY_MODE = 'off'
+
+# Э0.4: единый объект решения об исходящем сообщении. `off` не вычисляет
+# политику вообще, поэтому поведение потоков не меняется; `shadow` считает
+# метрику по reason_code/policy_basis, но решает по-прежнему старая проверка;
+# `enforce` отдаёт решение политике. Включение — отдельный шаг с фиксацией
+# метрики, поэтому дефолт environment-backed и выключен.
+IG_OUTGOING_POLICY_MODE = os.environ.get(
+    'IG_OUTGOING_POLICY_MODE',
+    'off',
+).strip().casefold()
+if IG_OUTGOING_POLICY_MODE not in {'off', 'shadow', 'enforce'}:
+    IG_OUTGOING_POLICY_MODE = 'off'
 IG_TYPED_MEMORY_HMAC_KEYRING = _env_json('IG_TYPED_MEMORY_HMAC_KEYRING', {})
 IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID = os.environ.get(
     'IG_TYPED_MEMORY_HMAC_ACTIVE_KEY_ID',
