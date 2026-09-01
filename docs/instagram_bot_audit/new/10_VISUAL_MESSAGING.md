@@ -130,14 +130,59 @@ CustomerTurn
 | 4–13 sizes | Quick replies + size-grid link | size / grid | current stock/SizeGrid | полный текстовый список |
 | >13 / нужны замеры | Size-grid card | `Допоможіть обрати` | fit-specific SizeGrid | verified measurements text |
 | Exact configuration ready | Order summary card | `Продовжити`, `Змінити` | checkout readiness | authoritative text digest |
-| Proposal + invoice valid | Payment card | `Оплатити онлайн`, `Змінити`, `Допомога` | proposal/generation | text + real paylink |
+| Proposal + invoice valid | Payment card | `Сплатити онлайн`, `Змінити` | proposal/generation | text + real paylink |
 | Payment pending after return | Compact status card | `Перевірити оплату` | reconciliation | text status |
 | Payment confirmed | Thank-you + combined consent button | `Так, отримувати` | provider truth + consent policy | localized disclosure text |
 | TTN created | Shipment card | `Відстежити` | Order/IgOrderShipment | text + tracking URL |
-| Parcel arrived | Arrival card | `Забрав`, `Нагадати пізніше` | Nova Poshta truth | text status |
+| Parcel arrived at branch | Arrival card | `Відстежити`, `Нагадати пізніше` | Nova Poshta truth | text status |
+| **Parcel picked up** | Plain text thank-you, затем UGC ask | `нет кнопки подтверждения` | **Nova Poshta status, не клиент** | text only |
 | Positive post-delivery reply | UGC/follow card after text | explicit approved actions | UGC policy/manager | text only |
 | Complaint / exchange / return | Empathy text, затем button template | exchange/return/help | post-sale FSM | manager handoff |
 | Custom print | One branch card, затем text brief | has-art/describe/examples | custom-print subfunnel | natural brief |
+
+### 5.1. Кнопки, которых не должно существовать, и почему
+
+Это не список вкуса, а список кнопок, каждая из которых либо спрашивает то, что
+система уже знает, либо не имеет состояния, либо выдаёт автомат.
+
+| Кнопка | Почему её нет |
+|---|---|
+| `Забрав` / `Ще не отримав` | Факт получения даёт **API Нової Пошти** по ТТН, привязанному к заказу. Backend видит смену статуса и знает о получении раньше, чем клиент успеет нажать. Спрашивать об этом — лишний шаг и прямой сигнал, что отвечает бот |
+| `Написати менеджеру` | Клиент **уже пишет** в этот диалог. Кнопка не ускоряет ничего и превращает переписку в меню |
+| `Зателефонувати` | В боте нет номера; это handoff в CRM, а не действие клиента |
+| `Замовити ще раз` | Чтобы что-то значить, кнопка обязана знать состав прошлого заказа. Сказать «хочу ще одне худі» и дешевле, и естественнее |
+| `Скасувати` / `Ні, дякую` | Отказ — это **отсутствие нажатия**. Вторая кнопка не создаёт состояния, зато снижает конверсию. Вместо неё в тексте: «або напишіть, що саме шукаєте» |
+| `Оверсайз` / `Не оверсайз` | Все худі сейчас слегка оверсайзные. Выбора нет, значит кнопка ничего не выбирает |
+| `Я оплатив` на первой payment card | Claim клиента не является платёжной истиной (§10.9). Появляется только `Перевірити оплату` в pending/recovery |
+
+**Правило для новых кнопок.** Прежде чем добавить, ответить на три вопроса: какое
+состояние она меняет; что произойдёт, если её нажать через неделю; и знает ли
+система ответ без неё. Если состояние не меняется, если старое нажатие даёт
+неверное действие, или если ответ уже есть в БД — кнопки не будет.
+
+### 5.2. Pickup → благодарность → UGC (зачем нужен marketing opt-in)
+
+Это единственный сценарий, который **оправдывает** сбор marketing-consent, поэтому
+он описан целиком.
+
+1. Nova Poshta меняет статус ТТН на «отримано». Backend уже опрашивает API, и это
+   authoritative event — клиента ни о чём не спрашиваем.
+2. Внутри окна (или при активном consent) бот отправляет **текст**, не карточку:
+   благодарность за конкретную покупку, названную по факту заказа, а не «за
+   замовлення».
+3. Затем — просьба отметить магазин в сторис, с конкретной выгодой: **+10% на
+   следующий заказ, суммируется с другими скидками**. Формулировка обязана
+   называть выгоду и условие, а не «зробіть репост».
+4. **Guard, без которого сценарий вредит:** если по заказу открыт case обмена или
+   возврата, есть жалоба, или post-delivery reply отрицательный — UGC-просьба
+   **не отправляется**, остаётся только благодарность. Просить сторис у человека
+   с браком хуже, чем не просить ничего.
+5. UGC-reward остаётся отдельным durable фактом; повторная просьба по тому же
+   заказу запрещена.
+
+Отсюда и формулировка opt-in: не «дозволяєте надсилати повідомлення», а перечень
+того, что клиент получит — ТТН, статус доставки, промокод и скидки. Одна кнопка
+`Так, отримувати`, без кнопки отказа (§5.1).
 
 ## 6. Candidate cardinality и paging
 
@@ -156,6 +201,20 @@ CustomerTurn
 - `Показати ще` использует stable cursor/page и новую visual revision.
 - Нельзя показывать три товара так, будто это весь ассортимент.
 - Перед каждым `Обрати` повторно проверяются product status, variant, stock, price и current revision.
+
+### Размеры
+
+- Показываются **только те размеры, которые есть в наличии** для конкретного
+  варианта. Кнопка на отсутствующий размер — не удобство, а обещание, которое мы
+  не выполним, и клиент узнаёт об этом уже после выбора.
+- Классика доходит до шести значений (`XS…2XL`), поэтому размеры идут **quick
+  replies**, а не кнопками карточки: кнопок на элемент максимум три, quick replies
+  — до тринадцати. Это ограничение провайдера, а не предпочтение.
+- Если в наличии один размер — кнопки не нужны совсем: это факт, а не выбор.
+- Крой кнопками **не выбирается**: все худі сейчас слегка оверсайзные.
+- Заголовок карточки не повторяет то, что уже сказано в диалоге. Если разговор про
+  худі, писать «Худі Premium» в заголовке — визуальный шум; достаточно названия
+  принта или модели.
 
 ## 7. VisualPlan и delivery ledger
 
@@ -282,7 +341,9 @@ safe_send_deadline   = provider inbound timestamp + 20h
 2. Stock/promo reservation и provider invoice: 25m, `validity=1500`.
 3. Card существует только при `can_issue_link=True`.
 4. Отображает exact product/variant/fit/size/color/qty/current price/discount/expiry.
-5. `Оплатити онлайн` — только allowlisted current provider URL.
+5. `Сплатити онлайн` (uk) / `Оплатить онлайн` (ru) / `Pay online` (en) — только
+   allowlisted current provider URL. Кнопка существует именно чтобы клиент не
+   видел длинный URL: он видит действие.
 6. Meta web button не создаёт `PAYLINK_VIEWED`.
 7. First-party signed checkout GET создаёт `PAYLINK_VIEWED` идемпотентно.
 8. Provider-reported click, если появится, хранится отдельно.
@@ -317,6 +378,13 @@ safe_send_deadline   = provider inbound timestamp + 20h
 8. Empty/missing asset деградирует до text/card without image, не до выдуманного фото.
 
 ## 13. Assets и локализация
+
+**Словарь подписей.** Единственный источник подписей кнопок —
+`services/ig_message_templates.BUTTON_LABELS`: каждый ключ содержит `uk`, `ru`
+и `en`, fallback на `uk`. Динамически собранных подписей быть не должно: одна
+украинская подпись в русском диалоге сразу выдаёт автомат, а длина каждой
+подписи проверяется тестом в каждом языке против лимита Meta (20 символов).
+Язык берётся из состояния клиента; `uk` основной, `ru` и `en` полноправные.
 
 Добавить registry `IgVisualAsset` либо эквивалентный versioned config:
 

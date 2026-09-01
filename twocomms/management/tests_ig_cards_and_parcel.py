@@ -552,56 +552,88 @@ from management.services import ig_message_templates as templates
 
 
 class ButtonLabelDictionaryTests(TestCase):
-    """Э1.3 — багатомовний контекстний словник підписів."""
+    """Э1.3 — трёхъязычный словарь, и в нём нет кнопок-шума."""
 
     def test_every_label_fits_the_meta_limit_in_all_languages(self):
-        """Кожна підпис ≤20 символів у всіх мовах."""
         for key, langs in templates.BUTTON_LABELS.items():
-            if isinstance(langs, dict):
-                for lang, label in langs.items():
-                    with self.subTest(key=key, lang=lang):
-                        self.assertLessEqual(
-                            len(label), 20,
-                            f"{key}[{lang}] = {label!r} ({len(label)} > 20)"
-                        )
+            for lang, label in langs.items():
+                with self.subTest(key=key, lang=lang):
+                    self.assertLessEqual(
+                        len(label), templates.MAX_BUTTON_TITLE_CHARS,
+                        f"{key}[{lang}]={label!r} ({len(label)})",
+                    )
 
-    def test_all_labels_have_uk_fallback(self):
-        """Кожна кнопка має українську версію (fallback)."""
+    def test_every_label_has_all_three_languages(self):
+        """uk основной, но ru и en обязательны: клиент пишет на своём."""
         for key, langs in templates.BUTTON_LABELS.items():
             with self.subTest(key=key):
-                self.assertIn("uk", langs, f"{key} має мати 'uk' версію")
+                self.assertEqual(set(langs), {"uk", "ru", "en"}, key)
 
-    def test_button_label_returns_requested_language(self):
-        """button_label повертає правильну мову."""
-        self.assertEqual(templates.button_label("parcel_received", "uk"), "Отримав посилку")
-        self.assertEqual(templates.button_label("parcel_received", "ru"), "Получил посылку")
-        self.assertEqual(templates.button_label("parcel_received", "en"), "Package received")
+    def test_button_label_returns_the_requested_language(self):
+        self.assertEqual(templates.button_label("pay_online", "uk"), "Сплатити онлайн")
+        self.assertEqual(templates.button_label("pay_online", "ru"), "Оплатить онлайн")
+        self.assertEqual(templates.button_label("pay_online", "en"), "Pay online")
 
-    def test_button_label_falls_back_to_uk_for_missing_language(self):
-        """Якщо мови немає, fallback на uk."""
-        result = templates.button_label("yes", "fr")  # французької немає
-        self.assertEqual(result, "Так")  # uk fallback
+    def test_missing_language_falls_back_to_uk(self):
+        self.assertEqual(templates.button_label("consent_yes", "fr"), "Так, отримувати")
 
-    def test_button_label_unknown_key_returns_empty(self):
-        """Невідомий ключ повертає порожній рядок."""
-        self.assertEqual(templates.button_label("nonexistent_key", "uk"), "")
+    def test_unknown_key_is_empty_not_an_error(self):
+        self.assertEqual(templates.button_label("no_such_key", "uk"), "")
 
-    def test_eliminated_buttons_are_not_in_dictionary(self):
-        """Видалені кнопки (manager_contact, repeat_order) відсутні."""
-        eliminated = ["manager_contact", "manager_call", "repeat_order", "cancel"]
-        for key in eliminated:
+    def test_pickup_confirmation_buttons_do_not_exist(self):
+        """Факт отримання дає API Нової Пошти, а не клієнт.
+
+        Кнопка «Забрав» питала б про те, що бекенд уже знає зі зміни статусу ТТН.
+        Це і зайвий крок для клієнта, і сигнал, що з ним говорить автомат. Тест
+        існує саме щоб її не повернули «щоб було».
+        """
+        for key in ("parcel_received", "parcel_not_received", "pickup_confirm"):
             with self.subTest(key=key):
-                self.assertNotIn(key, templates.BUTTON_LABELS,
-                    f"{key} має бути видалена — це шум без користі")
+                self.assertNotIn(key, templates.BUTTON_LABELS)
 
-    def test_contextual_buttons_are_present(self):
-        """Контекстні кнопки (посилка, каталог, замовлення) є."""
-        required = [
-            "parcel_received", "parcel_not_received",
-            "catalog_view", "order_confirm", "track_parcel",
-            "size_s", "color_black", "yes", "no"
-        ]
-        for key in required:
+    def test_noise_buttons_do_not_exist(self):
+        """Кнопки, які нічого не економлять і видають бота."""
+        for key in ("manager_contact", "manager_call", "repeat_order", "cancel"):
+            with self.subTest(key=key):
+                self.assertNotIn(key, templates.BUTTON_LABELS)
+
+    def test_consent_has_no_refusal_button(self):
+        """Відмова — це відсутність натискання, а не друга кнопка.
+
+        Друга кнопка «Ні, дякую» лише знижує конверсію opt-in і не додає жодного
+        стану: неотримання grant однаково означає відсутність дозволу.
+        """
+        self.assertIn("consent_yes", templates.BUTTON_LABELS)
+        for key in ("consent_no", "consent_decline", "no_thanks"):
+            with self.subTest(key=key):
+                self.assertNotIn(key, templates.BUTTON_LABELS)
+
+    def test_no_fit_choice_buttons(self):
+        """Усі худі зараз злегка оверсайзні — вибору крою немає, кнопки теж."""
+        for key in ("fit_oversize", "fit_regular", "oversize", "regular_fit"):
+            with self.subTest(key=key):
+                self.assertNotIn(key, templates.BUTTON_LABELS)
+
+    def test_size_grid_covers_the_real_classic_range(self):
+        """Класика доходить до шести значень: XS…2XL."""
+        for key in ("size_xs", "size_s", "size_m", "size_l", "size_xl", "size_2xl"):
+            with self.subTest(key=key):
+                self.assertIn(key, templates.BUTTON_LABELS)
+
+    def test_six_sizes_fit_quick_replies_but_not_card_buttons(self):
+        """Саме тому розміри — quick replies, а не кнопки карточки.
+
+        Кнопок на елемент максимум три, quick replies — до тринадцяти. Шість
+        розмірів фізично не влазять у карточку, і це не питання смаку.
+        """
+        sizes = [k for k in templates.BUTTON_LABELS if k.startswith("size_") and k != "size_help"]
+        self.assertEqual(len(sizes), 6)
+        self.assertGreater(len(sizes), templates.MAX_BUTTONS_PER_ELEMENT)
+        self.assertLessEqual(len(sizes), templates.MAX_QUICK_REPLIES)
+
+    def test_selection_and_payment_actions_exist(self):
+        """Кнопки, які реально знімають крок: обрати товар і сплатити."""
+        for key in ("product_select", "product_details", "catalog_more", "pay_online"):
             with self.subTest(key=key):
                 self.assertIn(key, templates.BUTTON_LABELS)
 
