@@ -661,6 +661,173 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
         self.assertEqual(source.status, InstagramBotMessage.Status.DONE)
 
 
+class TypingIndicatorCoverageTests(TestCase):
+    """ЭА.5 — індикатор набору тримається весь хід, а не перші десять секунд.
+
+    Скарга власника була «тайпінгу немає». Індикатор при цьому вмикався: Meta
+    гасить його приблизно через 10 секунд, а живий хід триває 34–44 секунди, і
+    пульс оновлення обгортав лише `gemini_generate`. Весь підготовчий відрізок
+    ходу — захоплення медіа, UGC-оцінка, аналіз, памʼять, follow-стан — лишався
+    непокритим, тому клієнт бачив «набирає…» кілька секунд, потім тишу.
+    """
+
+    def setUp(self):
+        self.settings = InstagramBotSettings.load()
+        self.settings.is_enabled = True
+        self.settings.ai_enabled = True
+        self.settings.allowed_senders = ""
+        self.settings.save(update_fields=[
+            "is_enabled", "ai_enabled", "allowed_senders",
+        ])
+
+    def _client(self, suffix: str) -> IgClient:
+        client = IgClient.get_or_create_for_sender(f"typing-{suffix}")
+        client.profile_fetched_at = timezone.now()
+        client.save(update_fields=["profile_fetched_at", "updated_at"])
+        return client
+
+    def _run_turn(self, *, capture_media, interval=0.02):
+        from management.services.instagram_bot import ProviderDeliveryReceipt
+
+        client = self._client("typing-coverage")
+        InstagramBotMessage.objects.create(
+            sender_id=client.igsid,
+            client=client,
+            role=InstagramBotMessage.Role.USER,
+            text="Підкажіть, будь ласка, ціну.",
+            mid="typing-coverage-1",
+            status=InstagramBotMessage.Status.PENDING,
+            source="webhook",
+            attachments="[\"https://example.test/image.jpg\"]",
+        )
+        events = []
+
+        def sender_action(_settings, _sender_id, action):
+            events.append(action)
+            return instagram_bot.SenderActionResult(True, 200, "delivered", action)
+
+        with patch.object(
+            instagram_bot._TypingPulse, "INTERVAL_SECONDS", interval
+        ), patch(
+            "management.services.instagram_bot._capture_message_media",
+            side_effect=lambda row: capture_media(row, events),
+        ), patch(
+            "management.services.instagram_bot._persist_commerce_turn",
+            return_value=(None, None),
+        ), patch(
+            "management.services.bot_sales_classifier.ensure_rule_classification",
+            return_value=None,
+        ), patch(
+            "management.services.instagram_bot._repeated_question", return_value=1
+        ), patch(
+            "management.services.instagram_bot._wait_for_typing_window",
+            return_value="allowed",
+        ), patch(
+            "management.services.instagram_bot.send_sender_action",
+            side_effect=sender_action,
+        ), patch(
+            "management.services.instagram_bot.notify_manager",
+        ), patch(
+            "management.services.instagram_bot.notify_size_gap",
+        ), patch(
+            "management.services.instagram_bot.gemini_generate",
+            return_value={"reply_text": "Зараз підкажу ціну.", "controls": []},
+        ), patch(
+            "management.services.instagram_bot.send_text",
+            return_value=ProviderDeliveryReceipt(True, "", "", "meta-typing-coverage"),
+        ):
+            handled = instagram_bot.process_pending(self.settings, max_items=1)
+
+        self.assertEqual(handled, 1)
+        return events
+
+    def test_indicator_is_refreshed_during_pre_generation_work(self):
+        """Оновлення приходять ще до генерації — саме там була прогалина."""
+        import time as _time
+
+        def slow_media(_row, events):
+            events.append("media_capture_start")
+            _time.sleep(0.2)
+            events.append("media_capture_end")
+            return []
+
+        events = self._run_turn(capture_media=slow_media)
+
+        start = events.index("media_capture_start")
+        end = events.index("media_capture_end")
+        during = [action for action in events[start:end] if action == "typing_on"]
+        self.assertGreaterEqual(
+            len(during),
+            1,
+            f"індикатор не оновлювався під час підготовчої роботи: {events}",
+        )
+
+    def test_typing_off_is_never_followed_by_another_typing_on(self):
+        """Пульс мусить зупинитись ДО `typing_off`, інакше індикатор висить."""
+
+        def slow_media(_row, events):
+            import time as _time
+
+            events.append("media_capture_start")
+            _time.sleep(0.1)
+            events.append("media_capture_end")
+            return []
+
+        events = self._run_turn(capture_media=slow_media)
+
+        self.assertIn("typing_off", events)
+        after_off = events[events.index("typing_off") + 1:]
+        self.assertNotIn(
+            "typing_on",
+            after_off,
+            f"пульс перезапустив індикатор після вимикання: {events}",
+        )
+
+
+class TypingPulseUnitTests(SimpleTestCase):
+    """Поведінка самого пульсу, без ходу: реєстр, ліміт відмов, підсумок."""
+
+    def test_stop_typing_indicator_stops_a_registered_pulse(self):
+        pulse = instagram_bot._TypingPulse(object(), "igsid-registry")
+        with patch(
+            "management.services.instagram_bot.send_sender_action",
+            return_value=instagram_bot.SenderActionResult(True, 200, "delivered", "typing_on"),
+        ):
+            pulse.start()
+            self.assertIs(
+                getattr(instagram_bot._ACTIVE_TYPING_PULSE, "pulse", None), pulse
+            )
+            instagram_bot._stop_active_typing_pulse()
+        self.assertIsNone(
+            getattr(instagram_bot._ACTIVE_TYPING_PULSE, "pulse", None)
+        )
+
+    def test_repeated_provider_refusal_stops_the_pulse(self):
+        """Три відмови підряд — причина постійна, далі це марні запити."""
+        calls = []
+
+        def refuse(_settings, _recipient, action):
+            calls.append(action)
+            return instagram_bot.SenderActionResult(False, 500, "provider", action)
+
+        pulse = instagram_bot._TypingPulse(object(), "igsid-refuse")
+        with patch.object(instagram_bot._TypingPulse, "INTERVAL_SECONDS", 0.01), patch(
+            "management.services.instagram_bot.send_sender_action", side_effect=refuse
+        ):
+            pulse.start()
+            thread = pulse._thread
+            if thread is not None:
+                thread.join(timeout=2.0)
+                self.assertFalse(thread.is_alive())
+            pulse.stop()
+        self.assertEqual(len(calls), 3)
+
+    def test_empty_recipient_never_starts_a_thread(self):
+        pulse = instagram_bot._TypingPulse(object(), "")
+        pulse.start()
+        self.assertIsNone(pulse._thread)
+
+
 class GeminiFailureRoutingTests(TestCase):
     def test_transient_live_pool_summaries_are_provider_outages(self):
         for marker in ("read_timeout", "transport", "quota_429", "http_408", "http_5xx"):

@@ -5574,7 +5574,22 @@ def send_sender_action(
         except (TypeError, ValueError):
             http_status = -1
         if http_status == 200:
-            return SenderActionResult(True, http_status, "delivered", safe_action)
+            result = SenderActionResult(True, http_status, "delivered", safe_action)
+            # Успішна дія раніше не лишала ЖОДНОГО слідa, і коли власник сказав
+            # «зник індикатор набору», у лозі не було ані підтвердження, ані
+            # відмови — тобто діагностувати скаргу було нічим.
+            #
+            # Рівень саме `debug`, а не `info`: `InstagramBotLog` тримає ~500
+            # рядків, а індикатор оновлюється кожні 5 секунд. Рядок на кожне
+            # оновлення витіснив би з таблиці всю решту діагностики за кілька
+            # десятків ходів — ціна спостережності не може бути втратою логу.
+            # Підсумок за хід пишеться один раз, у `_TypingPulse.stop`.
+            log(
+                "debug",
+                "sender_action",
+                f"action={safe_action} kind={result.kind} http={result.http_status}",
+            )
+            return result
         kind = "transport" if http_status < 0 else "provider"
         result = SenderActionResult(False, http_status, kind, safe_action)
         log(
@@ -5615,6 +5630,17 @@ def _reply_permission_is_current(s, row, permission) -> bool:
     )
 
 
+# Пульс індикатора живе рівно один хід і рівно в одному потоці, тому реєстр —
+# thread-local. Він існує, щоб `_stop_typing_indicator` гасив пульс незалежно
+# від того, з якого виходу ходу його викликали: виходів багато
+# (`_send_with_typing_off`, `_mark_sending_after_typing_off`,
+# `_wait_for_typing_window`, десяток `clear_typing_indicator`), і якби кожен мусив
+# сам згадати про пульс, рано чи пізно один би забув — а наслідок видно клієнту:
+# `typing_off` відправлений, наступний тік пульсу знову вмикає індикатор, і
+# «набирає…» висить уже ПІСЛЯ отриманої відповіді.
+_ACTIVE_TYPING_PULSE = threading.local()
+
+
 class _TypingPulse:
     """Тримати індикатор набору живим під час довгої генерації (ЭА.5, рівень L1).
 
@@ -5628,37 +5654,77 @@ class _TypingPulse:
     і не тримає жодних блокувань.
     """
 
-    INTERVAL_SECONDS = 8.0
+    # Meta гасить індикатор приблизно через 10 секунд, але точна межа не
+    # задокументована і для Instagram Direct може бути коротшою. Інтервал 8 с
+    # лишав лише 2 с запасу, і будь-яка затримка провайдерського запиту давала
+    # клієнту видиму прогалину — саме те, що читається як «бот перестав писати».
+    # П'ять секунд дають подвійний запас за ціною одного дешевого advisory-запиту
+    # на п'ять секунд генерації.
+    INTERVAL_SECONDS = 5.0
 
     def __init__(self, settings_obj, recipient_id: str):
         self._settings = settings_obj
         self._recipient_id = str(recipient_id or "")
         self._stop = threading.Event()
         self._thread = None
+        self._refreshes = 0
+        self._failures = 0
+        self._started_at = 0.0
 
     def start(self) -> None:
         from management.services.ig_provider_incidents import flag
 
         if not self._recipient_id or not flag("IG_QUIET_DEGRADATION"):
             return
+        if self._thread is not None:
+            return
+        self._started_at = time.monotonic()
         self._thread = threading.Thread(
             target=self._run, name="ig-typing-pulse", daemon=True
         )
         self._thread.start()
+        _ACTIVE_TYPING_PULSE.pulse = self
 
     def _run(self) -> None:
         while not self._stop.wait(self.INTERVAL_SECONDS):
             try:
-                send_sender_action(self._settings, self._recipient_id, "typing_on")
+                result = send_sender_action(
+                    self._settings, self._recipient_id, "typing_on"
+                )
             except Exception:
+                self._failures += 1
                 logger.debug("typing pulse refresh unavailable", exc_info=True)
                 return
+            if getattr(result, "ok", False):
+                self._refreshes += 1
+            else:
+                # Одна відмова — не причина гасити індикатор на весь хід: у
+                # Meta бувають одиничні 5xx. Але якщо відмови йдуть підряд,
+                # причина стала постійною (закрите вікно, відкликаний токен), і
+                # далі це вже не advisory-шум, а марні запити щосекунди.
+                self._failures += 1
+                if self._failures >= 3:
+                    return
 
     def stop(self) -> None:
         self._stop.set()
+        if getattr(_ACTIVE_TYPING_PULSE, "pulse", None) is self:
+            _ACTIVE_TYPING_PULSE.pulse = None
         thread = self._thread
         if thread is not None and thread.is_alive():
             thread.join(timeout=1.0)
+        if thread is not None:
+            # Один рядок на хід — саме те, чого не хватало, щоб відповісти на
+            # «індикатора не було»: видно і скільки оновлень дійшло, і скільки
+            # секунд хід реально тривав. Рядок на кожне оновлення витіснив би
+            # решту логу (див. коментар у `send_sender_action`).
+            held = max(0.0, time.monotonic() - self._started_at)
+            log(
+                "info",
+                "typing_pulse",
+                f"refreshes={self._refreshes} failures={self._failures} "
+                f"held_seconds={held:.1f}",
+            )
         self._thread = None
 
     def __enter__(self):
@@ -5670,8 +5736,21 @@ class _TypingPulse:
         return False
 
 
+def _stop_active_typing_pulse() -> None:
+    pulse = getattr(_ACTIVE_TYPING_PULSE, "pulse", None)
+    if pulse is None:
+        return
+    _ACTIVE_TYPING_PULSE.pulse = None
+    try:
+        pulse.stop()
+    except Exception:
+        # Пульс — advisory: його зупинка не може зламати відправку відповіді.
+        logger.debug("typing pulse stop unavailable", exc_info=True)
+
+
 def _stop_typing_indicator(s, row, typing_active: bool) -> None:
     """Best-effort cleanup for a typing action that was successfully started."""
+    _stop_active_typing_pulse()
     if typing_active:
         try:
             send_sender_action(s, row.sender_id, "typing_off")
@@ -11906,6 +11985,9 @@ def _process_one_inside_reply_boundary(
     gemini_failure: dict = {}
     typing_started_at: float | None = None
     typing_active = False
+    # Індикатор набору тримається на весь хід, а не лише на генерацію: див.
+    # коментар біля старту пульсу нижче.
+    typing_pulse: _TypingPulse | None = None
     commerce_request = None
     commerce_decision = None
     ugc_turn = False
@@ -12044,6 +12126,16 @@ def _process_one_inside_reply_boundary(
             # and all later CRM work consume the same monotonic start point.
             typing_started_at = time.monotonic()
             typing_active = True
+            # Пульс стартує ТУТ, а не перед генерацією. Meta гасить індикатор
+            # приблизно через 10 секунд, а між цим рядком і генерацією лежить
+            # увесь підготовчий шлях ходу: захоплення медіа, UGC-оцінка, аналіз,
+            # памʼять, follow-стан. Коли пульс обгортав лише `gemini_generate`,
+            # цей відрізок лишався непокритим — клієнт бачив «набирає…» кілька
+            # секунд на самому початку, потім тишу, і саме про це була скарга
+            # «індикатора немає». Хід тримається одним пульсом від першого
+            # `typing_on` до `typing_off` у `clear_typing_indicator`.
+            typing_pulse = _TypingPulse(s, row.sender_id)
+            typing_pulse.start()
 
     if row.attachments or row.source == "webhook":
         try:
@@ -12403,9 +12495,7 @@ def _process_one_inside_reply_boundary(
                 client_id=row.client_id,
                 source_message_id=row.pk,
                 logical_turn_id=logical_turn_id,
-            ) as _lineage, _TypingPulse(
-                s, row.sender_id if typing_active else ""
-            ):
+            ) as _lineage:
                 from management.services.gemini_routing import persist_decision
 
                 routing_decision = live_routing_decision(
