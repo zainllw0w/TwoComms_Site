@@ -713,3 +713,122 @@ class DisplayShortTests(TestCase):
         self.assertEqual(
             templates.display_short("  Худі   Vortex  "), "Худі Vortex"
         )
+
+
+class QuickReplyMessageTests(TestCase):
+    """Э1.5 — набір розмірів мусить доїхати кнопками, а не текстом без них.
+
+    Регресія, знайдена прогоном на власному акаунті: крок вибору розміру
+    відправлявся як generic-шаблон з одним title-only елементом, до якого
+    прикріплені quick replies. Валідатор (правильно) відкидає елемент без
+    другого поля, `send_template` падає у текстовий fallback — і клієнт бачить
+    «Який розмір?» БЕЗ жодної кнопки, тоді як результат відправки читається як
+    `ok=True kind=unknown`. Питання поставлене, відповісти нічим.
+    """
+
+    SIZES = ("XS", "S", "M", "L", "XL", "XXL", "XXXL")
+
+    def setUp(self):
+        from management.models import InstagramBotSettings
+
+        self.settings = InstagramBotSettings.load()
+        self.message = templates.QuickReplyMessage(
+            text="Який розмір? Показую тільки ті, що є в наявності.",
+            quick_replies=tuple(
+                templates.QuickReply(size, templates.build_payload("size", size))
+                for size in self.SIZES
+            ),
+        )
+
+    def test_title_only_card_with_quick_replies_is_rejected(self):
+        """Форма, яку використовували раніше, не могла доїхати кнопками."""
+        with self.assertRaises(templates.TemplateValidationError):
+            templates.normalize_template(
+                templates.GenericTemplate(
+                    cards=(templates.TemplateCard(title="Який розмір?"),),
+                    fallback_text="Який розмір?",
+                    quick_replies=(templates.QuickReply("S", "twc:1:size:S"),),
+                )
+            )
+
+    def test_payload_is_a_text_message_not_an_attachment(self):
+        payload = templates.quick_reply_message_payload(
+            templates.normalize_quick_reply_message(self.message)
+        )
+        self.assertNotIn("attachment", payload)
+        self.assertEqual(payload["text"], self.message.text)
+        self.assertEqual(
+            [reply["title"] for reply in payload["quick_replies"]], list(self.SIZES)
+        )
+        for reply in payload["quick_replies"]:
+            self.assertEqual(reply["content_type"], "text")
+
+    def test_all_seven_sizes_reach_the_provider(self):
+        """Сім розмірів влазять у quick replies — саме тому це не кнопки карточки."""
+        sent = {}
+
+        def capture(settings_row, url, token=None, data=None):
+            sent.update(json.loads(data.decode("utf-8")))
+            return 200, '{"message_id":"mid-qr"}'
+
+        with patch(
+            "management.services.instagram_bot._provider_account_id", return_value="1"
+        ), patch(
+            "management.services.instagram_bot.get_page_token", return_value="t"
+        ), patch(
+            "management.services.instagram_bot._provider_http", side_effect=capture
+        ), patch(
+            "management.services.instagram_bot._register_outgoing_message"
+        ):
+            delivery = templates.send_quick_replies(
+                self.settings, "igsid-1", self.message
+            )
+
+        self.assertTrue(delivery.ok)
+        self.assertFalse(delivery.used_text_fallback)
+        self.assertEqual(delivery.provider_message_id, "mid-qr")
+        self.assertEqual(
+            [reply["title"] for reply in sent["message"]["quick_replies"]],
+            list(self.SIZES),
+        )
+
+    def test_projection_records_that_buttons_were_offered(self):
+        """Модель не «бачить» кнопки: без проєкції наступний хід перепитає розмір."""
+        normalized = templates.normalize_quick_reply_message(self.message)
+        self.assertIn("XXXL", normalized.projection_text)
+        self.assertIn(self.message.text, normalized.projection_text)
+
+    def test_message_without_valid_replies_degrades_loudly(self):
+        """Порожній набір — текстовий fallback з названою причиною, не тихий успіх."""
+        from management.services.instagram_bot import ProviderDeliveryReceipt
+
+        broken = templates.QuickReplyMessage(
+            text="Який розмір?",
+            quick_replies=(templates.QuickReply("", ""),),
+        )
+        with patch(
+            "management.services.instagram_bot.send_text",
+            return_value=ProviderDeliveryReceipt(True, "sent", "", "mid-text"),
+        ):
+            delivery = templates.send_quick_replies(self.settings, "igsid-1", broken)
+
+        self.assertTrue(delivery.used_text_fallback)
+        self.assertIn("quick_replies_invalid", delivery.degraded_fields)
+
+    def test_titles_and_count_are_capped_at_provider_limits(self):
+        many = templates.QuickReplyMessage(
+            text="Оберіть варіант",
+            quick_replies=tuple(
+                templates.QuickReply("Д" * 40, f"twc:1:x:{index}")
+                for index in range(templates.MAX_QUICK_REPLIES + 4)
+            ),
+        )
+        normalized = templates.normalize_quick_reply_message(many)
+        self.assertEqual(
+            len(normalized.quick_replies), templates.MAX_QUICK_REPLIES
+        )
+        self.assertIn("quick_replies_truncated", normalized.degraded_fields)
+        for reply in normalized.quick_replies:
+            self.assertLessEqual(
+                len(reply.title), templates.MAX_QUICK_REPLY_TITLE_CHARS
+            )

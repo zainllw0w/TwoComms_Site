@@ -361,10 +361,13 @@ def _build_size_quick_replies(*, client, lang: str) -> StepPlan:
         step="size_quick_replies",
         lang=lang,
         kind="quick_replies",
-        payload=tpl.GenericTemplate(
-            cards=(tpl.TemplateCard(title=text, subtitle=""),),
-            fallback_text=text,
+        # Саме `QuickReplyMessage`, а не карточка з одним title: карточка без
+        # другого поля відкидається валідатором, і весь крок падав у текстовий
+        # fallback БЕЗ кнопок, повідомляючи при цьому про успіх.
+        payload=tpl.QuickReplyMessage(
+            text=text,
             quick_replies=tuple(quick),
+            fallback_text=text,
         ),
         note=(
             f"джерело: {source}; доступних розмірів {len(sizes)} "
@@ -414,6 +417,8 @@ def deliver(plan: StepPlan, *, settings_row, client) -> str:
     recipient = str(client.igsid)
     if plan.kind == "button_card":
         outcome = tpl.send_button_template(settings_row, recipient, plan.payload)
+    elif plan.kind == "quick_replies":
+        outcome = tpl.send_quick_replies(settings_row, recipient, plan.payload)
     else:
         outcome = tpl.send_template(settings_row, recipient, plan.payload)
     return (

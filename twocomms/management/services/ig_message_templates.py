@@ -252,6 +252,27 @@ class QuickReply:
     payload: str
 
 
+@dataclass(frozen=True)
+class QuickReplyMessage:
+    """Текст із швидкими відповідями — саме та форма, яку Meta для них має.
+
+    Це не дублікат `GenericTemplate.quick_replies`. Quick replies у Meta живуть
+    на ЗВИЧАЙНОМУ текстовому повідомленні; на generic-шаблоні вони теж
+    допускаються, але тоді шаблон мусить мати валідний елемент. Спроба показати
+    «шість кнопок розміру» карточкою з одним лише title давала рівно такий
+    результат: валідатор (правильно) відкидав елемент без другого поля,
+    `send_template` падав у текстовий fallback — і клієнт отримував текст БЕЗ
+    жодної кнопки, а результат відправки при цьому читався як `ok=True`.
+    Мовчазна деградація найгіршого роду: питання поставлене, відповісти нічим.
+    """
+
+    text: str
+    quick_replies: tuple
+    fallback_text: str = ""
+    projection_text: str = ""
+    degraded_fields: tuple = field(default=())
+
+
 def build_payload(action: str, *args: str) -> str:
     """Зібрати версіонований payload кнопки.
 
@@ -486,6 +507,53 @@ def normalize_button_template(template: ButtonTemplate) -> ButtonTemplate:
     )
 
 
+def normalize_quick_reply_message(message: QuickReplyMessage) -> QuickReplyMessage:
+    """Привести текст із швидкими відповідями до лімітів, не ховаючи втрат.
+
+    Порожній набір валідних кнопок — це помилка, а не «просто текст»: у такому
+    разі краще явно впасти у текстовий fallback вище, ніж надіслати питання, на
+    яке нічим відповісти, і повідомити про успіх.
+    """
+    degraded: list[str] = []
+    text = _clean(message.text)
+    if not text:
+        raise TemplateValidationError("quick reply message requires text")
+    if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
+        raise TemplateValidationError("quick reply text exceeds the provider limit")
+
+    replies: list[QuickReply] = []
+    for reply in tuple(message.quick_replies or ())[:MAX_QUICK_REPLIES]:
+        title = _truncate(reply.title, MAX_QUICK_REPLY_TITLE_CHARS)
+        payload = str(reply.payload or "").strip()
+        if not title or not payload:
+            degraded.append("quick_reply_invalid")
+            continue
+        if len(payload) > MAX_POSTBACK_PAYLOAD_CHARS:
+            degraded.append("quick_reply_payload_too_long")
+            continue
+        replies.append(QuickReply(title, payload))
+    if len(tuple(message.quick_replies or ())) > MAX_QUICK_REPLIES:
+        degraded.append("quick_replies_truncated")
+    if not replies:
+        raise TemplateValidationError("quick reply message requires a valid reply")
+
+    fallback = _clean(message.fallback_text or text)
+    if len(fallback.encode("utf-8")) > MAX_TEXT_BYTES:
+        raise TemplateValidationError("fallback text exceeds the provider limit")
+    projection = message.projection_text or (
+        f"(надіслано швидкі відповіді: {text}; варіанти: "
+        f"{' / '.join(reply.title for reply in replies)})"
+    )
+    return replace(
+        message,
+        text=text,
+        quick_replies=tuple(replies),
+        fallback_text=fallback,
+        projection_text=projection,
+        degraded_fields=tuple(dict.fromkeys(degraded)),
+    )
+
+
 def build_projection(cards: tuple) -> str:
     """Текстова проєкція карточки для історії моделі й для оператора.
 
@@ -552,6 +620,21 @@ def button_template_message_payload(template: ButtonTemplate) -> dict:
                 ],
             },
         }
+    }
+
+
+def quick_reply_message_payload(message: QuickReplyMessage) -> dict:
+    """`{"text": ..., "quick_replies": [...]}` — без вкладення attachment."""
+    return {
+        "text": message.text,
+        "quick_replies": [
+            {
+                "content_type": "text",
+                "title": reply.title,
+                "payload": reply.payload,
+            }
+            for reply in message.quick_replies
+        ],
     }
 
 
@@ -683,6 +766,48 @@ def send_button_template(
         settings_row,
         recipient_id,
         message=button_template_message_payload(normalized),
+        fallback_text=normalized.fallback_text,
+        degraded_fields=normalized.degraded_fields,
+        projection_text=normalized.projection_text,
+        permission_boundary_factory=permission_boundary_factory,
+        allow_text_fallback=allow_text_fallback,
+    )
+
+
+def send_quick_replies(
+    settings_row,
+    recipient_id: str,
+    message: QuickReplyMessage,
+    *,
+    permission_boundary_factory=None,
+    allow_text_fallback: bool = True,
+) -> TemplateDelivery:
+    """Надіслати текст із швидкими відповідями з тими ж гарантіями, що й карточку.
+
+    Один шлях доставки для всіх трьох форм (`generic`, `button`, quick replies)
+    — свідомо: receipt-first, permission boundary перед запитом і облік
+    деградацій мусять бути однакові, інакше третя форма тихо втратила б
+    гарантію, яку дві інші мають.
+    """
+    try:
+        normalized = normalize_quick_reply_message(message)
+    except TemplateValidationError as exc:
+        fallback = _clean(message.fallback_text or message.text)
+        if allow_text_fallback and fallback:
+            return _text_fallback(
+                settings_row,
+                recipient_id,
+                fallback,
+                permission_boundary_factory=permission_boundary_factory,
+                degraded_fields=("quick_replies_invalid",),
+                projection_text=message.projection_text,
+                hint=str(exc),
+            )
+        return TemplateDelivery(False, "invalid", str(exc))
+    return _deliver_template_payload(
+        settings_row,
+        recipient_id,
+        message=quick_reply_message_payload(normalized),
         fallback_text=normalized.fallback_text,
         degraded_fields=normalized.degraded_fields,
         projection_text=normalized.projection_text,
