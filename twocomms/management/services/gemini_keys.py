@@ -734,6 +734,12 @@ def record_attempt(
             "decision": str(decision or "")[:48],
             "remaining_deadline_ms": max(0, int(remaining_deadline_ms or 0)),
         }
+        # ЭА.20: атрибуція відказу (контракт payload + поле схеми) — це
+        # routing-метадані, а не власність shadow-FSM: він їх не пише взагалі.
+        # Без цього рядка причина 400 губилась саме в тому режимі, у якому вона
+        # сталась у production, і «точне поле не доказано» лишалось назавжди.
+        if str(error_detail or "").strip():
+            mutable["error_detail"] = str(error_detail)[:120]
         updated = (
             GeminiRequestAttempt.objects.filter(pk=attempt.pk).update(**mutable)
             if attempt is not None
@@ -763,7 +769,7 @@ def record_attempt(
             prompt_tokens=max(0, int(usage.get("promptTokenCount") or 0)),
             thoughts_tokens=max(0, int(usage.get("thoughtsTokenCount") or 0)),
             candidates_tokens=max(0, int(usage.get("candidatesTokenCount") or 0)),
-            error_detail=str(failure_kind or "")[:120],
+            error_detail=str(error_detail or failure_kind or "")[:120],
             logical_turn_id=str(lineage.get("logical_turn_id") or "")[:64],
             source_message_id=lineage.get("source_message_id") or None,
             client_id=lineage.get("client_id") or None,

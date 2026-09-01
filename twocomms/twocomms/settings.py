@@ -222,6 +222,46 @@ IG_QUIET_DEGRADATION = _env_bool('IG_QUIET_DEGRADATION', True)
 IG_RECOVERY_EPISODE_CURSOR = _env_bool('IG_RECOVERY_EPISODE_CURSOR', True)
 IG_RECOVERY_INCIDENT_SCHEDULING = _env_bool('IG_RECOVERY_INCIDENT_SCHEDULING', True)
 
+# Э3.5 / NEW-ANALYSIS-002 — доказ менеджера не стає наміром клієнта.
+# Перевірка ролі автора перетворює структурну помилку (висновок, атрибутований
+# не тому автору) на типізований enum `MANAGER_OBSERVATION` і код
+# `manager_evidence_not_customer_intent`, щоб кожен існуючий enum-фільтр став
+# правильним без змін. Флаг за замовчуванням УВІМКНЕНИЙ: старе поведінка
+# доказуємо порушувало істину CRM (один клієнт з менеджерською ноткою «купить»
+# отримував customer-facing intent, а 1791 без неї — ні).
+IG_ANALYSIS_MANAGER_EVIDENCE_BOUNDARY = _env_bool(
+    'IG_ANALYSIS_MANAGER_EVIDENCE_BOUNDARY',
+    True,
+)
+
+# Э3.4 / NEW-ANALYSIS-001 — устаревший snapshot не виглядає поточним у CRM.
+# Freshness selector перевіряє збіг watermark, episode, state fingerprint,
+# materiality digest та highwater перед поверненням snapshot як current. Інакше
+# API показує typed `stale`/`unknown`, і snapshot виключається з current filters,
+# follow-up, probability та CTA-проєкції. Флаг за замовчуванням УВІМКНЕНИЙ: без
+# нього карточка та список можуть показувати різний стан аналізу одночасно.
+IG_ANALYSIS_FRESHNESS_SELECTOR = _env_bool(
+    'IG_ANALYSIS_FRESHNESS_SELECTOR',
+    True,
+)
+
+# ЭА.10/ЭА.20 — типизированные классы отказов и контракт structured-output.
+# Счётчики классов пишутся ВСЕГДА (наблюдаемость безопасна); флаги переключают
+# только поведение: порог circuit, кейс менеджеру вместо клиентского техтекста,
+# приведение payload к документированному подмножеству схемы и запрет повтора
+# того же неверного payload.
+#
+#   IG_TYPED_FAILURE_CIRCUIT          — circuit по (role, class, scope) с порогом
+#   IG_CONFIGURATION_MANAGER_CASE     — auth/not_found → менеджер, без техтекста
+#   GEMINI_PAYLOAD_CONTRACT_PREFLIGHT — проверка контракта ДО вызова провайдера
+#   GEMINI_PAYLOAD_CONTRACT_CIRCUIT   — circuit варианта payload и один ретрай
+IG_TYPED_FAILURE_CIRCUIT = _env_bool('IG_TYPED_FAILURE_CIRCUIT', True)
+IG_CONFIGURATION_MANAGER_CASE = _env_bool('IG_CONFIGURATION_MANAGER_CASE', True)
+GEMINI_PAYLOAD_CONTRACT_PREFLIGHT = _env_bool(
+    'GEMINI_PAYLOAD_CONTRACT_PREFLIGHT', True
+)
+GEMINI_PAYLOAD_CONTRACT_CIRCUIT = _env_bool('GEMINI_PAYLOAD_CONTRACT_CIRCUIT', True)
+
 # Gemini accounting V2 is additive telemetry only in S3b.  ``off`` is an
 # absolute no-write default.  ``shadow`` becomes active only at/after the
 # explicitly supplied Pacific-midnight timestamp; invalid or missing gates are
@@ -270,12 +310,34 @@ IG_CUSTOMER_TURNS = _env_bool('IG_CUSTOMER_TURNS', True)
 # ход (прежнее поведение), но записи ходов продолжают вестись.
 IG_TURN_DEBOUNCE = _env_bool('IG_TURN_DEBOUNCE', True)
 
+# Э0.3: воронка терминальных причин lifecycle-событий. Флаг НЕ управляет
+# поведением бота — срез только читает БД и ничего не отправляет. Он существует
+# как выключатель самого замера: агрегация проходит по доставленным заказам и
+# может быть тяжёлой для боевой MariaDB, поэтому оператор должен иметь
+# возможность запретить её без деплоя. Включено по умолчанию: без этого замера
+# весь Э6 чинит неизвестную причину.
+IG_LIFECYCLE_REASON_FUNNEL_ENABLED = _env_bool(
+    'IG_LIFECYCLE_REASON_FUNNEL_ENABLED',
+    True,
+)
+
 # ЭА.14 / ЭА.15 — надзор за демоном: четыре состояния вместо одного,
 # операционный lease вместо абсолютного времени, изоляция клиентской полосы.
 # Откат: при выключении надзор работает как до этапа (один булев признак живости).
 IG_DAEMON_SUPERVISION_STATES = _env_bool('IG_DAEMON_SUPERVISION_STATES', True)
 IG_BOT_OPERATIONAL_RECLAIM_LEASE = _env_bool('IG_BOT_OPERATIONAL_RECLAIM_LEASE', True)
 IG_BOT_SERVICE_TASK_ISOLATION = _env_bool('IG_BOT_SERVICE_TASK_ISOLATION', True)
+
+# Э0.7 — SLO пути клиента как главная метрика. Проекция строго read-only: она
+# ничего не пишет и не меняет ни один клиентский путь, поэтому включена по
+# умолчанию — без чтения метрику нельзя ни снять, ни опровергнуть.
+IG_SLO_CUSTOMER_PATH = _env_bool('IG_SLO_CUSTOMER_PATH', True)
+
+# Бюджет ошибок приостанавливает выкат НОВОЙ автоматической политики. Он
+# сознательно НЕ управляет существующей поддержкой клиентов: выключенный бот —
+# это гарантированное молчание вместо вероятной ошибки. Выключение флага снимает
+# только блокировку выката, распределение исходов продолжает считаться.
+IG_SLO_POLICY_ROLLOUT_GATE = _env_bool('IG_SLO_POLICY_ROLLOUT_GATE', True)
 
 # W1-10 (NEW-502): лимиты на загрузку файлов — защита shared-хостинга от
 # произвольно больших аплоадов (аватар/УБД-док и другие формы).

@@ -74,48 +74,29 @@ def flag(name: str, default: bool = True) -> bool:
 
 
 # --- Класифікація відказів ---------------------------------------------------
-_FAILURE_CLASS_BY_KIND = {
-    "quota_429": IgProviderIncident.FailureClass.QUOTA,
-    "read_timeout": IgProviderIncident.FailureClass.TIMEOUT,
-    "http_408": IgProviderIncident.FailureClass.TIMEOUT,
-    "http_5xx": IgProviderIncident.FailureClass.UNAVAILABLE,
-    "transport": IgProviderIncident.FailureClass.CONNECT,
-    "invalid_payload": IgProviderIncident.FailureClass.INVALID_PAYLOAD,
-    "invalid_key": IgProviderIncident.FailureClass.AUTH,
-    "permission_denied": IgProviderIncident.FailureClass.AUTH,
-    "model_not_found": IgProviderIncident.FailureClass.INVALID_PAYLOAD,
-    "empty": IgProviderIncident.FailureClass.EMPTY,
-}
-
-# Класи, які не є деградацією доступності провайдера: їх не можна ретраїти і
-# вони не повинні відкривати інцидент, що придушує holding для всіх клієнтів.
+# ЭА.10: єдине джерело істини для класів відказів — `ig_failure_classes`. Тут
+# лишився лише тонкий адаптер, бо інцидент — це ДРУГИЙ споживач тих самих класів
+# (перший — счётчики й circuit). Дублювати таблицю kind → клас у двох модулях
+# означало б рано чи пізно розійтись у них і знову приймати різні рішення на той
+# самий відказ.
+#
+# Про `not_found`: клас окремий саме тому, що 404 (моделі/проекту не існує) і 400
+# (наше тіло запиту недопустиме) лікуються різними людьми й різними діями.
+# Колонка `IgProviderIncident.failure_class` — це CharField(20) без валідації
+# choices у БД, тому значення `not_found` пишеться без міграції; перелік choices
+# у моделі його ще не містить (див. звіт етапу).
 NON_RETRYABLE_CLASSES = frozenset({
     IgProviderIncident.FailureClass.INVALID_PAYLOAD,
     IgProviderIncident.FailureClass.AUTH,
+    "not_found",
 })
 
 
 def classify_failure(failure_kind: str = "", http_code=None) -> str:
     """Типізований клас відказу, а не один загальний «збій»."""
-    kind = str(failure_kind or "").strip().lower()
-    mapped = _FAILURE_CLASS_BY_KIND.get(kind)
-    if mapped:
-        return mapped
-    try:
-        code = int(http_code) if http_code else 0
-    except (TypeError, ValueError):
-        code = 0
-    if code == 429:
-        return IgProviderIncident.FailureClass.QUOTA
-    if code in {401, 403}:
-        return IgProviderIncident.FailureClass.AUTH
-    if code == 400:
-        return IgProviderIncident.FailureClass.INVALID_PAYLOAD
-    if code == 408:
-        return IgProviderIncident.FailureClass.TIMEOUT
-    if 500 <= code < 600:
-        return IgProviderIncident.FailureClass.UNAVAILABLE
-    return IgProviderIncident.FailureClass.UNKNOWN
+    from management.services.ig_failure_classes import classify
+
+    return classify(failure_kind, http_code)
 
 
 def _fingerprint(role: str, failure_class: str) -> str:
@@ -414,6 +395,10 @@ DEFER = "defer"
 # отримає», інакше придушення перетворилось би на молчання каналу (порушення И9).
 SUPPRESS_NO_ANSWER_REASONS = frozenset({
     "low_intent_turn",
+    # ЭА.10: конфігураційний відказ уже переданий менеджеру. Автоматичний
+    # recovery тут — це заборонений ретрай: він гарантовано впаде на тому самому
+    # ключі чи моделі й лише спалить бюджет. Відповідь клієнту винна людина.
+    "manager_case_configuration",
     "opted_out",
     "hidden_client",
     "client_blocked",
@@ -574,6 +559,27 @@ def holding_decision(
     # текст. Технічний текст раніше бюджету — головна причина шкоди для UX.
     if budget_remaining_ms and int(budget_remaining_ms) > 0:
         return HoldingDecision(DEFER, "budget_not_exhausted")
+
+    # ЭА.10: конфігураційний відказ — не затримка. Якщо хід закінчився на
+    # `auth`/`not_found`, «перепрошую за технічну затримку» обманює клієнта: ані
+    # очікування, ані recovery не допоможуть, поки людина не виправить ключ або
+    # модель. Тому техтекст не надсилається, а замість нього відкривається
+    # durable кейс менеджеру — інакше придушення перетворилось би на тишину.
+    if flag("IG_CONFIGURATION_MANAGER_CASE"):
+        from management.services.ig_failure_classes import (
+            configuration_failure_for_turn,
+            open_configuration_manager_case,
+        )
+
+        configuration_class = configuration_failure_for_turn(getattr(row, "pk", 0))
+        if configuration_class:
+            open_configuration_manager_case(
+                client_id=client_id,
+                source_message_id=getattr(row, "pk", 0),
+                failure_class=configuration_class,
+                logical_turn_id=logical_turn_id,
+            )
+            return HoldingDecision(SUPPRESS, "manager_case_configuration")
 
     incident = incident or active_incident(role="chat", now=now)
     if incident is None:

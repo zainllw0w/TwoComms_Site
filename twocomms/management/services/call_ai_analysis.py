@@ -1465,7 +1465,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
 
         def _audit(outcome: str, *, failure_kind: str = "", http_code: int | None = None,
                    provider_reason: str = "", decision: str = "",
-                   usage: dict | None = None) -> None:
+                   usage: dict | None = None, error_detail: str = "") -> None:
             try:
                 gemini_keys.record_attempt(
                     request_id=request_id,
@@ -1477,6 +1477,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     http_code=http_code,
                     provider_reason=provider_reason,
                     decision=decision,
+                    error_detail=error_detail,
                     latency_ms=int((time.monotonic() - call_started_at) * 1000),
                     remaining_deadline_ms=max(0, int((deadline - time.monotonic()) * 1000)),
                     usage=usage,
@@ -1580,10 +1581,18 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     key_name, scope, seconds, error=str(exc), model=model
                 )
                 gemini_keys.record_key_failure(key_name, failure_kind="quota_429", http_code=429)
+            # ЭА.10/ЭА.11: `cooldown_project` без відомої project-group — це
+            # неперевірюване твердження про область квоти. Коли mapping не дав
+            # ідентичності проекту, рішення описується як кулдаун КЛЮЧА: це те,
+            # що ми справді зробили.
             _audit(
                 "failed", failure_kind="quota_429", http_code=429,
                 provider_reason=_bounded_provider_reason(exc),
-                decision="cooldown_project",
+                decision=(
+                    "cooldown_project"
+                    if gemini_keys.project_group(key_name)
+                    else "cooldown_key"
+                ),
             )
             attempts.append(f"{key_name}/{model}: quota_429")
             _emit(f"{key_name}/{model}: quota_429")
@@ -1642,6 +1651,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 else kind
             )
         except _GeminiFatal as exc:
+            from management.services import gemini_payload_contract
+
             kind = "invalid_key" if _chat_key_failure(exc) else "invalid_payload"
             http_match = _HTTP_CODE_RE.search(str(exc))
             provider_http_code = int(http_match.group(1)) if http_match else (
@@ -1654,11 +1665,26 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                     http_code=provider_http_code,
                     project_scope=False,
                 )
+            # ЭА.20: варіант контракту й поле схеми — єдине, що робить 400
+            # розбірливим пізніше. Без цього рядка телеметрія знову зберігала б
+            # лише слово `invalid_payload`.
+            contract_detail = str(getattr(exc, "contract_detail", "") or "")
+            variant_retry_available = (
+                kind == "invalid_payload"
+                and gemini_payload_contract.retry_variant_available(request_payload)
+            )
             _audit(
                 "failed", failure_kind=kind,
                 http_code=provider_http_code,
                 provider_reason=_bounded_provider_reason(exc),
-                decision="rotate_key" if kind == "invalid_key" else "stop_payload",
+                decision=(
+                    "rotate_key"
+                    if kind == "invalid_key"
+                    else "retry_simplified_payload"
+                    if variant_retry_available
+                    else "stop_payload"
+                ),
+                error_detail=contract_detail,
             )
             if _chat_key_failure(exc):
                 attempts.append(f"{key_name}/{model}: invalid_key")
@@ -1666,6 +1692,14 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                 _release()
                 return None, "invalid_key"
             _release()
+            if variant_retry_available:
+                # Той самий payload не повторюємо: це гарантований другий відказ.
+                # Дозволений РІВНО один ретрай заздалегідь визначеним спрощеним
+                # варіантом — його підставить preflight наступного кандидата, а
+                # ліміт повільних спроб моделі лишає це однією спробою.
+                attempts.append(f"{key_name}/{model}: invalid_payload_variant_retry")
+                _emit(f"{key_name}/{model}: payload contract simplified for retry")
+                return None, "invalid_payload_variant"
             _audit_remaining("fatal_payload")
             if accounting_observer is not None:
                 accounting_observer.resolve_failure("fatal_payload")
@@ -2163,6 +2197,9 @@ def _provider_error_details(response) -> dict:
             "provider_quota_metric": "",
             "provider_quota_id": "",
             "provider_quota_dimensions": {},
+            "error_code": 0,
+            "error_status": "",
+            "field_path": "",
         }
     parts = []
     status = str(error.get("status") or "").strip()
@@ -2239,6 +2276,13 @@ def _provider_error_details(response) -> dict:
     if not quota_scope and status == "RESOURCE_EXHAUSTED":
         quota_scope = "unknown"
     summary = ":".join(dict.fromkeys(parts))[:240] or "UNKNOWN"
+    # ЭА.20: до цієї правки причина 400 зводилась до рядка `INVALID_ARGUMENT` —
+    # достатньо, щоб порахувати відказ, і недостатньо, щоб назвати поле. Тому
+    # окремо (і лише окремо) дістаються три обмежені факти: код, статус і шлях
+    # поля з `details[].fieldViolations[].field`. Тіло цілком не зберігається.
+    from management.services.gemini_payload_contract import bounded_error_facts
+
+    facts = bounded_error_facts(error)
     return {
         "summary": summary,
         "provider_reason": status[:80] or "UNKNOWN",
@@ -2247,6 +2291,9 @@ def _provider_error_details(response) -> dict:
         "provider_quota_metric": provider_quota_metric,
         "provider_quota_id": provider_quota_id,
         "provider_quota_dimensions": provider_quota_dimensions,
+        "error_code": facts["code"],
+        "error_status": facts["status"],
+        "field_path": facts["field"],
     }
 
 
@@ -2282,6 +2329,27 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
     типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal).
     parse=False → повертає сирий текст замість JSON (для діалогового бота)."""
     url = f"{GENAI_BASE}/models/{model}:generateContent"
+    # ЭА.20: контракт перевіряється ДО серіалізації тіла. Недопустиме тіло не має
+    # доходити до провайдера взагалі — 400 коштує повного ходу клієнта, а причина
+    # (недокументоване ключове слово схеми) відома нам заздалегідь. Тут же
+    # застосовується заборона повторити варіант, який уже отримав 400.
+    from management.services import gemini_payload_contract
+
+    payload, contract_report = gemini_payload_contract.guard_payload(
+        payload, model=model
+    )
+    if contract_report.blocked:
+        error = _GeminiFatal(
+            "HTTP 400: payload contract variant already rejected "
+            f"({contract_report.reason})"
+        )
+        error.http_code = 400
+        error.provider_reason = "INVALID_ARGUMENT"
+        error.contract_fingerprint = contract_report.fingerprint
+        error.contract_detail = f"contract:{contract_report.fingerprint}:{contract_report.reason}"[:120]
+        if attempt_boundary is not None:
+            attempt_boundary.cancelled_pre_dispatch(error)
+        raise error
     try:
         body, request_inline_count, request_trimmed_inline = _final_provider_body(payload)
     except _GeminiFatal as error:
@@ -2352,6 +2420,28 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
         error = _GeminiFatal(f"HTTP {code}: {summary}")
         error.http_code = code
         error.provider_reason = str(details["provider_reason"])
+        error.error_status = str(details["error_status"])
+        error.schema_field_path = str(details["field_path"])
+        error.contract_fingerprint = contract_report.fingerprint
+        # ЭА.20: 400 — доказ саме для ЦЬОГО варіанта тіла. Подія відкриває circuit
+        # варіанта (а не провайдера) і фіксує обмежену атрибуцію: без неї «точне
+        # поле не доказано» лишалось би вічним висновком розбору.
+        if code == 400 and contract_report.has_contract:
+            gemini_payload_contract.record_invalid_payload(
+                fingerprint=contract_report.fingerprint,
+                variant=contract_report.variant,
+                model=model,
+                facts={
+                    "code": int(details["error_code"] or code),
+                    "status": str(details["error_status"]),
+                    "field": str(details["field_path"]),
+                },
+                unsupported=contract_report.unsupported,
+            )
+        error.contract_detail = (
+            f"contract:{contract_report.fingerprint}:"
+            f"{str(details['field_path']) or str(details['error_status']) or 'unattributed'}"
+        )[:120]
         if attempt_boundary is not None:
             attempt_boundary.failed(error)
         raise error

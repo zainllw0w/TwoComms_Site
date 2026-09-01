@@ -29,6 +29,35 @@ def build_probe_payload(model: str) -> dict:
     return _payload_for_model(model, payload, reasoning_task="health_probe")
 
 
+# Проба — це теж провайдерська спроба, і її відказ має типізуватись тим самим
+# закритим переліком класів (ЭА.10). Інакше діагностичний 400 («наш payload
+# проби недопустимий») виглядав би як проблема провайдера, а 404 моделі — як наш
+# payload. Статуси проби лишаються незмінними для UI; клас додається окремим
+# полем.
+_PROBE_STATUS_TO_KIND = {
+    "forbidden": "permission_denied",
+    "model_unavailable": "model_not_found",
+    "unsupported_generation": "model_not_found",
+    "quota": "quota_429",
+    "provider_error": "http_5xx",
+    "request_error": "invalid_payload",
+    "timeout": "read_timeout",
+    "transport_error": "transport",
+    "malformed_response": "invalid_response",
+    "reachable_empty": "empty",
+}
+
+
+def probe_failure_class(status: str, http_code=None) -> str:
+    """Типізований клас відказу проби або "" для здорових/недіагностичних станів."""
+    kind = _PROBE_STATUS_TO_KIND.get(str(status or ""))
+    if not kind:
+        return ""
+    from management.services.ig_failure_classes import classify
+
+    return classify(kind, http_code)
+
+
 def _usage_value(usage: dict, *names: str) -> int:
     for name in names:
         value = usage.get(name)
@@ -46,7 +75,8 @@ def classify_probe_response(http_code: int, body: str) -> dict:
             429: "quota",
         }.get(http_code, "provider_error" if http_code >= 500 else "request_error")
         return {"status": status, "http_code": http_code, "finish_reason": "", "thoughts_tokens": 0,
-                "candidates_tokens": 0}
+                "candidates_tokens": 0,
+                "failure_class": probe_failure_class(status, http_code)}
     try:
         data = json.loads(body or "{}")
     except (TypeError, ValueError):
@@ -98,6 +128,7 @@ def classify_probe_response(http_code: int, body: str) -> dict:
         result["status"] = "blocked"
     elif reason == "MAX_TOKENS":
         result["status"] = "reachable_degraded"
+    result["failure_class"] = probe_failure_class(result["status"], http_code)
     return result
 
 
@@ -193,12 +224,13 @@ def probe_key(model: str, key: str, timeout: tuple | None = None) -> dict:
             )
     except requests.Timeout:
         result = {"status": "timeout", "http_code": 0, "finish_reason": "", "thoughts_tokens": 0,
-                  "candidates_tokens": 0}
+                  "candidates_tokens": 0, "failure_class": probe_failure_class("timeout")}
         if boundary is not None:
             boundary.manual_result(succeeded=False, failure_kind="read_timeout")
     except requests.RequestException:
         result = {"status": "transport_error", "http_code": 0, "finish_reason": "", "thoughts_tokens": 0,
-                  "candidates_tokens": 0}
+                  "candidates_tokens": 0,
+                  "failure_class": probe_failure_class("transport_error")}
         if boundary is not None:
             boundary.manual_result(succeeded=False, failure_kind="transport")
     result["latency_ms"] = max(0, int((time.monotonic() - started) * 1000))
@@ -258,4 +290,5 @@ def probe_key_metadata(model: str, key: str, timeout: tuple | None = None) -> di
         "model": model,
         "evidence_kind": "metadata_only",
         "read_timeout": read_timeout,
+        "failure_class": probe_failure_class(status, http_code),
     }
