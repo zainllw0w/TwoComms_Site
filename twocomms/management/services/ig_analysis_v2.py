@@ -456,12 +456,14 @@ def normalize_analysis_v2(
         analysis_v2=analysis_v2,
         by_id=by_id,
     )
-    customer_ids = sorted({
-        row["message_id"] for row in manifest if row["source_role"] == "user"
-    })
-    manager_ids = sorted({
-        row["message_id"] for row in manifest if row["source_role"] == "manager"
-    })
+    # Э3.5 / NEW-ANALYSIS-002. Межа ролі (доказ менеджера ≠ намір клієнта) тепер
+    # спільна для legacy і V2 normalizer: обидва застосовують одні й ті самі
+    # правила, тому вони більше не можуть розійтися в трактуванні ролі автора.
+    from management.services import ig_analysis_roles as analysis_roles
+
+    coverage = analysis_roles.manifest_role_coverage(manifest)
+    customer_ids = sorted(coverage.customer_message_ids)
+    manager_ids = sorted(coverage.manager_message_ids)
     purchase_raw = analysis_v2.get("purchase_intent")
     purchase_raw = purchase_raw if isinstance(purchase_raw, dict) else {}
     probability_ids = by_claim.get("purchase_intent") or []
@@ -475,12 +477,20 @@ def normalize_analysis_v2(
         legacy_normalized.get("score_band")
         or IgConversationAnalysisSnapshot.Band.COLD
     )
-    if not customer_ids and manager_ids:
-        interaction_type = IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
-        score_band = IgConversationAnalysisSnapshot.Band.COLD
-    elif not customer_ids:
-        interaction_type = IgConversationAnalysisSnapshot.InteractionType.INFORMATION_ONLY
-        score_band = IgConversationAnalysisSnapshot.Band.COLD
+    window = analysis_roles.window_roles(by_id)
+    boundary = analysis_roles.apply_source_role_boundary(
+        interaction_type=interaction_type,
+        score_band=score_band,
+        purchase_probability=legacy_normalized.get("purchase_probability"),
+        confidence=legacy_normalized.get("confidence"),
+        uncertainties=legacy_normalized.get("uncertainties") or [],
+        coverage=coverage,
+        window=window,
+        verified_payment=bool(truth_state.get("verified_payment")),
+    )
+    if boundary.changed:
+        interaction_type = boundary.interaction_type
+        score_band = boundary.score_band
 
     if (
         opt_out_ids

@@ -234,6 +234,7 @@ class LegacySelectorCompatibilityTests(TestCase):
     @override_settings(
         IG_ANALYSIS_MATERIALITY_MODE="shadow",
         IG_ANALYSIS_CURRENT_SELECTOR_MODE="legacy",
+        IG_ANALYSIS_FRESHNESS_SELECTOR=False,
     )
     def test_shadow_mode_does_not_enforce_freshness_on_operational_consumers(self):
         from management.services.bot_followups import _suppressed_interaction

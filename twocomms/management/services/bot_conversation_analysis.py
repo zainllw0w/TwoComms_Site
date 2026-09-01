@@ -1052,14 +1052,46 @@ def _normalize(parsed: dict, by_id: dict[int, dict], *, verified_payment: bool) 
             break
     if not evidence:
         uncertainties.append("evidence_unverified")
+    # Э3.5 / NEW-ANALYSIS-002. Роль автора доказу перестає бути довідковим
+    # полем і стає межею висновку. Раніше цитата менеджера проходила ту саму
+    # перевірку, що й цитата клієнта, тому нотатка «клієнт точно купить»
+    # ставала product_interest/payment_pending/collaboration з probability
+    # 0.99, а CRM і follow-up, які виключають лише enum MANAGER_OBSERVATION,
+    # її не бачили. Тепер нормалізатор сам зводить такий висновок до
+    # типізованого manager_observation, і всі існуючі enum-фільтри стають
+    # правильними без змін у кожному читачі окремо.
+    from management.services import ig_analysis_roles as analysis_roles
+
+    evidence = analysis_roles.annotate_evidence_claim_scope(evidence)
+    coverage = analysis_roles.evidence_role_coverage(evidence)
+    boundary = analysis_roles.apply_source_role_boundary(
+        interaction_type=interaction_type,
+        score_band=band,
+        purchase_probability=probability,
+        confidence=confidence,
+        uncertainties=uncertainties,
+        coverage=coverage,
+        window=analysis_roles.window_roles(by_id),
+        verified_payment=verified_payment,
+    )
+    if boundary.is_manager_observation:
+        # Спостереження менеджера не є повторним наміром клієнта: інакше
+        # manager-only рядок відкривав би новий комерційний епізод.
+        repeat_intent = {}
     return {
-        "interaction_type": interaction_type,
-        "score_band": band,
-        "purchase_probability": probability,
-        "confidence": confidence,
+        "interaction_type": boundary.interaction_type,
+        "score_band": boundary.score_band,
+        "purchase_probability": boundary.purchase_probability,
+        "confidence": boundary.confidence,
         "evidence": evidence,
-        "uncertainties": list(dict.fromkeys(uncertainties))[:20],
+        "uncertainties": list(dict.fromkeys(boundary.uncertainties))[:20],
         "repeat_intent": repeat_intent,
+        # Покриття ролей і версія детермінованої політики зберігаються разом зі
+        # знімком: читач більше не мусить перечитувати транскрипт, щоб дізнатися,
+        # чиї слова стоять за висновком.
+        "source_role_coverage": coverage.as_payload(),
+        "role_boundary_reason": boundary.reason,
+        "rules_version": analysis_roles.ROLE_BOUNDARY_POLICY_VERSION,
     }
 
 
@@ -1506,6 +1538,10 @@ def _process_claim(
                 "commercial_episode": commercial_episode,
                 "analysis_model": model,
                 "analysis_prompt_version": ANALYSIS_PROMPT_VERSION,
+                # Версія детермінованої політики межі ролей. Не входить до
+                # `required_state_fingerprint`, тому її поява не змушує
+                # перезапускати аналіз і не витрачає виклик провайдера.
+                "rules_version": str(normalized.get("rules_version") or "")[:40],
                 "required_state_fingerprint": final_fingerprint,
                 "key_alias": str(meta.get("key") or "")[:32],
                 "reasoning_task": str(meta.get("reasoning_task") or "conversation_reanalysis")[:64],

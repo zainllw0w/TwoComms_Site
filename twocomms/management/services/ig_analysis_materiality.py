@@ -44,6 +44,17 @@ def materiality_mode() -> str:
 
 
 def selector_mode() -> str:
+    # Э3.4: IG_ANALYSIS_FRESHNESS_SELECTOR замінює старий
+    # IG_ANALYSIS_CURRENT_SELECTOR_MODE. Новий флаг читається як bool, а не
+    # як режим-рядок, і за замовчуванням увімкнений.
+    freshness = getattr(settings, "IG_ANALYSIS_FRESHNESS_SELECTOR", True)
+    if isinstance(freshness, str):
+        freshness = freshness.strip().lower() in {"1", "true", "yes", "on"}
+    else:
+        freshness = bool(freshness)
+    if freshness:
+        return "enforce"
+    # Fallback на старий режим, якщо новий флаг явно вимкнений.
     value = str(
         getattr(settings, "IG_ANALYSIS_CURRENT_SELECTOR_MODE", "legacy")
         or "legacy"
@@ -426,27 +437,24 @@ def current_analysis_snapshot(
     floor = current_message_floor(client)
     required_state_fingerprint = str(job.required_state_fingerprint or "")
 
-    def has_customer_evidence(snapshot) -> bool:
-        evidence = snapshot.evidence if isinstance(snapshot.evidence, list) else []
-        return any(
-            isinstance(item, dict)
-            and str(item.get("source_role") or "").casefold()
-            == InstagramBotMessage.Role.USER
-            and bool(item.get("message_id"))
-            for item in evidence
-        )
-
     def is_current(snapshot) -> bool:
         if not include_manager and snapshot.interaction_type == (
             IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
         ):
             return False
+        # Э3.5 / NEW-ANALYSIS-002. Роль автора доказу перестає бути довідковим
+        # полем і стає межею: історичний знімок (до `ROLE_BOUNDARY_POLICY_VERSION`)
+        # міг отримати customer-facing enum на доказі менеджера. Один enum-чек
+        # не захищає від цього, тому read-шлях перевіряє покриття ролей ще раз.
+        from management.services import ig_analysis_roles as analysis_roles
+
         if snapshot.interaction_type != (
             IgConversationAnalysisSnapshot.InteractionType.MANAGER_OBSERVATION
-        ) and not has_customer_evidence(snapshot):
-            # An enum alone is not customer intent. This also fails closed if
-            # a model mislabels manager-only evidence as high intent/product
-            # interest, preventing probability, follow-up and CTA projection.
+        ) and not analysis_roles.snapshot_carries_customer_intent(snapshot):
+            # Enum один не є доказом наміру клієнта. Це також fail-closed на
+            # випадок, якщо модель помилково маркувала manager-only доказ як
+            # high_intent/product_interest: вони не проходять і не потрапляють
+            # у probability, follow-up і CTA-проєкцію.
             return False
         if int(snapshot.last_analyzed_message_id or 0) < floor:
             return False
