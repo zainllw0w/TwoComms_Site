@@ -3542,8 +3542,9 @@ exchange:12:start
 >
 > Новый `management/services/ig_catalog_cards.py` — чистый планировщик: он не
 > отправляет ничего, а решает, какую из **уже существующих** форм
-> (`GenericTemplate` / `ButtonTemplate` / `QuickReplyMessage` из `ig_message_templates`)
-> заполнить данными каталога и какими кнопками. Тесты:
+> `ig_message_templates` заполнить данными каталога и какими кнопками. Карточки
+> и карусели — `GenericTemplate`, размеры при `4+` — `QuickReplyMessage`,
+> остальное — обычный текст; четвёртой формы не появилось. Тесты:
 > `management/tests_ig_catalog_cards.py` (69 тестов).
 >
 > Блокер `NEW-CAT-002` снят в Э3.7: фото элемента идёт через
