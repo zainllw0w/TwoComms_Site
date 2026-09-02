@@ -3538,6 +3538,33 @@ exchange:12:start
 
 ## Э1.5 — Карточки каталога и выбора размера
 
+> **Статус 2026-09-02 — планировщик готов, отправка gated флагами.**
+>
+> Новый `management/services/ig_catalog_cards.py` — чистый планировщик: он не
+> отправляет ничего, а решает, какую из **уже существующих** форм
+> (`GenericTemplate` / `ButtonTemplate` / `QuickReplyMessage` из `ig_message_templates`)
+> заполнить данными каталога и какими кнопками. Тесты:
+> `management/tests_ig_catalog_cards.py` (69 тестов).
+>
+> Блокер `NEW-CAT-002` снят в Э3.7: фото элемента идёт через
+> `variant_image_url()` → `select_catalog_media(color_variant_id=…, fit_code=…,
+> size=…)`, а `fallback_reason` едет в `CardPlan.media_fallback_reason`, чтобы
+> оператор видел причину generic-фото.
+>
+> **Чего здесь сознательно нет.** Перехода состояния по нажатию. Э1.4 оставила
+> `product/variant/size` как `[~]` (signed postback V2 нет), а Э1.13 держит этот
+> шаг у себя («Product/size/payment/consent/ТТН actions переходят в `NO_MODEL`
+> router»). Поэтому здесь есть детерминированный разбор payload
+> (`parse_card_action()`) и нет ни одной записи в коммерческое состояние.
+> Пока флаг карточки выключен, payload такой формы физически не может прийти.
+>
+> `Откат` реализован буквально: `IG_CARD_CATEGORY_CAROUSEL`,
+> `IG_CARD_PRODUCT_CAROUSEL`, `IG_CARD_SIZE_CHOICE`, `IG_CARD_SIZE_GRID`. Все
+> четыре по умолчанию `off`; `plan_catalog_visual()` / `plan_size_visual()`
+> возвращают `None`, то есть ход идёт прежним текстовым путём. `None` вместо
+> «карточки без кнопок» — сознательно: молчаливая деградация до вопроса, на
+> который нечем ответить, хуже отсутствия карточки.
+
 - Находка: `NEW-TMPL-004`
 - Класс: GAP
 - Блокеры: Э1.2, Э1.4, **`NEW-CAT-002`** (медиа по варианту — см. ниже)
@@ -3555,43 +3582,83 @@ exchange:12:start
 
 **Шаги — карусель подобранных товаров:**
 
-- [ ] Различать category и product carousel. Если клиент уже сказал «футболки
+- [x] Различать category и product carousel. Если клиент уже сказал «футболки
       Харькова», category известна: сразу product carousel по этому фильтру.
       Category carousel нужна только при broad browse и неизвестном garment.
-- [ ] Реализовать обязательную cardinality matrix: `0` → честный text + способы
+      — `ig_catalog_cards.catalog_visual_kind()`; тесты
+      `CategoryVersusProductCarouselTests`
+- [x] Реализовать обязательную cardinality matrix: `0` → честный text + способы
       ослабить фильтр; `1` → single product card; `2–3` → carousel; `4+` →
       stable page из 3 + явное `Показати ще`. Meta limit 10 — не UX-цель
-- [ ] Полный ordered candidate digest/cursor сохраняется до первой page;
+      — `plan_product_cards()`, `PAGE_SIZE = 3`; тесты `CardinalityMatrixTests`
+      (включая `test_page_is_three_not_the_provider_limit`)
+- [x] Полный ordered candidate digest/cursor сохраняется до первой page;
       `Показати ще` создаёт новую visual revision, не молча отбрасывает остаток
-- [ ] Структура элемента: фото **точного варианта**, `title` из `display_short`,
+      — `open_candidate_page()` / `advance_candidate_page()` в
+      `IgClient.sales_context["catalog_page"]` (без миграции) +
+      `CandidateDecision.ordered_product_ids` (раньше `rank_candidates()`
+      выбрасывал хвост); тесты `CandidateDigestAndCursorTests`,
+      `RankedOrderIsNotTruncatedTests`
+- [x] Структура элемента: фото **точного варианта**, `title` из `display_short`,
       `subtitle` вида «Оверсайз/класика · від 1 250 ₴»
-- [ ] Кнопки: `[Обрати]` postback `product:<gen>:pick:<product_id>`,
+      — `_product_card()` / `product_subtitle()` / `variant_image_url()`; тесты
+      `CarouselElementTests`, `ExactVariantMediaTests`
+- [x] Кнопки: `[Обрати]` postback `product:<gen>:pick:<product_id>`,
       `[Детальніше]` web_url на страницу товара
-- [ ] Синхронизировать с `record_shown_products`: карусель заменяет старый
+      — `product_pick_payload()` даёт `twc:1:product:<gen>:pick:<id>`
+      (обязательный версионный префикс снаружи, документированная форма внутри);
+      тесты `CardPayloadContractTests`
+- [x] Синхронизировать с `record_shown_products`: карусель заменяет старый
       механизм «фото + список», но порядок и product_id должны фиксироваться так
       же
+      — `record_shown_cards()` пишет тот же `sales_context` ключ и формат, одна
+      карусель = один рядок истории с реальным `message_id`, позиции page-local;
+      тест `ShownProductsSyncTests` проверяет через сам `shown_products_note()`
 
 **Шаги — выбор размера (наибольший выигрыш):**
 
-- [ ] Карточка с фото выбранного варианта, `subtitle` «Оберіть розмір · в
+- [x] Карточка с фото выбранного варианта, `subtitle` «Оберіть розмір · в
       наявності: S, M, L», кнопки-размеры postback `size:<gen>:set:<S|M|L>`
-- [ ] **Только доступные размеры.** `_disabled_sizes()` уже знает отключённые.
+      — `plan_size_choice()` ветка `2–3`; тесты `SizeChoiceTests`
+- [x] **Только доступные размеры.** `_disabled_sizes()` уже знает отключённые.
       Кнопка недоступного размера — худшая ошибка: клиент нажал и получил отказ
-- [ ] `2–3` доступных размера: compact buttons/quick replies; `4–13`: все
+      — источник один: `checkout_readiness()['size']`, тот же, что решает, можно
+      ли оформить; `readiness_sizes()` вычитает `disabled` вторым замком. Тест
+      `RealCatalogSizeTruthTests` идёт через настоящий `VariantSizeRule`
+- [x] `2–3` доступных размера: compact buttons/quick replies; `4–13`: все
       доступные размеры quick replies + `Таблиця розмірів`; `>13` или нужны
       замеры: size-grid card + полный text flow. **Никогда** не показывать три
       из шести: клиент решит, что остальных нет
+      — тесты `test_all_seven_catalogue_sizes_reach_the_client`,
+      `test_thirteen_sizes_keep_every_size_and_move_the_chart_into_the_text`
+      (на границе лимита урезается кнопка сетки, а не набор размеров)
 
 **Шаги — размерная сетка:**
 
-- [ ] Карточка с картинкой сетки для конкретного кроя, кнопки
+- [x] Карточка с картинкой сетки для конкретного кроя, кнопки
       `[Обрати розмір]` postback `size:<gen>:reopen` и `[Питання]`
-- [ ] Это прямое усиление узла `size_confidence` (`NEW-SUBFUNNEL-001`): картинка
+      — `plan_size_grid_card()` + `size_grid_for_fit()` читает реальную
+      `SizeGrid.image` через `resolve_option_size_grid(product, "fit=<code>")`;
+      новые подписи `grid_open`/`grid_pick`/`grid_question` в `BUTTON_LABELS`
+      (префикс не `size_`, чтобы «ровно семь размеров» осталось правдой)
+- [~] Это прямое усиление узла `size_confidence` (`NEW-SUBFUNNEL-001`): картинка
       с замерами — факт о товаре, а не разговор о фигуре клиента
+      — контракт карточки выполнен и закреплён тестом
+      (`test_the_copy_never_mentions_the_customers_body`, замеры только из
+      реальной сетки, нет сетки → нет чисел). Самого узла `size_confidence` в
+      коде ещё нет: он принадлежит `NEW-SUBFUNNEL-001`, поэтому «усилить» пока
+      нечего — карточка готова к подключению, подключение за той находкой
 
 **Готово когда:** фото в карточке соответствует выбранному варианту; недоступные
 размеры не показываются кнопками; при >3 размерах используется альтернатива;
 нажатие «Обрати» закрывает узел без вызова модели.
+
+> Первые три условия закрыты и покрыты тестами. Четвёртое (нажатие закрывает узел
+> без модели) требует записи в коммерческое состояние, а авторитетный путь записи
+> — `apply_turn()` через сессию выбора; прямая запись `client.current_size` из
+> роутера обошла бы её. Этот шаг числится в Э1.13 («Product/size/... actions
+> переходят в `NO_MODEL` router») и в Э1.4 стоит как `[~]`. Здесь готов
+> детерминированный разбор (`parse_card_action()`), которым он воспользуется.
 
 **Метрика:** CTR по кнопкам выбора; число ходов до закрытия узла размера
 до/после; доля burst-сообщений при выборе (должна упасть — часть их заменяют
@@ -3599,7 +3666,8 @@ exchange:12:start
 
 **Откат:** feature-флаг per-карточка.
 
-- [ ] **Коммит + push + деплой**
+- [ ] **Коммит + push + деплой** — код закоммичен в worktree-ветке; push, merge
+      и деплой централизованные, поэтому пункт остаётся открытым до них
 
 ## Э1.6 — Карточка оформления и оплаты
 
