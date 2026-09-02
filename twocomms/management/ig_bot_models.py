@@ -84,6 +84,7 @@ __all__ = [
     "IgCommercialEpisodeEvent",
     "IgFunnelStepEvent",
     "IgFunnelDropOff",
+    "IgFunnelNodeState",
     "IgPostSaleCase",
     "IgOrderShipment",
     "BotPromptRevision",
@@ -8058,3 +8059,184 @@ class IgAlertRateBucket(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"{self.bucket_key}: {self.used} @ {self.window_started_at:%H:%M:%S}"
+
+
+class IgFunnelNodeState(models.Model):
+    """Стан одного вузла воронки — закриття доводиться даними, а не стадією (Э4.1).
+
+    **Чому окрема таблиця, а не ще одне поле в `IgClient`.** `stage` відповідає на
+    питання «де ми в лінійній воронці», і план прямо забороняє її розширювати:
+    закриття вузла і стадія — різні поняття. `product_matched` не означає, що
+    обраний колір; `checkout` не означає, що є відділення НП. Поки єдиним
+    джерелом був `stage`, «чи закритий вузол» доводилось **виводити** зі стадії,
+    і це виведення було неправдою в обидві сторони.
+
+    **Чому це не дублює `IgFunnelStepEvent`.** Той журнал — незмінні **віхи
+    епізоду** (`paylink_issued`, `payment_confirmed`): відповідає на «що вже
+    сталося». Тут — **поточний стан конкретного вузла** з причиною і evidence:
+    відповідає на «чого бракує і чому». Одне не виводиться з іншого: віха
+    `product_pinned` не каже, чи товар досі опублікований, а вузол `product` у
+    статусі `invalidated` — каже.
+
+    **Чому `node_key` unique, а не UniqueConstraint по кортежу.** Адреса вузла
+    містить nullable `commercial_episode` і порожні `line_id`/`recipient_id`. У
+    MariaDB два NULL в unique-індексі вважаються різними, тому кортежний
+    constraint пропустив би дублікати саме для клієнтських (позаепізодних)
+    вузлів. Той самий вибір уже зроблено в `IgCommercialEpisode.materialization_key`
+    і `IgMemoryFact.record_key`.
+
+    **Чому статусів сім, а не два.** `selected`/`missing` роблять три різні
+    причини «роззакриття» однаковими (Э4.2). `not_applicable` — це політика
+    («один крій — питання не існує»), а не незнання, і жовтий статус в UI мусить
+    означати саме її. `skipped` існує тільки для класу QUALITY і тільки з
+    причиною.
+    """
+
+    class Status(models.TextChoices):
+        OPEN = "open", _("Відкритий")
+        COMPLETE = "complete", _("Закритий")
+        PARTIAL = "partial", _("Частково закритий")
+        SKIPPED = "skipped", _("Пропущений із причиною")
+        NOT_APPLICABLE = "not_applicable", _("Не застосовується")
+        INVALIDATED = "invalidated", _("Знецінений зміною іншого вузла")
+        SUPERSEDED = "superseded", _("Витіснений новим значенням")
+
+    class BranchType(models.TextChoices):
+        """Гілка стану для сумісності з Gemini V2 (`episode + branch + line`)."""
+
+        MAIN = "main", _("Основна гілка")
+        REPEAT = "repeat", _("Повторна покупка")
+        GIFT = "gift", _("Подарунок отримувачу")
+        EXCHANGE = "exchange", _("Обмін або повернення")
+
+    # Стани, після яких вузол уже не «чекає» на клієнта: далі або нічого не
+    # треба, або треба переспитати з причиною (Э4.2), і це вже інша дія.
+    _TERMINAL_STATES = frozenset({
+        Status.COMPLETE, Status.SKIPPED, Status.NOT_APPLICABLE, Status.SUPERSEDED,
+    })
+    # Стани, які закривають вузол для розрахунку блокувань. `skipped` тут немає
+    # свідомо: пропуск дозволений лише класу QUALITY, а QUALITY нічого не
+    # блокує, тож пропуск ніколи не має відкривати необоротну дію.
+    _CLOSED_STATES = frozenset({Status.COMPLETE, Status.NOT_APPLICABLE})
+
+    # Адреса вузла. Детермінований ключ, який рахує `ig_funnel_nodes`.
+    node_key = models.CharField(max_length=190, unique=True)
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.CASCADE,
+        related_name="funnel_node_states",
+        db_constraint=False,
+    )
+    commercial_episode = models.ForeignKey(
+        "management.IgCommercialEpisode",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="funnel_node_states",
+        db_constraint=False,
+    )
+    branch_type = models.CharField(
+        max_length=16,
+        choices=BranchType.choices,
+        default=BranchType.MAIN,
+        db_index=True,
+    )
+    # Непрозорі ідентифікатори лінії та отримувача: у них не можна кладти
+    # ні телефон, ні ім'я — вузол з даними отримувача живе окремо від покупця.
+    line_id = models.CharField(max_length=96, blank=True, default="")
+    recipient_id = models.CharField(max_length=96, blank=True, default="")
+    # Ключ і версія визначення. Це рядки, а не FK: analysis посилається лише на
+    # ключі і не має знати фізичну таблицю вузлів (контракт Gemini V2).
+    definition_key = models.CharField(max_length=96, db_index=True)
+    definition_version = models.CharField(max_length=32, default="")
+    status = models.CharField(
+        max_length=24,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+    # Чому вузол саме в цьому статусі. Для `skipped` і `not_applicable`
+    # обов'язково, інакше жовтий статус знову зіллється з незнанням.
+    reason_code = models.CharField(max_length=48, blank=True, default="")
+    reason_detail = models.CharField(max_length=200, blank=True, default="")
+    # Який саме вузол знецінив цей. Э4.2 читає це поле, щоб сказати клієнту
+    # «поміняли колір, і в ньому немає L», а не спитати розмір заново без слів.
+    invalidated_by_definition_key = models.CharField(
+        max_length=96, blank=True, default=""
+    )
+    typed_value = models.JSONField(default=dict, blank=True)
+    # Попереднє значення зберігається тут, а не в окремій таблиці історії:
+    # Э4.2 вимагає «клієнт передумав» не переспитувати, для цього достатньо
+    # бачити, що значення було і яким саме.
+    previous_typed_value = models.JSONField(default=dict, blank=True)
+    evidence_message_ids = models.JSONField(default=list, blank=True)
+    # Чим саме доведено закриття: `checkout_readiness`, довідник НП, оплата.
+    # Порожньо тільки для `open`: закриття без доказу — це і є виведення зі стадії.
+    closure_method = models.CharField(max_length=32, blank=True, default="")
+    projector_version = models.CharField(max_length=32, blank=True, default="")
+    observed_at = models.DateTimeField(null=True, blank=True)
+    invalidated_at = models.DateTimeField(null=True, blank=True)
+    superseded_at = models.DateTimeField(null=True, blank=True)
+    # Коли значення варто підтвердити (адреса могла змінитись). Заповнює Э4.2;
+    # колонка є вже зараз, щоб `stale_confirm` не вимагав другої міграції схеми.
+    confirm_after = models.DateTimeField(null=True, blank=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    superseded_by = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="supersedes",
+        db_constraint=False,
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("Стан вузла воронки IG")
+        verbose_name_plural = _("Стани вузлів воронки IG")
+        ordering = ["definition_key", "id"]
+        constraints = [
+            # Пропуск і «не застосовується» без причини — це рівно та втрата
+            # інформації, через яку жовтий статус зливався з незнанням.
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(status__in=("skipped", "not_applicable"))
+                    | ~models.Q(reason_code="")
+                ),
+                name="ig_fnode_reason_required",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["client", "commercial_episode", "definition_key"],
+                name="ig_fnode_client_episode",
+            ),
+            models.Index(fields=["status", "-updated_at"], name="ig_fnode_status_dt"),
+            models.Index(
+                fields=["commercial_episode", "branch_type", "line_id"],
+                name="ig_fnode_branch",
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover - trivial representation
+        return f"funnel_node:{self.definition_key}:{self.status}"
+
+    @property
+    def is_terminal(self) -> bool:
+        return self.status in self._TERMINAL_STATES
+
+    @property
+    def is_closed(self) -> bool:
+        """Чи знятий вузол з дороги до необоротної дії."""
+        return self.status in self._CLOSED_STATES
+
+    @classmethod
+    def closed_statuses(cls) -> frozenset:
+        """Публічний доступ до набору «закритих» статусів.
+
+        Проєктор мусить рахувати блокування тим самим набором, яким модель
+        відповідає на `is_closed`: два списки розійшлися б, і UI показував би не
+        те, що блокує оплату.
+        """
+        return cls._CLOSED_STATES
