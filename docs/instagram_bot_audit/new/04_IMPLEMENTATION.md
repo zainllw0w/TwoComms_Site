@@ -6090,25 +6090,96 @@ state:      episode_id, definition_key/version, status, reason,
 
 **Шаги:**
 
-- [ ] Спроектировать `FunnelNodeDefinition` с полями политики
-- [ ] Спроектировать состояние узла: `open`, `complete`, `partial`, `skipped`,
-      `not_applicable`, `invalidated`, `superseded`
-- [ ] `blocking_for` ссылается **только** на реально необратимые действия (выдача
-      pay-link), не на желание собрать маркетинговый контекст
-- [ ] **Декларативный граф зависимостей** (`NEW-SUBFUNNEL-010`) в том же
+- [x] Спроектировать `FunnelNodeDefinition` с полями политики —
+      `services/ig_funnel_nodes.py::FunnelNodeDefinition` (frozen dataclass).
+      Семь различий выражены семью полями политики: `lifecycle_scope`,
+      `retention_class`, `reset_behavior`, `subject_scope`, `prompt_priority`,
+      `node_class`, `blocking_for`; плюс `applicable_when`, `evidence_policy`,
+      `projection_target`, `parent_key`, `version`. **Определения живут в коде, а
+      не в таблице**: статическая проверка графа невозможна для строк, которые
+      можно поменять `UPDATE` на проде, и это же даёт ровно одну миграцию — под
+      состояние. `IgAnalysisProposal.target_definition_key/version` уже строки, то
+      есть контракт «analysis знает ключи, а не таблицу» соблюдён
+- [x] Спроектировать состояние узла: `open`, `complete`, `partial`, `skipped`,
+      `not_applicable`, `invalidated`, `superseded` —
+      `IgFunnelNodeState.Status` (`management/ig_bot_models.py`), ровно семь
+      значений. Адрес состояния: `client + commercial_episode + branch_type +
+      line_id + recipient_id + definition_key/version` через unique `node_key`
+      (кортежный constraint пропускал бы дубликаты: в MariaDB два NULL в
+      unique-индексе различны, а эпизод nullable). Поля под Э4.2 заведены сразу,
+      чтобы вторая миграция схемы не потребовалась: `reason_code`,
+      `reason_detail`, `invalidated_by_definition_key`, `previous_typed_value`,
+      `superseded_by`, `superseded_at`, `confirm_after`, `confirmed_at`
+- [x] `blocking_for` ссылается **только** на реально необратимые действия (выдача
+      pay-link), не на желание собрать маркетинговый контекст —
+      `IrreversibleAction` содержит две проверенные по коду записи:
+      `pay_link_issue` (вартует `checkout_readiness.can_issue_link`) и
+      `order_create` (вартует `bot_orders.fulfill_if_ready()` через
+      `deal_has_np_data()` + `ig_delivery.has_validated_delivery()`). Логистика
+      блокирует **создание заказа**, а не ссылку — иначе правило было бы неправдой
+      в обе стороны. Валидатор отклоняет любое другое значение
+      (`test_blocking_for_names_only_irreversible_actions`)
+- [x] **Декларативный граф зависимостей** (`NEW-SUBFUNNEL-010`) в том же
       определении. Четыре типа: определяющая, инвалидирующая, усиливающая,
-      блокирующая. Императивные проверки заменяются обходом графа
-- [ ] Ограничить граф **только** этими четырьмя типами, без условной логики. Если
-      зависимость не выражается ими — оставить императивно
-- [ ] Статическая проверка: нет циклов, нет висящих ссылок
-- [ ] **Перенести существующие узлы** `checkout_readiness` в проекцию: product,
+      блокирующая. Императивные проверки заменяются обходом графа —
+      `DependencyKind` (`determines`/`invalidates`/`reinforces`/`blocks`) +
+      `NodeDependency`; порядок вопросов даёт `ask_order()` обходом ребёр
+      `determines`/`blocks`, а не константой в коде
+      (`test_ask_order_narrows_first_and_leaves_logistics_last`)
+- [x] Ограничить граф **только** этими четырьмя типами, без условной логики. Если
+      зависимость не выражается ими — оставить императивно — `NodeDependency`
+      несёт только `kind` + `on` + пояснение; пятый тип отклоняется валидатором
+      (`test_graph_uses_exactly_four_dependency_kinds`). Условие применимости
+      вынесено в **непрозрачный код политики** `applicable_when`, который
+      разрешает проектор: в графе нет ни лямбд, ни «если…то»
+- [x] Статическая проверка: нет циклов, нет висящих ссылок —
+      `validate_registry()` + `assert_registry_valid()`, вызывается **на импорте
+      модуля**, не только в тестах. **Важная поправка к плану:** ациклическим
+      обязан быть только **порядковый** подграф (`determines`/`blocks`) — цикл там
+      означает дедлок «спроси A перед B и B перед A». Взаимная инвалидация
+      цветом и размером — правда каталога (`_color_rows(..., size=size_selected)`
+      фильтрует варианты выбранным размером, а `sizes_for_fit(..., variant=...)`
+      считает сетку по варианту), и запрет цикла на `invalidates` заставил бы
+      скрыть одно из двух правдивых ребёр
+      (`test_mutual_invalidation_is_allowed_because_the_catalog_works_that_way`)
+- [x] **Перенести существующие узлы** `checkout_readiness` в проекцию: product,
       fit, size, color, option_axes, quantity, city, branch, phone, recipient_name,
-      pay_type, paylink. **Ни одного нового узла**
-- [ ] `checkout_readiness` остаётся authority для payable-готовности
-- [ ] Golden-диалоги до/после: поведение не должно ухудшиться
-- [ ] Отдельно: `size` разделить на под-условия `size_named` / `size_available`
+      pay_type, paylink. **Ни одного нового узла** — `REGISTRY` содержит ровно эти
+      двенадцать плюс две под-условия `size` (пункт ниже), всего 14 ключей;
+      попытка добавить узел ломает `test_only_already_existing_nodes_are_registered`.
+      Конфигурация читается из `checkout_readiness()`, логистика — из полей
+      `IgDeal` (`np_city`/`np_office`/`np_full_name`/`np_phone`), оплата — из
+      `pay_type` и `invoice_link_state`. «Доставка» и «оплата» остались **метками
+      группы**, а не узлами: узлов с такими именами в данных нет
+- [x] `checkout_readiness` остаётся authority для payable-готовности —
+      `FunnelProjection.payable_ready` берётся **только** из `can_issue_link`, а
+      `authority_agrees` фиксирует расхождение как факт, вместо того чтобы
+      перекрыть авторитет проекцией (`test_checkout_readiness_stays_the_authority_
+      on_payable_readiness`). Порядок проверок в `_project_option_axes()` намеренно
+      смотрит `missing` **раньше** `required`: `checkout_readiness` добавляет
+      `option:<code>` даже когда осей уже нет, и проверка `required` первой дала бы
+      `not_applicable` там, где ссылка реально заблокирована
+- [~] Golden-диалоги до/после: поведение не должно ухудшиться — **деградации нет,
+      но зелёного базиса у харнесса сейчас нет.** `management.tests_ig_eval_corpus`
+      падает и до, и после изменения одинаково: `ref001_simple_reply: перевищено
+      бюджет запитів до БД (152 > 100)`, 4 ошибки из 17 тестов, число запросов
+      байт-идентично (152 в обоих прогонах, проверено в чистом `main`-worktree).
+      Новый модуль **не имеет ни одного вызова в runtime-пути** (`grep -rn
+      ig_funnel_nodes` даёт сам модуль, его тесты и один комментарий в модели) и
+      закрыт флагом
+      `IG_FUNNEL_NODE_PROJECTION_MODE` со значением `off` по умолчанию, поэтому
+      ухудшить диалоги он не может по построению. Пункт закроется вместе с
+      починкой бюджета запросов корпуса — это отдельная находка, не Э4.1
+- [x] Отдельно: `size` разделить на под-условия `size_named` / `size_available`
       (третий уровень) — `size_available` уже реализован через
-      `requested_unavailable`, нужно только выразить как отдельное под-условие
+      `requested_unavailable`, нужно только выразить как отдельное под-условие —
+      сделано; «назвал L, в этом цвете L нет» теперь даёт `size_named=complete` +
+      `size_available=invalidated`, и `blocking_gaps()` показывает именно
+      `size_available`, а не `size`
+      (`test_named_but_unavailable_size_splits_into_two_subconditions`).
+      Атрибуция «какой узел сделал размер недоступным» **не выдумывается**:
+      `checkout_readiness` отдаёт итог, а не событие изменения, поэтому
+      `invalidated_by_definition_key` остаётся пустым до Э4.2
 
 **Критерий вложенности (`NEW-SUBFUNNEL-001`), применять строго:** третий уровень
 только там, где для закрытия требуются **несколько независимых условий**. По этому
@@ -6126,7 +6197,24 @@ golden-диалоги не показывают деградации; стати
 **Откат:** проекция читается параллельно с `checkout_readiness`; переключение
 источника флагом.
 
-- [ ] **Коммит + push + деплой**
+> **Э4.1 закрыт кодом 2026-09-02.** Модель `IgFunnelNodeState` +
+> `management/migrations/0190_ig_funnel_node_state.py` (**одна** миграция, чистый
+> expand: одна `CreateModel`, ничего задеплоенного не меняется) + реестр и
+> проектор `management/services/ig_funnel_nodes.py` + 46 тестов
+> `management/tests_ig_funnel_nodes.py` (`OK`, 46/46).
+> `makemigrations --check --dry-run` → `No changes detected`.
+> Регрессии: `tests_ig_live_reply_priority` 79/79 `OK`,
+> `tests_ig_checkout_service` 32/32 `OK`,
+> `tests_ig_funnel_analytics` + `tests_ig_funnel_journal` 63/63 `OK`.
+> **Метрика запросов:** `project_nodes(readiness=..., deal=...)` не делает **ни
+> одного** запроса (`test_projection_itself_costs_no_queries`), повторная запись
+> проекции — один `SELECT`
+> (`test_repeat_write_stays_within_a_bounded_query_budget`), при `mode=off` —
+> ноль запросов. То есть расчёт узлов не может увеличить бюджет по построению.
+
+- [~] **Коммит + push + деплой** — коммит сделан в изолированном worktree;
+      `push` и `deploy` **не выполнялись** намеренно: слот миграции этой волны
+      один, и порядок деплоя выбирает владелец волны, а не агент
 
 ## Э4.2 — Состояния `invalidated` и `superseded` с причиной
 
