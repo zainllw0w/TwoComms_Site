@@ -12351,6 +12351,69 @@ def _process_one_inside_reply_boundary(
             )
 
     if not reply and s.ai_enabled:
+        # Link intent classification for text messages (postbacks already handled above)
+        if not reply:
+            from management.services import ig_link_intent as link
+
+            request = link.classify_request(text)
+            if request.asked:
+                # Client is asking for a link, resolve what to send
+                product_url = ""
+                if deal:
+                    product_url = getattr(deal, "product_url", "") or ""
+                
+                resolution = link.resolve(
+                    request, 
+                    deal=deal, 
+                    product_url=product_url, 
+                    lang=language
+                )
+                
+                # Send card if we have one
+                if resolution.card:
+                    from management.services import ig_message_templates as tpl
+                    
+                    # Determine card type and send appropriately
+                    if isinstance(resolution.card, tpl.ButtonTemplate):
+                        delivery = tpl.send_button_template(
+                            s,
+                            row.sender_id,
+                            resolution.card,
+                            permission_boundary_factory=lambda: customer_send_boundary(
+                                s.pk, row.client_id, permission
+                            ),
+                        )
+                    elif isinstance(resolution.card, tpl.QuickReplyMessage):
+                        delivery = tpl.send_quick_replies(
+                            s,
+                            row.sender_id,
+                            resolution.card,
+                            permission_boundary_factory=lambda: customer_send_boundary(
+                                s.pk, row.client_id, permission
+                            ),
+                        )
+                    else:
+                        # Fallback to note text if card type unknown
+                        reply = resolution.note or ""
+                    
+                    if resolution.card and delivery.ok:
+                        # Card sent successfully, mark as handled
+                        reply = ""
+                        from management.services.gemini_routing import persist_decision
+                        routing_decision = live_routing_decision(
+                            s,
+                            deterministic_action="link_intent",
+                        )
+                        persist_decision(row, routing_decision)
+                        log(
+                            "info",
+                            "link_intent_handled",
+                            f"{row.sender_id}: {resolution.kind} ({','.join(resolution.reason_codes)})",
+                        )
+                    elif not resolution.card and resolution.note:
+                        # No card, just a note (e.g., already_paid, not_issued)
+                        reply = resolution.note
+
         # Підвантажуємо профіль клієнта (раз на картку) для CRM.
         if row.client_id and not row.client.profile_fetched_at:
             try:
@@ -12507,16 +12570,66 @@ def _process_one_inside_reply_boundary(
                     ad_resolution=ad_resolution,
                 )
                 persist_decision(row, routing_decision)
-                reply = gemini_generate(
-                    s, history, images=images or None, match_hint=match_hint,
-                    memory_note=mem_note, context_note=ctx_note,
-                    client=row.client if row.client_id else None,
-                    media_hint=_media_context_hint(media),
-                    turn_note=turn_notes,
-                    failure_context=gemini_failure,
-                    routing_decision=routing_decision,
-                    turn_media_binding=media_binding,
-                )
+
+                # ЭА.9: Рівень L3 — детермінований відповідь без моделі при відкритому інциденті.
+                # Перевіряємо ДО виклику gemini_generate, тому що L3 — це альтернатива моделі,
+                # а не fallback після збою. Викликається ТІЛЬКИ при INCIDENT episode.
+                l3_outcome = None
+                degradation_episode = None
+                if row.client_id and not ugc_turn:
+                    try:
+                        from management.ig_bot_models import IgClientDegradationEpisode
+                        from management.services.ig_deterministic_l3 import deterministic_outcome
+
+                        # Шукаємо відкритий INCIDENT episode для клієнта
+                        degradation_episode = IgClientDegradationEpisode.objects.filter(
+                            client_id=row.client_id,
+                            state='INCIDENT',
+                        ).order_by('-created_at').first()
+
+                        if degradation_episode:
+                            l3_outcome = deterministic_outcome(
+                                text=row.text,
+                                client=row.client,
+                                episode=degradation_episode,
+                            )
+
+                            if l3_outcome is not None:
+                                reply = l3_outcome.reply
+                                log(
+                                    "info",
+                                    "l3_deterministic",
+                                    f"{row.sender_id}: L3 outcome={l3_outcome.outcome_code} "
+                                    f"episode={degradation_episode.pk}",
+                                )
+                                # Закриваємо episode → RECOVERED
+                                degradation_episode.state = 'RECOVERED'
+                                degradation_episode.save(update_fields=['state'])
+
+                                # Створюємо manager task, якщо потрібно
+                                if l3_outcome.manager_task_reason:
+                                    _create_manager_task(row.client, l3_outcome.manager_task_reason)
+
+                                # Маркуємо в CRM як L3
+                                _own_processing_claim(row).update(
+                                    gemini_routing_lane="L3",
+                                    gemini_routing_reason_codes=["deterministic_outcome"],
+                                )
+                    except Exception as e:
+                        log("error", "l3_deterministic_failed", f"{row.sender_id}: {e}")
+
+                # Викликаємо модель ТІЛЬКИ якщо L3 не дав відповіді
+                if not reply:
+                    reply = gemini_generate(
+                        s, history, images=images or None, match_hint=match_hint,
+                        memory_note=mem_note, context_note=ctx_note,
+                        client=row.client if row.client_id else None,
+                        media_hint=_media_context_hint(media),
+                        turn_note=turn_notes,
+                        failure_context=gemini_failure,
+                        routing_decision=routing_decision,
+                        turn_media_binding=media_binding,
+                    )
                 _persist_turn_intelligence(
                     row,
                     gemini_failure.get("turn_intelligence") or {},
@@ -12800,11 +12913,49 @@ def _process_one_inside_reply_boundary(
                     f"ugc={bool(ugc_turn)}",
                 )
             if not reply:
-                reply, fallback_manager_handoff = build_ai_failure_fallback(
-                    row,
-                    provider_outage=provider_outage,
-                    holding_decision=outage_gate,
-                )
+                # ЭА.9 L3: attempt deterministic answer without model during provider outage
+                l3_outcome = None
+                if provider_outage and outage_gate is not None:
+                    from management.services.ig_l3_deterministic import (
+                        attempt_deterministic_answer,
+                        open_l3_manager_case,
+                        close_episode_as_recovered,
+                    )
+                    
+                    try:
+                        l3_outcome = attempt_deterministic_answer(row)
+                        if l3_outcome:
+                            reply = l3_outcome.reply
+                            if reply:
+                                log(
+                                    "info",
+                                    "l3_deterministic",
+                                    f"{row.sender_id}: L3 {l3_outcome.kind} without model",
+                                )
+                                # L3 deterministic answer closes the turn
+                                if l3_outcome.create_manager_case:
+                                    try:
+                                        open_l3_manager_case(row)
+                                        fallback_manager_handoff = True
+                                    except Exception as exc:
+                                        log("error", "l3_manager_case", repr(exc))
+                                
+                                if l3_outcome.close_episode and outage_episode_id:
+                                    try:
+                                        close_episode_as_recovered(row, episode_id=outage_episode_id)
+                                    except Exception as exc:
+                                        log("error", "l3_episode_recovery", repr(exc))
+                    except Exception as exc:
+                        log("error", "l3_deterministic", repr(exc))
+                        l3_outcome = None
+                
+                # L4: fallback with holding text
+                if not reply:
+                    reply, fallback_manager_handoff = build_ai_failure_fallback(
+                        row,
+                        provider_outage=provider_outage,
+                        holding_decision=outage_gate,
+                    )
             if reply and not ugc_turn:
                 used_ai_failure_fallback = True
                 outage_recovery_required = bool(
