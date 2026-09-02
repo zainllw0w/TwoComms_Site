@@ -169,3 +169,8 @@ class CandidateDecision:
     pending_question: str = ""
     relaxed_alternatives: tuple[CatalogCandidate, ...] = ()
     canonical_json: str = ""
+    # Повний упорядкований перелік id, а не лише видима трійка. Э1.5 вимагає, щоб
+    # digest/cursor каруселі зберігався ДО показу першої сторінки: без цього поля
+    # ранжування знало про залишок, а карточка — ні, і `Показати ще` довелося б
+    # відтворювати новим ранжуванням з іншим порядком.
+    ordered_product_ids: tuple[int, ...] = ()

@@ -314,4 +314,8 @@ def rank_candidates(
         selected_product_id=visible[0].product_id if auto_select else None,
         pending_question=_question(visible, constraints) if not auto_select else "",
         canonical_json=_canonical_json(visible),
+        # `visible` — це сторінка, а не результат. Порядок решти кандидатів тут
+        # уже відомий, і викидати його означало б, що карусель не зможе показати
+        # «ще» нічого, крім тієї самої трійки.
+        ordered_product_ids=tuple(row.product_id for row in rows),
     )
