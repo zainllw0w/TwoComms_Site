@@ -12351,69 +12351,6 @@ def _process_one_inside_reply_boundary(
             )
 
     if not reply and s.ai_enabled:
-        # Link intent classification for text messages (postbacks already handled above)
-        if not reply:
-            from management.services import ig_link_intent as link
-
-            request = link.classify_request(text)
-            if request.asked:
-                # Client is asking for a link, resolve what to send
-                product_url = ""
-                if deal:
-                    product_url = getattr(deal, "product_url", "") or ""
-                
-                resolution = link.resolve(
-                    request, 
-                    deal=deal, 
-                    product_url=product_url, 
-                    lang=language
-                )
-                
-                # Send card if we have one
-                if resolution.card:
-                    from management.services import ig_message_templates as tpl
-                    
-                    # Determine card type and send appropriately
-                    if isinstance(resolution.card, tpl.ButtonTemplate):
-                        delivery = tpl.send_button_template(
-                            s,
-                            row.sender_id,
-                            resolution.card,
-                            permission_boundary_factory=lambda: customer_send_boundary(
-                                s.pk, row.client_id, permission
-                            ),
-                        )
-                    elif isinstance(resolution.card, tpl.QuickReplyMessage):
-                        delivery = tpl.send_quick_replies(
-                            s,
-                            row.sender_id,
-                            resolution.card,
-                            permission_boundary_factory=lambda: customer_send_boundary(
-                                s.pk, row.client_id, permission
-                            ),
-                        )
-                    else:
-                        # Fallback to note text if card type unknown
-                        reply = resolution.note or ""
-                    
-                    if resolution.card and delivery.ok:
-                        # Card sent successfully, mark as handled
-                        reply = ""
-                        from management.services.gemini_routing import persist_decision
-                        routing_decision = live_routing_decision(
-                            s,
-                            deterministic_action="link_intent",
-                        )
-                        persist_decision(row, routing_decision)
-                        log(
-                            "info",
-                            "link_intent_handled",
-                            f"{row.sender_id}: {resolution.kind} ({','.join(resolution.reason_codes)})",
-                        )
-                    elif not resolution.card and resolution.note:
-                        # No card, just a note (e.g., already_paid, not_issued)
-                        reply = resolution.note
-
         # Підвантажуємо профіль клієнта (раз на картку) для CRM.
         if row.client_id and not row.client.profile_fetched_at:
             try:
@@ -12571,55 +12508,93 @@ def _process_one_inside_reply_boundary(
                 )
                 persist_decision(row, routing_decision)
 
-                # ЭА.9: Рівень L3 — детермінований відповідь без моделі при відкритому інциденті.
-                # Перевіряємо ДО виклику gemini_generate, тому що L3 — це альтернатива моделі,
-                # а не fallback після збою. Викликається ТІЛЬКИ при INCIDENT episode.
+                # ЭА.9: рівень L3 — детермінована відповідь без моделі, поки
+                # інцидент провайдера відкритий. Перевіряється ДО виклику
+                # моделі, бо L3 — це АЛЬТЕРНАТИВА моделі, а не fallback після
+                # її збою: сенс рівня саме в тому, щоб не витрачати квоту на хід,
+                # відповідь на який доказово не потребує генерації.
                 l3_outcome = None
-                degradation_episode = None
                 if row.client_id and not ugc_turn:
                     try:
-                        from management.ig_bot_models import IgClientDegradationEpisode
-                        from management.services.ig_deterministic_l3 import deterministic_outcome
+                        from management.ig_bot_models import (
+                            IgClientDegradationEpisode as _Episode,
+                        )
+                        from management.services.ig_deterministic_l3 import (
+                            deterministic_outcome,
+                        )
 
-                        # Шукаємо відкритий INCIDENT episode для клієнта
-                        degradation_episode = IgClientDegradationEpisode.objects.filter(
-                            client_id=row.client_id,
-                            state='INCIDENT',
-                        ).order_by('-created_at').first()
+                        # Епізод відкритий = будь-який НЕтермінальний стан.
+                        # Перелічувати відкриті стани, а не шукати вигаданий
+                        # `INCIDENT`, обов'язково: у `State` такого значення немає
+                        # взагалі, і фільтр по ньому не збігся б НІКОЛИ — рівень
+                        # L3 лишився б мертвим кодом, який виглядає підключеним.
+                        open_states = (
+                            _Episode.State.OPEN,
+                            _Episode.State.HOLDING_SENT,
+                            _Episode.State.RECOVERY_PENDING,
+                        )
+                        degradation_episode = (
+                            _Episode.objects.filter(
+                                client_id=row.client_id, state__in=open_states
+                            )
+                            .order_by("-id")
+                            .first()
+                        )
 
-                        if degradation_episode:
+                        if degradation_episode is not None:
                             l3_outcome = deterministic_outcome(
-                                text=row.text,
-                                client=row.client,
+                                row.text,
+                                row.client,
                                 episode=degradation_episode,
                             )
 
-                            if l3_outcome is not None:
-                                reply = l3_outcome.reply
-                                log(
-                                    "info",
-                                    "l3_deterministic",
-                                    f"{row.sender_id}: L3 outcome={l3_outcome.outcome_code} "
-                                    f"episode={degradation_episode.pk}",
-                                )
-                                # Закриваємо episode → RECOVERED
-                                degradation_episode.state = 'RECOVERED'
-                                degradation_episode.save(update_fields=['state'])
+                        if l3_outcome is not None:
+                            reply = l3_outcome.reply
+                            # Хід закривається один раз: епізод стає термінальним,
+                            # тому recovery-курсор більше не має чого відновлювати.
+                            degradation_episode.state = _Episode.State.RECOVERED
+                            degradation_episode.resolved_at = timezone.now()
+                            degradation_episode.last_decision = "l3_deterministic"
+                            degradation_episode.last_decision_reason = (
+                                l3_outcome.outcome_code
+                            )
+                            degradation_episode.save(
+                                update_fields=[
+                                    "state",
+                                    "resolved_at",
+                                    "last_decision",
+                                    "last_decision_reason",
+                                    "updated_at",
+                                ]
+                            )
+                            # Менеджер мусить дізнатись про запит, інакше
+                            # підтвердження «передаю менеджеру» — порожня обіцянка.
+                            if l3_outcome.manager_task_reason:
+                                _escalate_manager_for_row(row)
+                            # Позначка в CRM: відповідь видана без моделі.
+                            _own_processing_claim(row).update(
+                                gemini_routing_lane="L3",
+                                gemini_routing_reason_codes=[
+                                    "deterministic_outcome",
+                                    l3_outcome.outcome_code,
+                                ],
+                            )
+                            log(
+                                "info",
+                                "l3_deterministic",
+                                f"{row.sender_id}: outcome={l3_outcome.outcome_code} "
+                                f"episode={degradation_episode.pk}",
+                            )
+                    except DatabaseError:
+                        raise
+                    except Exception as exc:
+                        # L3 — це прискорення, а не обов'язковий шлях: його збій
+                        # не має права забрати у клієнта звичайну відповідь.
+                        l3_outcome = None
+                        log("warning", "l3_deterministic", repr(exc))
 
-                                # Створюємо manager task, якщо потрібно
-                                if l3_outcome.manager_task_reason:
-                                    _create_manager_task(row.client, l3_outcome.manager_task_reason)
-
-                                # Маркуємо в CRM як L3
-                                _own_processing_claim(row).update(
-                                    gemini_routing_lane="L3",
-                                    gemini_routing_reason_codes=["deterministic_outcome"],
-                                )
-                    except Exception as e:
-                        log("error", "l3_deterministic_failed", f"{row.sender_id}: {e}")
-
-                # Викликаємо модель ТІЛЬКИ якщо L3 не дав відповіді
-                if not reply:
+                # Модель викликається лише тоді, коли L3 не відповів.
+                if l3_outcome is None:
                     reply = gemini_generate(
                         s, history, images=images or None, match_hint=match_hint,
                         memory_note=mem_note, context_note=ctx_note,
@@ -12913,43 +12888,68 @@ def _process_one_inside_reply_boundary(
                     f"ugc={bool(ugc_turn)}",
                 )
             if not reply:
-                # ЭА.9 L3: attempt deterministic answer without model during provider outage
+                # ЭА.9 + ЭА.8: перед вибаченням пробуємо детермінований рівень L3.
+                # Це ЄДИНИЙ дозволений клієнтський текст на цьому шляху, крім
+                # holding: якщо на хід можна відповісти доказово без моделі, то
+                # вибачення за затримку — гірша з двох відповідей.
                 l3_outcome = None
-                if provider_outage and outage_gate is not None:
-                    from management.services.ig_l3_deterministic import (
-                        attempt_deterministic_answer,
-                        open_l3_manager_case,
-                        close_episode_as_recovered,
-                    )
-                    
+                if provider_outage and outage_episode_id:
                     try:
-                        l3_outcome = attempt_deterministic_answer(row)
-                        if l3_outcome:
+                        from management.ig_bot_models import (
+                            IgClientDegradationEpisode as _Episode,
+                        )
+                        from management.services.ig_deterministic_l3 import (
+                            deterministic_outcome,
+                        )
+
+                        l3_episode = _Episode.objects.filter(
+                            pk=outage_episode_id
+                        ).first()
+                        if l3_episode is not None and not l3_episode.is_terminal:
+                            l3_outcome = deterministic_outcome(
+                                row.text, row.client, episode=l3_episode
+                            )
+                        if l3_outcome is not None:
                             reply = l3_outcome.reply
-                            if reply:
-                                log(
-                                    "info",
-                                    "l3_deterministic",
-                                    f"{row.sender_id}: L3 {l3_outcome.kind} without model",
-                                )
-                                # L3 deterministic answer closes the turn
-                                if l3_outcome.create_manager_case:
-                                    try:
-                                        open_l3_manager_case(row)
-                                        fallback_manager_handoff = True
-                                    except Exception as exc:
-                                        log("error", "l3_manager_case", repr(exc))
-                                
-                                if l3_outcome.close_episode and outage_episode_id:
-                                    try:
-                                        close_episode_as_recovered(row, episode_id=outage_episode_id)
-                                    except Exception as exc:
-                                        log("error", "l3_episode_recovery", repr(exc))
+                            used_ai_failure_fallback = True
+                            # Хід закритий детерміновано: recovery більше не
+                            # потрібен, інакше клієнт отримає другий текст.
+                            outage_recovery_required = False
+                            l3_episode.state = _Episode.State.RECOVERED
+                            l3_episode.resolved_at = timezone.now()
+                            l3_episode.last_decision = "l3_deterministic"
+                            l3_episode.last_decision_reason = l3_outcome.outcome_code
+                            l3_episode.save(
+                                update_fields=[
+                                    "state",
+                                    "resolved_at",
+                                    "last_decision",
+                                    "last_decision_reason",
+                                    "updated_at",
+                                ]
+                            )
+                            if l3_outcome.manager_task_reason:
+                                fallback_manager_handoff = True
+                            _own_processing_claim(row).update(
+                                gemini_routing_lane="L3",
+                                gemini_routing_reason_codes=[
+                                    "deterministic_outcome",
+                                    l3_outcome.outcome_code,
+                                ],
+                            )
+                            log(
+                                "info",
+                                "l3_deterministic",
+                                f"{row.sender_id}: outcome={l3_outcome.outcome_code} "
+                                f"instead of apology",
+                            )
+                    except DatabaseError:
+                        raise
                     except Exception as exc:
-                        log("error", "l3_deterministic", repr(exc))
                         l3_outcome = None
-                
-                # L4: fallback with holding text
+                        log("warning", "l3_deterministic", repr(exc))
+
+                # L4: вибачення/holding, якщо L3 не відповів.
                 if not reply:
                     reply, fallback_manager_handoff = build_ai_failure_fallback(
                         row,

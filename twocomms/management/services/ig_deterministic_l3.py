@@ -90,32 +90,34 @@ def _match_any_pattern(text: str, patterns: list[str]) -> bool:
 
 
 def _detect_manager_request(text: str, lang: str) -> bool:
-    """Детектор запроса менеджера (fail-closed: только явные упоминания)."""
-    if lang == "uk":
-        patterns = _MANAGER_REQUEST_PATTERNS_UK
-    elif lang == "ru":
-        patterns = _MANAGER_REQUEST_PATTERNS_RU
-    elif lang == "en":
-        patterns = _MANAGER_REQUEST_PATTERNS_EN
-    else:
-        return False
+    """Детектор запиту менеджера (fail-closed: тільки явні згадки).
 
-    return _match_any_pattern(text, patterns)
+    Намір шукається за паттернами ВСІХ мов, а не лише мови з профілю клієнта.
+    Причина конкретна: `client.lang` — це мова, якою ми ВІДПОВІДАЄМО, і вона
+    береться з попередніх ходів або з профілю. Клієнт пише тією мовою, якою
+    хоче, незалежно від цього значення. Якщо звіряти намір лише з мовою профілю,
+    то клієнт із `lang="en"`, який написав «менеджер», не отримає L3 взагалі —
+    саме той випадок, для якого L3 і потрібен.
+    """
+    return _match_any_pattern(
+        text,
+        _MANAGER_REQUEST_PATTERNS_UK
+        + _MANAGER_REQUEST_PATTERNS_RU
+        + _MANAGER_REQUEST_PATTERNS_EN,
+    )
 
 
 def _detect_greeting(text: str, lang: str) -> bool:
-    """Детектор приветствия/прощания (fail-closed: только короткие шаблоны)."""
-    if lang == "uk":
-        patterns = _GREETING_PATTERNS_UK
-    elif lang == "ru":
-        patterns = _GREETING_PATTERNS_RU
-    elif lang == "en":
-        patterns = _GREETING_PATTERNS_EN
-    else:
-        return False
+    """Детектор привітання/прощання (fail-closed: тільки короткі шаблони).
 
-    # Greeting patterns must match the ENTIRE message (^ and $ anchors)
-    return _match_any_pattern(text, patterns)
+    Паттерни прив'язані до ^ і $, тому «Привіт, а є розмір M?» приві­танням не
+    вважається — це питання, і воно мусить піти на L4. Мова, як і у
+    `_detect_manager_request`, не обмежує пошук наміру.
+    """
+    return _match_any_pattern(
+        text,
+        _GREETING_PATTERNS_UK + _GREETING_PATTERNS_RU + _GREETING_PATTERNS_EN,
+    )
 
 
 # Версионированные тексты ответов
