@@ -2327,11 +2327,22 @@ fail-open, то есть разрешает отправку.
 - [ ] Инвертировать контракт: `notify_manager()` по умолчанию **только создаёт
       durable intent**. `deliver_immediately=True` перестаёт означать «в обход
       лимита» и означает «максимальный приоритет в очереди»
-- [ ] **Обязательное условие инверсии (найдено при реализации):** добавить drain
+- [x] **Обязательное условие инверсии (найдено при реализации):** добавить drain
       уведомлений в `PERIODIC_LANES` либо в watchdog. Сейчас единственный
       автоматический drain живёт в цикле демона, поэтому queue-only контракт
       сделал бы алерт о мёртвом демоне недоставляемым в принципе. Инвертировать
       контракт раньше этого шага запрещено
+      — `ig_runtime_ownership.py`: смуга `manager_notification_backstop`
+      (`PERIODIC_OWNER`, команда `drain_ig_notifications`, інтервал 120 с,
+      дедлайн 30 с, `limit=10`), поставлена ПЕРШОЮ у `PERIODIC_LANES`. Смуга
+      демона `manager_notification_outbox` лишається швидким шляхом — це не дубль
+      власника, а два різні ключі смуг. Паралельний drain безпечний: claim рядка
+      робиться compare-and-swap (`_deliver_manager_notification_unlocked`:
+      `filter(pk).filter(eligible).update(status=SENDING)` + `if claimed != 1`).
+      Тести: `tests_ig_runtime_ownership.py::test_notification_drain_has_an_owner_outside_the_daemon`,
+      `::test_notification_backstop_runs_before_the_repair_lanes`, 10/10 зелені.
+      Інверсію контракту `notify_manager()` цей пункт НЕ робить — він лише знімає
+      блокер для неї
 - [ ] Единственный диспетчер выполняет Telegram I/O. Все пути
       (`_queue_manager_handoff`, `_escalate_manager_for_row`,
       `_notify_recovery_exhausted` и прочие) идут через него

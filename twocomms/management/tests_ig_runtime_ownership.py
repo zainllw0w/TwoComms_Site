@@ -32,6 +32,7 @@ class RuntimeOwnerManifestTests(TestCase):
         self.assertEqual(
             {lane.task_key for lane in PERIODIC_LANES},
             {
+                "manager_notification_backstop",
                 "order_telegram_reconcile",
                 "ig_checkout_reconcile",
                 "ig_order_fulfillment",
@@ -43,6 +44,29 @@ class RuntimeOwnerManifestTests(TestCase):
             sum(lane.deadline_seconds for lane in PERIODIC_LANES),
             540,
         )
+
+    def test_notification_drain_has_an_owner_outside_the_daemon(self):
+        """ЭА.16: алерт про мертвий демон не може залежати від того ж демона.
+
+        Смуга демона лишається — вона швидка. Але якщо власник drain-у ТІЛЬКИ
+        демон, то повідомлення «демон не працює» доставляти нікому: єдиний
+        доставник і є той, хто помер. Тест закріплює, що backstop існує і що він
+        не належить демону.
+        """
+        self.assertEqual(lane_owner("manager_notification_outbox"), DAEMON_OWNER)
+        self.assertEqual(
+            lane_owner("manager_notification_backstop"), PERIODIC_OWNER
+        )
+        backstop = next(
+            lane for lane in PERIODIC_LANES
+            if lane.task_key == "manager_notification_backstop"
+        )
+        self.assertEqual(backstop.command, "drain_ig_notifications")
+
+    def test_notification_backstop_runs_before_the_repair_lanes(self):
+        """Порядок не косметичний: backstop останнім спрацював би надто пізно."""
+        keys = [lane.task_key for lane in PERIODIC_LANES]
+        self.assertEqual(keys[0], "manager_notification_backstop")
 
 
 class PeriodicCoordinatorTests(TestCase):
@@ -59,6 +83,7 @@ class PeriodicCoordinatorTests(TestCase):
         self.assertEqual(
             [call.args[0] for call in child_command.call_args_list],
             [
+                "drain_ig_notifications",
                 "reconcile_order_telegram_notifications",
                 "reconcile_ig_checkout",
                 "reconcile_ig_order_fulfillment",
@@ -106,12 +131,16 @@ class PeriodicCoordinatorTests(TestCase):
     def test_one_lane_failure_does_not_starve_following_lanes(
         self, child_command, _enabled
     ):
-        child_command.side_effect = [RuntimeError("private"), None, None, None]
+        # Падає ПЕРША смуга, і саме її ім'я мусить бути у помилці; решта смуг
+        # усе одно виконується — інакше один збій голодував би всі наступні.
+        child_command.side_effect = [RuntimeError("private"), None, None, None, None]
 
-        with self.assertRaisesMessage(CommandError, "order_telegram_reconcile:RuntimeError"):
+        with self.assertRaisesMessage(
+            CommandError, "manager_notification_backstop:RuntimeError"
+        ):
             call_command("run_instagram_periodic_jobs", stdout=StringIO())
 
-        self.assertEqual(child_command.call_count, 4)
+        self.assertEqual(child_command.call_count, 5)
 
     def test_force_requires_an_explicit_lane(self):
         with self.assertRaisesMessage(CommandError, "--force requires --lane"):
@@ -127,7 +156,7 @@ class PeriodicCoordinatorTests(TestCase):
     ):
         call_command("run_instagram_periodic_jobs", stdout=StringIO())
 
-        self.assertEqual(child_command.call_count, 4)
+        self.assertEqual(child_command.call_count, 5)
         self.assertNotIn(
             "run_call_ai_analyses",
             [call.args[0] for call in child_command.call_args_list],

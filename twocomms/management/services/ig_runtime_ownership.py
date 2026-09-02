@@ -53,6 +53,19 @@ RUNTIME_LANE_OWNERS = (
     RuntimeLaneOwner("inbox_refresh", DAEMON_OWNER, "administrator-requested inbox repair"),
     RuntimeLaneOwner("checkout_lifecycle", DAEMON_OWNER, "payment and delivery lifecycle events"),
     RuntimeLaneOwner("follow_intelligence", DAEMON_OWNER, "follow and UGC intelligence queue"),
+    # Друга смуга для того ж outbox, і це НЕ дубль власника: смуга демона
+    # («manager_notification_outbox») лишається швидким шляхом, а ця —
+    # backstop у cron. Причина конкретна і записана в ЭА.16: єдиний drain
+    # жив усередині демона, тому алерт watchdog-а про МЕРТВИЙ демон не мав
+    # кому доставитись — процес, про смерть якого йдеться, і був єдиним
+    # доставником. Claim рядка — compare-and-swap
+    # (`filter(pk).filter(eligible).update(status=SENDING)`), тому два
+    # drain-и паралельно не відправлять одне повідомлення двічі.
+    RuntimeLaneOwner(
+        "manager_notification_backstop",
+        PERIODIC_OWNER,
+        "cron drain so a dead-daemon alert still reaches the manager",
+    ),
     RuntimeLaneOwner("order_telegram_reconcile", PERIODIC_OWNER, "post-payment side-effect repair"),
     RuntimeLaneOwner("ig_checkout_reconcile", PERIODIC_OWNER, "assisted-checkout repair"),
     RuntimeLaneOwner("ig_order_fulfillment", PERIODIC_OWNER, "order customer-event delivery"),
@@ -65,6 +78,18 @@ RUNTIME_LANE_OWNERS = (
 
 
 PERIODIC_LANES = (
+    # Перша в порядку виконання свідомо: сенс смуги — щоб менеджер дізнався про
+    # інцидент вчасно. Якби вона стояла останньою, вікно координатора могли б
+    # з'їсти попередні смуги, і backstop спрацював би саме тоді, коли вже пізно.
+    # Ліміт 10 і дедлайн 30 с: це підстраховка, а не основний шлях доставки, і
+    # сумарний бюджет смуг мусить лишитись у межах вікна cron.
+    PeriodicLane(
+        "manager_notification_backstop",
+        "drain_ig_notifications",
+        120,
+        30,
+        (("limit", 10),),
+    ),
     PeriodicLane(
         "order_telegram_reconcile",
         "reconcile_order_telegram_notifications",
