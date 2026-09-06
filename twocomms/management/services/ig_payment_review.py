@@ -575,7 +575,10 @@ def _persist_review_media(media: list[dict]) -> list[dict]:
                 )
             elif _safe_local_media_url(row):
                 base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
-                downloaded = download_image(urljoin(base, _safe_local_media_url(row).lstrip("/")))
+                downloaded = download_image(
+                    urljoin(base, _safe_local_media_url(row).lstrip("/")),
+                    profile="own_origin",
+                )
             if downloaded:
                 mime, raw = downloaded
                 suffix = ".jpg" if mime == "image/jpeg" else ".bin"
@@ -627,7 +630,10 @@ def _resolve_payment_media_candidates(media: list[dict]) -> list[dict]:
             )
             if image is None and _safe_local_media_url(source):
                 base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
-                image = download_image(urljoin(base, _safe_local_media_url(source).lstrip("/")))
+                image = download_image(
+                    urljoin(base, _safe_local_media_url(source).lstrip("/")),
+                    profile="own_origin",
+                )
             if image:
                 images.append(image)
                 source_indexes.append(source_index)
@@ -955,7 +961,7 @@ def _catalog_matches_for_media(media: list[dict]) -> list[dict]:
             for media_url in candidates:
                 image = owned_image
                 if image is None and media_url:
-                    image = download_image(media_url)
+                    image = download_image(media_url, profile="own_origin")
                 if image:
                     try:
                         digest = hashlib.sha256(image[1]).hexdigest()

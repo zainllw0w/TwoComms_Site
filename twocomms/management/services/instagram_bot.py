@@ -9056,26 +9056,34 @@ def _normalize_turn_media_binding(
     }
 
 
-def download_image(url: str) -> tuple[str, bytes] | None:
-    """Download bounded image/audio bytes for one multimodal provider pass."""
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "TwoCommsBot/1.0"})
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            mime = _normalized_inline_mime(resp.headers.get("Content-Type") or "")
-            if mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES:
-                return None
-            limit = (
-                INLINE_IMAGE_MAX_BYTES
-                if mime.startswith("image/")
-                else INLINE_AUDIO_MAX_BYTES
-            )
-            raw = resp.read(limit + 1)
-            if not raw or len(raw) > limit:
-                return None
-            return mime, raw
-    except Exception as exc:
-        log("warning", "image_download", repr(exc))
+def download_image(
+    url: str,
+    *,
+    profile: str = "provider",
+) -> tuple[str, bytes] | None:
+    """Fetch verified image/audio bytes through the sole remote-media policy."""
+    from management.services import ig_media_url_policy
+
+    allowed_mimes = (
+        ig_media_url_policy.SUPPORTED_INLINE_IMAGE_MIMES
+        | ig_media_url_policy.SUPPORTED_INLINE_AUDIO_MIMES
+    )
+    outcome = ig_media_url_policy.fetch_media(
+        url,
+        profile=profile,
+        allowed_mime_types=allowed_mimes,
+        max_bytes=INLINE_AUDIO_MAX_BYTES,
+    )
+    if not outcome.success:
+        log("warning", "image_download", outcome.reason)
         return None
+    mime = _normalized_inline_mime(outcome.mime_type)
+    limit = INLINE_IMAGE_MAX_BYTES if mime.startswith("image/") else INLINE_AUDIO_MAX_BYTES
+    if mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES:
+        return None
+    if len(outcome.body_bytes) > limit:
+        return None
+    return mime, outcome.body_bytes
 
 
 MEDIA_PROVENANCE_LIVE_WEBHOOK = "live_webhook"
@@ -9511,20 +9519,33 @@ def _persist_media_metadata(row: InstagramBotMessage, incoming: list[dict]) -> l
     return merged
 
 
+def _message_media_capture_owner_valid(locked: InstagramBotMessage) -> bool:
+    """Require the persisted live media row to remain bound to its customer."""
+    if (
+        locked.role != InstagramBotMessage.Role.USER
+        or str(locked.source or "") != "webhook"
+        or not locked.client_id
+        or not str(locked.sender_id or "").strip()
+    ):
+        return False
+    return IgClient.objects.filter(
+        pk=locked.client_id,
+        igsid=locked.sender_id,
+        hidden_at__isnull=True,
+        is_blocked=False,
+        privacy_erasure_started_at__isnull=True,
+    ).exists()
+
+
 def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict, str] | None:
     with transaction.atomic():
         locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
-        if not locked.media_capture_eligible:
+        if not locked.media_capture_eligible or not _message_media_capture_owner_valid(locked):
             return None
         now = timezone.now()
         if locked.private_media_state in {
             "delete_pending", "deleting", "deleted",
         }:
-            return None
-        if locked.client_id and IgClient.objects.filter(
-            pk=locked.client_id,
-            privacy_erasure_started_at__isnull=False,
-        ).exists():
             return None
         if locked.private_media_use_until and locked.private_media_use_until > now:
             return None
@@ -9591,6 +9612,8 @@ def _finish_media_capture(
     with transaction.atomic():
         locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
         privacy_fenced = bool(
+            not _message_media_capture_owner_valid(locked)
+            or
             locked.private_media_state in {
                 "delete_pending", "deleting", "deleted",
             }
@@ -9744,6 +9767,25 @@ def _capture_message_media(
             }, use_token=use_token)
             continue
         mime, raw = downloaded
+        # Downloading is outside the transaction. Recheck the current owner and
+        # deletion fence before writing bytes; the finalizer also catches a
+        # fence that wins during storage I/O.
+        current_owner = InstagramBotMessage.objects.filter(pk=row.pk).first()
+        if (
+            current_owner is None
+            or not _message_media_capture_owner_valid(current_owner)
+            or current_owner.private_media_state in {"delete_pending", "deleting", "deleted"}
+            or current_owner.private_media_use_token != use_token
+        ):
+            if current_owner is None:
+                current = []
+            else:
+                current = _finish_media_capture(row.pk, url, token, {
+                    "status": MEDIA_STATUS_UNAVAILABLE,
+                    "error_kind": "permission_changed",
+                    "capture_next_attempt_at": "",
+                }, use_token=use_token)
+            continue
         created_storage_name = ""
         try:
             from django.core.files.base import ContentFile
@@ -10149,17 +10191,32 @@ def fetch_ig_profile(s: InstagramBotSettings, igsid: str) -> dict:
     }
 
 
-def _localize_avatar(igsid: str, url: str) -> str:
+def _avatar_client_active(client) -> bool:
+    return bool(
+        client
+        and getattr(client, "pk", None)
+        and IgClient.objects.filter(
+            pk=client.pk,
+            hidden_at__isnull=True,
+            is_blocked=False,
+            privacy_erasure_started_at__isnull=True,
+        ).exists()
+    )
+
+
+def _localize_avatar(igsid: str, url: str, *, client=None) -> str:
     """Качає аватар і зберігає у себе (media/ig_avatars/<igsid>.jpg), повертає
     локальний URL. Так аватар не «протухає» й рендериться з нашого домену.
     Порожній рядок — якщо не вдалось завантажити."""
-    if not igsid or not url:
+    if not igsid or not url or (client is not None and not _avatar_client_active(client)):
         return ""
     img = download_image(url)
     if not img:
         return ""
     _mime, raw = img
     if _mime not in SUPPORTED_INLINE_IMAGE_MIMES:
+        return ""
+    if client is not None and not _avatar_client_active(client):
         return ""
     try:
         from django.core.files.base import ContentFile
@@ -10182,7 +10239,7 @@ def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool
     локальної копії аватара (легасі-картки). На невдачі — короткий кулдаун."""
     from datetime import timedelta
 
-    if not client:
+    if not _avatar_client_active(client):
         return False
     if cache.get(_profile_global_error_key(s)):
         return False
@@ -10211,7 +10268,7 @@ def ensure_profile(s: InstagramBotSettings, client, force: bool = False) -> bool
     pic = (prof.get("profile_pic") or "")
     if pic:
         client.profile_pic_url = pic[:600]
-        local = _localize_avatar(client.igsid, pic)
+        local = _localize_avatar(client.igsid, pic, client=client)
         if local:
             client.avatar_local = local[:300]
     client.profile_fetched_at = timezone.now()
@@ -10283,7 +10340,11 @@ def refresh_profiles_batch(
         limit = PROFILE_REFRESH_BATCH
     now = timezone.now()
     stale_cutoff = now - timedelta(days=7)
-    candidates_qs = IgClient.objects.filter(hidden_at__isnull=True).filter(
+    candidates_qs = IgClient.objects.filter(
+        hidden_at__isnull=True,
+        is_blocked=False,
+        privacy_erasure_started_at__isnull=True,
+    ).filter(
         Q(profile_fetched_at__isnull=True)
         | Q(profile_fetched_at__lt=stale_cutoff)
         | Q(display_name="", username="")

@@ -45,23 +45,25 @@ documentation, not against production traffic):
   neither reference documents — and the three reasons above hold for a
   perfectly legitimate CDN URL.
 
-Adoption: ``fetch_media()`` is a drop-in bounded fetch, and
-``guard_media_url()`` is the pre-flight check for a sink that keeps its own
-transport, so routing the live loader through the policy is a single call-site
-change. The live sink is not routed through it yet — ``instagram_bot.py`` was
-owned by another change in the wave that added this module — so treat the
-module as the gate, not yet as the enforced path. It deliberately does not
-monkey-patch anything: a policy that installs itself behind the caller's back
-is a policy nobody can reason about.
+Adoption: ``fetch_media()`` owns the remote transport for live capture and
+avatars. ``download_image()`` is only its compatibility adapter, while
+first-party assets explicitly use the own-origin profile. It deliberately does
+not monkey-patch anything: a policy that installs itself behind the caller's
+back is a policy nobody can reason about.
 """
 
 from __future__ import annotations
 
 import http.client
 import ipaddress
+import io
 import logging
 import socket
 import ssl
+import threading
+import time
+import warnings
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlsplit
 
@@ -130,22 +132,48 @@ REASON_DECLARED_TOO_LARGE = "declared_too_large"
 REASON_STREAM_TOO_LARGE = "stream_too_large"
 REASON_EMPTY_BODY = "empty_body"
 REASON_TRANSPORT = "transport"
+REASON_DEADLINE = "deadline"
+REASON_SIGNATURE = "signature"
+REASON_IMAGE_DECODE = "image_decode"
+REASON_IMAGE_PIXELS = "image_pixels"
+REASON_UNVERIFIABLE_MIME = "unverifiable_mime"
 REDIRECT_REASON_PREFIX = "redirect_"
 
 MAX_URL_LENGTH = 2048
 MAX_REDIRECTS = 3
 DEFAULT_TIMEOUT_SECONDS = 10
+DEFAULT_DEADLINE_SECONDS = 10
 REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+MAX_IMAGE_PIXELS = 40_000_000
+
+SUPPORTED_INLINE_IMAGE_MIMES = frozenset({
+    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
+})
+SUPPORTED_INLINE_AUDIO_MIMES = frozenset({
+    "audio/wav", "audio/mpeg", "audio/mp3", "audio/aiff", "audio/aac",
+    "audio/ogg", "audio/flac", "audio/m4a", "audio/opus", "audio/webm",
+})
+UNVERIFIABLE_AUDIO_MIME_TYPES = frozenset({
+    "audio/l16", "audio/alaw", "audio/mulaw",
+})
 
 # Kept small on purpose: a caller that needs the loader's own image/audio sets
 # passes them explicitly, and anything unlisted is rejected before the body is
 # read.
-DEFAULT_ALLOWED_MIME_TYPES = frozenset({
-    "image/jpeg", "image/png", "image/webp", "image/heic", "image/heif",
-})
+DEFAULT_ALLOWED_MIME_TYPES = SUPPORTED_INLINE_IMAGE_MIMES
+_MIME_ALIASES = {
+    "audio/x-wav": "audio/wav",
+    "audio/x-aiff": "audio/aiff",
+    "audio/x-m4a": "audio/m4a",
+    "audio/mp4": "audio/m4a",
+    "audio/mp3": "audio/mpeg",
+}
 
 _REJECTION_COUNTER_PREFIX = "ig_media_url_policy:reject:"
 COUNTER_TTL_SECONDS = 7 * 24 * 3600
+_resolver_executor: ThreadPoolExecutor | None = None
+_resolver_executor_lock = threading.Lock()
+_resolver_slot = threading.BoundedSemaphore(1)
 
 
 # --- data structures --------------------------------------------------------
@@ -425,6 +453,8 @@ def validate_media_url(
     # Provider profile: resolve and validate every address
     try:
         addresses = resolver(hostname, actual_port)
+    except TimeoutError:
+        return UrlVerdict(allowed=False, reason=REASON_DEADLINE)
     except socket.gaierror:
         return UrlVerdict(allowed=False, reason=REASON_DNS_FAILED)
     except Exception:
@@ -458,10 +488,31 @@ def validate_media_url(
     return UrlVerdict(allowed=True, target=target)
 
 
-def _default_resolver(hostname: str, port: int) -> list[str]:
+def _default_resolver_sync(hostname: str, port: int) -> list[str]:
     """Resolve hostname to list of unique IP addresses."""
     resolved = socket.getaddrinfo(hostname, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
     return list({info[4][0] for info in resolved})
+
+
+def _default_resolver(hostname: str, port: int, *, timeout_seconds: float | None = None) -> list[str]:
+    """Resolve DNS within one process-wide bounded worker, with no queued jobs."""
+    if timeout_seconds is None:
+        return _default_resolver_sync(hostname, port)
+    if timeout_seconds <= 0 or not _resolver_slot.acquire(blocking=False):
+        raise TimeoutError("media DNS deadline")
+    global _resolver_executor
+    with _resolver_executor_lock:
+        if _resolver_executor is None:
+            _resolver_executor = ThreadPoolExecutor(
+                max_workers=1,
+                thread_name_prefix="ig-media-dns",
+            )
+        future = _resolver_executor.submit(_default_resolver_sync, hostname, port)
+    future.add_done_callback(lambda _future: _resolver_slot.release())
+    try:
+        return future.result(timeout=timeout_seconds)
+    except FutureTimeoutError as exc:
+        raise TimeoutError("media DNS deadline") from exc
 
 
 # --- transport --------------------------------------------------------------
@@ -476,14 +527,17 @@ def _pinned_connector(target: MediaTarget):
     return connector
 
 
-def _default_transport(target: MediaTarget):
+def _default_transport(target: MediaTarget, *, timeout_seconds: float | None = None):
     """Default HTTP/HTTPS transport with DNS rebinding defense."""
+    timeout = max(0.001, min(
+        float(timeout_seconds or DEFAULT_TIMEOUT_SECONDS), DEFAULT_TIMEOUT_SECONDS,
+    ))
     if target.scheme == "https":
         context = ssl.create_default_context()
         conn = http.client.HTTPSConnection(
             target.hostname,
             port=target.port,
-            timeout=DEFAULT_TIMEOUT_SECONDS,
+            timeout=timeout,
             context=context,
         )
         # Pin the connection to the validated IP, but keep the hostname for SNI
@@ -495,7 +549,7 @@ def _default_transport(target: MediaTarget):
         conn = http.client.HTTPConnection(
             target.hostname,
             port=target.port,
-            timeout=DEFAULT_TIMEOUT_SECONDS,
+            timeout=timeout,
         )
 
     try:
@@ -509,6 +563,100 @@ def _default_transport(target: MediaTarget):
         raise
 
 
+def _signature_matches(mime_type: str, body: bytes) -> bool:
+    """Confirm a declared supported MIME from file bytes, never headers alone."""
+    if mime_type == "image/jpeg":
+        return body.startswith(b"\xff\xd8\xff")
+    if mime_type == "image/png":
+        return body.startswith(b"\x89PNG\r\n\x1a\n")
+    if mime_type == "image/webp":
+        return len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WEBP"
+    if mime_type in {"image/heic", "image/heif", "audio/m4a"}:
+        if len(body) < 12 or body[4:8] != b"ftyp":
+            return False
+        brand = body[8:12].lower()
+        if mime_type == "audio/m4a":
+            return brand in {b"m4a ", b"mp41", b"mp42", b"isom"}
+        return brand in {b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"}
+    if mime_type == "audio/wav":
+        return len(body) >= 12 and body[:4] == b"RIFF" and body[8:12] == b"WAVE"
+    if mime_type == "audio/aiff":
+        return len(body) >= 12 and body[:4] == b"FORM" and body[8:12] in {b"AIFF", b"AIFC"}
+    if mime_type == "audio/aac":
+        return len(body) >= 2 and body[0] == 0xff and body[1] & 0xf6 in {0xf0, 0xf2}
+    if mime_type == "audio/ogg" or mime_type == "audio/opus":
+        return body.startswith(b"OggS")
+    if mime_type == "audio/flac":
+        return body.startswith(b"fLaC")
+    if mime_type == "audio/mpeg":
+        return body.startswith(b"ID3") or (
+            len(body) >= 2 and body[0] == 0xff and body[1] & 0xe0 == 0xe0
+        )
+    if mime_type == "audio/webm":
+        return body.startswith(b"\x1a\x45\xdf\xa3")
+    return False
+
+
+def _validate_image_payload(mime_type: str, body: bytes) -> str:
+    """Decode supported images before persistence and enforce their pixel cap."""
+    if not mime_type.startswith("image/"):
+        return ""
+    try:
+        from PIL import Image, UnidentifiedImageError
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(body)) as image:
+                width, height = image.size
+                if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                    return REASON_IMAGE_PIXELS
+                image.load()
+    except (Image.DecompressionBombError, Image.DecompressionBombWarning):
+        return REASON_IMAGE_PIXELS
+    except (OSError, SyntaxError, UnidentifiedImageError):
+        return REASON_IMAGE_DECODE
+    return ""
+
+
+def _set_response_timeout(response, seconds: float) -> None:
+    """Tighten the connected socket to the remaining total deadline if exposed."""
+    try:
+        response.fp.raw._sock.settimeout(max(0.001, seconds))
+    except (AttributeError, OSError):
+        pass
+
+
+def _read_bounded_before_deadline(response, *, max_bytes: int, deadline: float):
+    """Read in bounded chunks so a redirect chain never receives a new budget."""
+    reader = getattr(response, "read1", None)
+    if not callable(reader):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return b"", REASON_DEADLINE
+        _set_response_timeout(response, remaining)
+        body = response.read(max_bytes + 1)
+        return (
+            (b"", REASON_STREAM_TOO_LARGE)
+            if len(body) > max_bytes
+            else (body, "")
+        )
+    chunks = []
+    received = 0
+    while received <= max_bytes:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return b"", REASON_DEADLINE
+        _set_response_timeout(response, remaining)
+        chunk = reader(min(64 * 1024, max_bytes + 1 - received))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        received += len(chunk)
+        if received > max_bytes:
+            return b"", REASON_STREAM_TOO_LARGE
+    return b"".join(chunks), ""
+
+
 # --- bounded fetch with per-hop validation ----------------------------------
 def fetch_media(
     url: str,
@@ -516,6 +664,7 @@ def fetch_media(
     profile: str = PROFILE_PROVIDER,
     allowed_mime_types: frozenset[str] | None = None,
     max_bytes: int = 6 * 1024 * 1024,
+    deadline_seconds: float = DEFAULT_DEADLINE_SECONDS,
     resolver=None,
     transport=None,
 ) -> FetchOutcome:
@@ -535,6 +684,7 @@ def fetch_media(
         profile: PROFILE_PROVIDER or PROFILE_OWN_ORIGIN
         allowed_mime_types: Permitted Content-Type values; defaults to image set
         max_bytes: Maximum body size
+        deadline_seconds: Total fetch budget, shared by DNS/redirect hops
         resolver: Optional DNS resolver (hostname, port) -> [ip, ...]
         transport: Optional HTTP transport (target) -> response object
     
@@ -548,23 +698,48 @@ def fetch_media(
     if transport is None:
         transport = _default_transport
 
+    try:
+        deadline_seconds = max(0.001, float(deadline_seconds))
+    except (TypeError, ValueError):
+        deadline_seconds = DEFAULT_DEADLINE_SECONDS
+    deadline = time.monotonic() + deadline_seconds
     current_url = url
     hop = 0
 
     while True:
-        verdict = validate_media_url(current_url, profile=profile, resolver=resolver)
+        if time.monotonic() >= deadline:
+            _bump_rejection_counter(REASON_DEADLINE)
+            return FetchOutcome(success=False, reason=REASON_DEADLINE)
+        active_resolver = resolver
+        if active_resolver is None:
+            active_resolver = lambda hostname, port: _default_resolver(
+                hostname,
+                port,
+                timeout_seconds=deadline - time.monotonic(),
+            )
+        verdict = validate_media_url(
+            current_url, profile=profile, resolver=active_resolver,
+        )
         if not verdict.allowed:
             reason = f"{REDIRECT_REASON_PREFIX}{verdict.reason}" if hop > 0 else verdict.reason
             _bump_rejection_counter(reason)
             return FetchOutcome(success=False, reason=reason)
 
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _bump_rejection_counter(REASON_DEADLINE)
+            return FetchOutcome(success=False, reason=REASON_DEADLINE)
+
         try:
-            response = transport(verdict.target)
+            if transport is _default_transport:
+                response = transport(verdict.target, timeout_seconds=remaining)
+            else:
+                response = transport(verdict.target)
         except Exception as exc:
             _bump_rejection_counter(REASON_TRANSPORT)
             logger.warning(
                 "media_fetch_transport_error",
-                extra={"url": current_url[:200], "hop": hop, "error": repr(exc)},
+                extra={"hop": hop, "error_type": type(exc).__name__},
             )
             return FetchOutcome(success=False, reason=REASON_TRANSPORT)
 
@@ -595,6 +770,10 @@ def fetch_media(
             # --- Content-Type -----------------------------------------------
             content_type_raw = response.getheader("Content-Type") or ""
             mime_type = content_type_raw.split(";")[0].strip().lower()
+            mime_type = _MIME_ALIASES.get(mime_type, mime_type)
+            if mime_type in UNVERIFIABLE_AUDIO_MIME_TYPES:
+                _bump_rejection_counter(REASON_UNVERIFIABLE_MIME)
+                return FetchOutcome(success=False, reason=REASON_UNVERIFIABLE_MIME)
             if mime_type not in allowed_mime_types:
                 _bump_rejection_counter(REASON_CONTENT_TYPE)
                 return FetchOutcome(success=False, reason=REASON_CONTENT_TYPE)
@@ -611,16 +790,39 @@ def fetch_media(
                     pass
 
             # --- bounded read -----------------------------------------------
-            body = response.read(max_bytes + 1)
+            body, read_error = _read_bounded_before_deadline(
+                response, max_bytes=max_bytes, deadline=deadline,
+            )
+            if read_error:
+                _bump_rejection_counter(read_error)
+                return FetchOutcome(success=False, reason=read_error)
             if not body:
                 _bump_rejection_counter(REASON_EMPTY_BODY)
                 return FetchOutcome(success=False, reason=REASON_EMPTY_BODY)
-            if len(body) > max_bytes:
-                _bump_rejection_counter(REASON_STREAM_TOO_LARGE)
-                return FetchOutcome(success=False, reason=REASON_STREAM_TOO_LARGE)
+            if time.monotonic() > deadline:
+                _bump_rejection_counter(REASON_DEADLINE)
+                return FetchOutcome(success=False, reason=REASON_DEADLINE)
+
+            if not _signature_matches(mime_type, body):
+                _bump_rejection_counter(REASON_SIGNATURE)
+                return FetchOutcome(success=False, reason=REASON_SIGNATURE)
+            image_error = _validate_image_payload(mime_type, body)
+            if image_error:
+                _bump_rejection_counter(image_error)
+                return FetchOutcome(success=False, reason=image_error)
 
             return FetchOutcome(success=True, mime_type=mime_type, body_bytes=body)
 
+        except TimeoutError:
+            _bump_rejection_counter(REASON_DEADLINE)
+            return FetchOutcome(success=False, reason=REASON_DEADLINE)
+        except Exception as exc:
+            _bump_rejection_counter(REASON_TRANSPORT)
+            logger.warning(
+                "media_fetch_response_error",
+                extra={"hop": hop, "error_type": type(exc).__name__},
+            )
+            return FetchOutcome(success=False, reason=REASON_TRANSPORT)
         finally:
             response.close()
 

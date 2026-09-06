@@ -3,12 +3,21 @@
 All tests are mock-based: no real network calls, no live SSRF probes.
 """
 import socket
+from io import BytesIO
 from dataclasses import dataclass
 from unittest.mock import patch
 
 from django.test import SimpleTestCase, override_settings
 
 from management.services import ig_media_url_policy as policy
+
+
+def valid_jpeg() -> bytes:
+    from PIL import Image
+
+    output = BytesIO()
+    Image.new("RGB", (2, 2), "white").save(output, format="JPEG")
+    return output.getvalue()
 
 
 @dataclass
@@ -291,7 +300,7 @@ class FetchMediaTests(SimpleTestCase):
             FakeResponse(
                 status=200,
                 headers={"Content-Type": "image/jpeg"},
-                body=b"\xff\xd8\xff\xe0" + b"x" * 1230,
+                body=valid_jpeg(),
             )
         ])
         outcome = policy.fetch_media(
@@ -316,7 +325,7 @@ class FetchMediaTests(SimpleTestCase):
             FakeResponse(
                 status=200,
                 headers={"Content-Type": "image/jpeg"},
-                body=b"\xff\xd8\xff\xe0OK",
+                body=valid_jpeg(),
             ),
         ])
         outcome = policy.fetch_media(
@@ -420,6 +429,20 @@ class FetchMediaTests(SimpleTestCase):
         self.assertFalse(outcome.success)
         self.assertEqual(outcome.reason, policy.REASON_STREAM_TOO_LARGE)
 
+    @patch("management.services.ig_media_url_policy.fetch_media")
+    def test_live_adapter_uses_provider_profile(self, fetch_media):
+        from management.services.instagram_bot import download_image
+
+        fetch_media.return_value = policy.FetchOutcome(
+            success=True, mime_type="audio/ogg", body_bytes=b"OggSvoice",
+        )
+
+        self.assertEqual(
+            download_image("https://lookaside.fbsbx.com/voice"),
+            ("audio/ogg", b"OggSvoice"),
+        )
+        self.assertEqual(fetch_media.call_args.kwargs["profile"], policy.PROFILE_PROVIDER)
+
 
 class PreferredMediaSourceTests(SimpleTestCase):
     """Task 6: prefer owned bytes > provider object ID > URL."""
@@ -472,7 +495,7 @@ class DnsRebindingTests(SimpleTestCase):
             return FakeResponse(
                 status=200,
                 headers={"Content-Type": "image/jpeg"},
-                body=b"\xff\xd8\xff\xe0ok",
+                body=valid_jpeg(),
             )
 
         outcome = policy.fetch_media(
@@ -485,6 +508,16 @@ class DnsRebindingTests(SimpleTestCase):
         self.assertEqual(seen["pinned"], "157.240.1.1")
         # The hostname is preserved so TLS still verifies the certificate.
         self.assertEqual(seen["hostname"], "scontent.cdninstagram.com")
+
+    def test_dns_deadline_is_a_typed_fetch_failure(self):
+        outcome = policy.fetch_media(
+            "https://scontent.cdninstagram.com/foo.jpg",
+            resolver=lambda _hostname, _port: (_ for _ in ()).throw(TimeoutError()),
+            transport=lambda _target: self.fail("transport must not run"),
+        )
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.reason, policy.REASON_DEADLINE)
 
     def test_pinned_connector_dials_the_pinned_address(self):
         target = policy.MediaTarget(
@@ -601,7 +634,7 @@ class RedirectAddressPolicyTests(SimpleTestCase):
             FakeResponse(
                 status=200,
                 headers={"Content-Type": "image/jpeg"},
-                body=b"\xff\xd8\xff\xe0ok",
+                body=valid_jpeg(),
             ),
         ])
 
@@ -681,7 +714,7 @@ class HeaderGateBeforeStreamingTests(SimpleTestCase):
             FakeResponse(
                 status=200,
                 headers={"Content-Type": "IMAGE/JPEG; charset=binary"},
-                body=b"\xff\xd8\xff\xe0ok",
+                body=valid_jpeg(),
             ),
         ])
 
@@ -714,6 +747,54 @@ class HeaderGateBeforeStreamingTests(SimpleTestCase):
 
         self.assertFalse(outcome.success)
         self.assertEqual(outcome.reason, policy.REASON_STREAM_TOO_LARGE)
+
+    def test_content_type_without_a_matching_signature_is_rejected(self):
+        resolver = fake_resolver_factory({"scontent.cdninstagram.com": ["157.240.1.1"]})
+        outcome = policy.fetch_media(
+            "https://scontent.cdninstagram.com/claimed.jpg",
+            resolver=resolver,
+            transport=lambda _target: FakeResponse(
+                status=200,
+                headers={"Content-Type": "image/jpeg"},
+                body=b"not-an-image",
+            ),
+        )
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.reason, policy.REASON_SIGNATURE)
+
+    def test_read_error_is_a_typed_fetch_failure(self):
+        class BrokenResponse(FakeResponse):
+            def read(self, _amt=-1):
+                raise OSError("connection reset")
+
+        resolver = fake_resolver_factory({"scontent.cdninstagram.com": ["157.240.1.1"]})
+        outcome = policy.fetch_media(
+            "https://scontent.cdninstagram.com/broken.jpg",
+            resolver=resolver,
+            transport=lambda _target: BrokenResponse(
+                status=200, headers={"Content-Type": "image/jpeg"}, body=b""
+            ),
+        )
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.reason, policy.REASON_TRANSPORT)
+
+    def test_decoded_image_pixel_limit_is_enforced(self):
+        resolver = fake_resolver_factory({"scontent.cdninstagram.com": ["157.240.1.1"]})
+        with patch.object(policy, "MAX_IMAGE_PIXELS", 1):
+            outcome = policy.fetch_media(
+                "https://scontent.cdninstagram.com/two-pixels.jpg",
+                resolver=resolver,
+                transport=lambda _target: FakeResponse(
+                    status=200,
+                    headers={"Content-Type": "image/jpeg"},
+                    body=valid_jpeg(),
+                ),
+            )
+
+        self.assertFalse(outcome.success)
+        self.assertEqual(outcome.reason, policy.REASON_IMAGE_PIXELS)
 
     def test_empty_body_is_rejected(self):
         resolver = fake_resolver_factory({"scontent.cdninstagram.com": ["157.240.1.1"]})

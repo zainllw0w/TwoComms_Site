@@ -54,6 +54,20 @@ class EnsureProfileLocalizesTests(TestCase):
         self.assertTrue(c.avatar_local)
         self.assertIn("ig_avatars", c.avatar_local)
 
+    @patch("management.services.instagram_bot.download_image")
+    @patch("management.services.instagram_bot.fetch_ig_profile")
+    def test_ensure_profile_does_not_fetch_for_an_erased_client(self, mock_fetch, mock_dl):
+        s = InstagramBotSettings.load()
+        c = IgClient.get_or_create_for_sender("erased-avatar")
+        from django.utils import timezone
+
+        c.privacy_erasure_started_at = timezone.now()
+        c.save(update_fields=["privacy_erasure_started_at", "updated_at"])
+
+        self.assertFalse(bot.ensure_profile(s, c))
+        mock_fetch.assert_not_called()
+        mock_dl.assert_not_called()
+
 
 class ClientCardUsesLocalAvatarTests(TestCase):
     def test_card_prefers_local_avatar(self):

@@ -407,6 +407,38 @@ class MediaSemanticsTests(SimpleTestCase):
 
 
 class PrivateMessageMediaStorageTests(TestCase):
+    def test_erasure_during_download_prevents_storage_write(self):
+        from management.models import IgClient
+        from management.services import instagram_bot
+
+        client = IgClient.objects.create(igsid="erase-during-download")
+        row = InstagramBotMessage.objects.create(
+            sender_id=client.igsid, client=client,
+            role=InstagramBotMessage.Role.USER, source="webhook",
+            mid="erase-during-download-mid", media_capture_eligible=True,
+            attachment_media=[{
+                "url": "https://lookaside.invalid/photo.png",
+                "provenance": "live_webhook", "status": "pending",
+            }],
+        )
+
+        def download(_url):
+            IgClient.objects.filter(pk=client.pk).update(
+                privacy_erasure_started_at=timezone.now(),
+            )
+            return "image/png", b"private-test-bytes"
+
+        with tempfile.TemporaryDirectory() as root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(root).resolve()),
+        ), patch.object(instagram_bot, "download_image", side_effect=download), patch(
+            "management.services.ig_private_media.HardenedPrivateMediaStorage._save"
+        ) as save:
+            instagram_bot._capture_message_media(row)
+
+        save.assert_not_called()
+        row.refresh_from_db()
+        self.assertNotEqual(row.attachment_media[0]["status"], "owned")
+
     def _private_row(self, private_root, *, sender):
         from django.core.files.base import ContentFile
         from management.services.ig_private_media import private_media_storage
@@ -691,6 +723,7 @@ class PrivateMessageMediaStorageTests(TestCase):
             _private_media_storage,
             purge_expired_private_message_media,
         )
+        from management.models import IgClient
 
         download.return_value = ("audio/ogg", b"private-voice")
         with tempfile.TemporaryDirectory() as private_root, tempfile.TemporaryDirectory() as public_root:
@@ -699,8 +732,10 @@ class PrivateMessageMediaStorageTests(TestCase):
                 IG_PRIVATE_MEDIA_RETENTION_SECONDS=3600,
                 MEDIA_ROOT=public_root,
             ):
+                client = IgClient.objects.create(igsid="private-audio-client")
                 row = InstagramBotMessage.objects.create(
-                    sender_id="private-audio-client",
+                    sender_id=client.igsid,
+                    client=client,
                     role=InstagramBotMessage.Role.USER,
                     source="webhook",
                     mid="private-audio-mid",
@@ -2023,7 +2058,7 @@ class CatalogAssignmentTests(SimpleTestCase):
     }])
     @patch(
         "management.services.instagram_bot.download_image",
-        side_effect=lambda url: ("image/jpeg", b"local") if "/media/" in url else None,
+        side_effect=lambda url, **_kwargs: ("image/jpeg", b"local") if "/media/" in url else None,
     )
     def test_catalog_matching_prefers_persisted_local_media(self, _download, _match_many):
         from management.services.ig_payment_review import _catalog_matches_for_media
@@ -2072,7 +2107,7 @@ class CatalogAssignmentTests(SimpleTestCase):
     }])
     @patch(
         "management.services.instagram_bot.download_image",
-        side_effect=lambda url: ("image/jpeg", b"same-product") if "/media/" in url else None,
+        side_effect=lambda url, **_kwargs: ("image/jpeg", b"same-product") if "/media/" in url else None,
     )
     def test_catalog_matching_deduplicates_identical_media_but_keeps_source_indexes(
         self, _download, _match_many, hydrate
@@ -2114,7 +2149,7 @@ class CatalogAssignmentTests(SimpleTestCase):
     }])
     @patch(
         "management.services.instagram_bot.download_image",
-        side_effect=lambda url: (
+        side_effect=lambda url, **_kwargs: (
             "image/jpeg", b"product-a" if url.endswith("/a.jpg") else b"product-b"
         ),
     )
