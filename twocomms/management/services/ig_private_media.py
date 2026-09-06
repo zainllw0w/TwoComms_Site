@@ -9,7 +9,7 @@ import stat
 import tempfile
 from dataclasses import dataclass
 from datetime import timedelta
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -29,11 +29,88 @@ USE_LEASE_MAX_SECONDS = 300
 _debug_root: Path | None = None
 
 
+def _require_secure_fd_primitives() -> None:
+    """Fail readiness when the host cannot harden paths without following links."""
+    missing = []
+    for name in ("O_NOFOLLOW", "O_DIRECTORY", "O_NONBLOCK"):
+        if not getattr(os, name, 0):
+            missing.append(name)
+    for name in ("fstat", "fchmod", "geteuid"):
+        if not callable(getattr(os, name, None)):
+            missing.append(f"os.{name}")
+    supports_dir_fd = getattr(os, "supports_dir_fd", set())
+    for function in (os.open, os.mkdir, os.unlink):
+        if function not in supports_dir_fd:
+            missing.append(f"{function.__name__}(dir_fd=...)")
+    if missing:
+        raise ImproperlyConfigured(
+            "IG private media requires secure fd primitives: "
+            + ", ".join(missing)
+        )
+
+
+def _verify_and_harden_fd(
+    descriptor: int,
+    *,
+    directory: bool,
+    label: str,
+) -> os.stat_result:
+    """Validate type/ownership and apply the canonical private mode by fd."""
+    info = os.fstat(descriptor)
+    expected_type = stat.S_ISDIR if directory else stat.S_ISREG
+    if not expected_type(info.st_mode):
+        raise PermissionError(f"unsafe private media {label} type")
+    if info.st_uid != os.geteuid():
+        raise PermissionError(f"unsafe private media {label} ownership")
+    expected_mode = 0o700 if directory else 0o600
+    os.fchmod(descriptor, expected_mode)
+    hardened = os.fstat(descriptor)
+    if stat.S_IMODE(hardened.st_mode) != expected_mode:
+        raise PermissionError(f"unsafe private media {label} mode")
+    return hardened
+
+
+def _open_owned_directory(path, *, dir_fd: int | None = None) -> int:
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    descriptor = os.open(path, flags, dir_fd=dir_fd)
+    try:
+        _verify_and_harden_fd(descriptor, directory=True, label="directory")
+    except Exception:
+        os.close(descriptor)
+        raise
+    return descriptor
+
+
+def _open_canonical_root(path: Path) -> int:
+    """Open an absolute root one component at a time without following symlinks."""
+    if not path.is_absolute():
+        raise ImproperlyConfigured("IG_PRIVATE_MEDIA_ROOT must be absolute")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    current_fd = os.open(os.sep, flags)
+    try:
+        for part in path.parts[1:]:
+            next_fd = os.open(part, flags, dir_fd=current_fd)
+            try:
+                if not stat.S_ISDIR(os.fstat(next_fd).st_mode):
+                    raise PermissionError("unsafe private media root path type")
+            except Exception:
+                os.close(next_fd)
+                raise
+            os.close(current_fd)
+            current_fd = next_fd
+        _verify_and_harden_fd(current_fd, directory=True, label="root")
+    except Exception:
+        os.close(current_fd)
+        raise
+    return current_fd
+
+
 def _inside(path: Path, parent: Path) -> bool:
     return path == parent or parent in path.parents
 
 
 def _configured_root() -> Path:
+    _require_secure_fd_primitives()
     raw = str(getattr(settings, "IG_PRIVATE_MEDIA_ROOT", "") or "").strip()
     if not raw:
         if not bool(getattr(settings, "DEBUG", False)):
@@ -45,7 +122,8 @@ def _configured_root() -> Path:
             _debug_root = Path(
                 tempfile.mkdtemp(prefix=f"twocomms-private-media-{os.getpid()}-")
             )
-            os.chmod(_debug_root, 0o700)
+            descriptor = _open_canonical_root(_debug_root.resolve(strict=True))
+            os.close(descriptor)
         return _debug_root
     configured = Path(raw).expanduser()
     if not configured.is_absolute():
@@ -85,6 +163,8 @@ def validate_private_root(*, require_exists: bool = True) -> Path:
             raise ImproperlyConfigured("IG private media root must be owned by the worker euid")
         if stat.S_IMODE(info.st_mode) != 0o700:
             raise ImproperlyConfigured("IG private media root mode must be 0700")
+        descriptor = _open_canonical_root(canonical)
+        os.close(descriptor)
     return canonical
 
 
@@ -107,56 +187,90 @@ class HardenedPrivateMediaStorage(FileSystemStorage):
 
         if mode not in {"rb", "r"}:
             raise ValueError("private media storage is read-only through open()")
-        path = Path(self.path(name))
-        flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-        descriptor = os.open(path, flags)
-        info = os.fstat(descriptor)
-        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.geteuid():
-            os.close(descriptor)
-            raise PermissionError("unsafe private media file")
-        return File(os.fdopen(descriptor, mode), name)
+        parent_fd, leaf = self._open_parent(name, create=False)
+        try:
+            descriptor = os.open(
+                leaf,
+                os.O_RDONLY
+                | os.O_NOFOLLOW
+                | os.O_NONBLOCK
+                | getattr(os, "O_BINARY", 0),
+                dir_fd=parent_fd,
+            )
+        finally:
+            os.close(parent_fd)
+        stream = None
+        try:
+            _verify_and_harden_fd(descriptor, directory=False, label="file")
+            stream = os.fdopen(descriptor, mode)
+            return File(stream, name)
+        except Exception:
+            if stream is not None:
+                stream.close()
+            else:
+                os.close(descriptor)
+            raise
 
-    def _harden_parent(self, name: str) -> None:
-        destination = Path(self.path(name))
-        parent = destination.parent
-        resolved_parent = parent.resolve(strict=True)
-        if not _inside(resolved_parent, self._canonical_root):
-            raise SuspiciousFileOperation("private media path escaped its root")
-        cursor = resolved_parent
-        while cursor != self._canonical_root.parent:
-            info = cursor.lstat()
-            if stat.S_ISLNK(info.st_mode) or info.st_uid != os.geteuid():
-                raise PermissionError("unsafe private media directory ownership")
-            os.chmod(cursor, 0o700, follow_symlinks=False)
-            if cursor == self._canonical_root:
-                break
-            cursor = cursor.parent
+    @staticmethod
+    def _name_parts(name: str) -> tuple[str, ...]:
+        normalized = str(name).replace("\\", "/")
+        raw_parts = normalized.split("/")
+        candidate = PurePosixPath(normalized)
+        if (
+            not normalized
+            or candidate.is_absolute()
+            or any(part in {"", ".", ".."} for part in raw_parts)
+            or not candidate.name
+        ):
+            raise SuspiciousFileOperation("unsafe private media storage name")
+        return candidate.parts
+
+    def _open_parent(self, name: str, *, create: bool) -> tuple[int, str]:
+        parts = self._name_parts(name)
+        current_fd = _open_canonical_root(self._canonical_root)
+        try:
+            for part in parts[:-1]:
+                if create:
+                    try:
+                        os.mkdir(part, 0o700, dir_fd=current_fd)
+                    except FileExistsError:
+                        pass
+                next_fd = _open_owned_directory(part, dir_fd=current_fd)
+                os.close(current_fd)
+                current_fd = next_fd
+        except Exception:
+            os.close(current_fd)
+            raise
+        return current_fd, parts[-1]
 
     def _save(self, name, content):
         from django.core.files import locks
 
-        full_path = self.path(name)
-        parent = Path(full_path).parent
-        parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        self._harden_parent(name)
         while True:
+            parent_fd, leaf = self._open_parent(name, create=True)
             flags = (
                 os.O_WRONLY
                 | os.O_CREAT
                 | os.O_EXCL
                 | getattr(os, "O_BINARY", 0)
-                | getattr(os, "O_NOFOLLOW", 0)
+                | os.O_NOFOLLOW
             )
             try:
-                descriptor = os.open(full_path, flags, 0o600)
+                descriptor = os.open(leaf, flags, 0o600, dir_fd=parent_fd)
             except FileExistsError:
+                os.close(parent_fd)
                 name = self.get_available_name(name)
-                full_path = self.path(name)
-                self._harden_parent(name)
                 continue
+            except Exception:
+                os.close(parent_fd)
+                raise
             stream = None
+            locked = False
+            succeeded = False
             try:
+                _verify_and_harden_fd(descriptor, directory=False, label="file")
                 locks.lock(descriptor, locks.LOCK_EX)
+                locked = True
                 for chunk in content.chunks():
                     if stream is None:
                         stream = os.fdopen(
@@ -164,22 +278,39 @@ class HardenedPrivateMediaStorage(FileSystemStorage):
                             "wb" if isinstance(chunk, bytes) else "wt",
                         )
                     stream.write(chunk)
-            finally:
-                locks.unlock(descriptor)
                 if stream is not None:
-                    stream.close()
-                else:
-                    os.close(descriptor)
-            saved = os.path.relpath(full_path, self.location).replace("\\", "/")
-            break
-        path = Path(self.path(saved))
-        info = path.lstat()
-        if stat.S_ISLNK(info.st_mode) or not stat.S_ISREG(info.st_mode):
-            raise PermissionError("private media destination is not a regular file")
-        if info.st_uid != os.geteuid():
-            raise PermissionError("private media file has the wrong owner")
-        os.chmod(path, 0o600, follow_symlinks=False)
-        return saved
+                    stream.flush()
+                _verify_and_harden_fd(descriptor, directory=False, label="file")
+                succeeded = True
+            finally:
+                cleanup_failed = False
+                try:
+                    try:
+                        if locked:
+                            locks.unlock(descriptor)
+                    except Exception:
+                        cleanup_failed = True
+                        raise
+                finally:
+                    try:
+                        try:
+                            if stream is not None:
+                                stream.close()
+                            else:
+                                os.close(descriptor)
+                        except Exception:
+                            cleanup_failed = True
+                            raise
+                    finally:
+                        try:
+                            if not succeeded or cleanup_failed:
+                                try:
+                                    os.unlink(leaf, dir_fd=parent_fd)
+                                except FileNotFoundError:
+                                    pass
+                        finally:
+                            os.close(parent_fd)
+            return str(PurePosixPath(*self._name_parts(name)))
 
 
 # Imported lazily above to keep the module-level validation side-effect free.
