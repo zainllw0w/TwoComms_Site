@@ -15,14 +15,51 @@
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
+from hashlib import sha256
+import json
 import os
 
 from django.core.cache import cache
 
 KNOWLEDGE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "bot_knowledge")
-CACHE_KEY = "ig_bot_knowledge_md"
-CACHE_MTIME_KEY = "ig_bot_knowledge_mtime"
-MAX_CHARS = 24000
+CACHE_KEY = "ig_bot_knowledge_manifest_v2"
+CACHE_MTIME_KEY = "ig_bot_knowledge_mtime_v2"
+
+
+class KnowledgeReadinessError(RuntimeError):
+    """The versioned knowledge source cannot safely participate in a prompt.
+
+    Details deliberately contain source identifiers only, never file contents.
+    """
+
+    def __init__(self, code: str, message: str, *, details: dict | None = None):
+        super().__init__(message)
+        self.code = code
+        self.details = dict(details or {})
+
+
+@dataclass(frozen=True)
+class KnowledgeModule:
+    id: str
+    body: str
+    priority: int
+
+    def policy_input(self) -> dict:
+        return {"id": self.id, "body": self.body, "priority": self.priority, "tags": (), "active": True}
+
+
+@dataclass(frozen=True)
+class KnowledgeManifest:
+    modules: tuple[KnowledgeModule, ...]
+    content_hash: str
+
+    @property
+    def text(self) -> str:
+        return "\n\n".join(module.body for module in self.modules)
+
+    def policy_inputs(self) -> list[dict]:
+        return [module.policy_input() for module in self.modules]
 
 
 def _dir_mtime() -> float:
@@ -32,13 +69,26 @@ def _dir_mtime() -> float:
             if name.lower().endswith(".md"):
                 p = os.path.join(KNOWLEDGE_DIR, name)
                 latest = max(latest, os.path.getmtime(p))
-    except FileNotFoundError:
-        return 0.0
+    except FileNotFoundError as exc:
+        raise KnowledgeReadinessError(
+            "knowledge_directory_missing", "knowledge directory is missing",
+            details={"source": "repository_knowledge"},
+        ) from exc
+    except OSError as exc:
+        raise KnowledgeReadinessError(
+            "knowledge_directory_unreadable", "knowledge directory cannot be read",
+            details={"source": "repository_knowledge", "error_type": type(exc).__name__},
+        ) from exc
     return latest
 
 
-def _read_all() -> str:
-    parts = []
+def read_knowledge_manifest() -> KnowledgeManifest:
+    """Read every Markdown source as a whole semantic module.
+
+    Unlike the old helper, a missing or unreadable file is a readiness gap,
+    not an invisible deletion and not a character slice through a rule.
+    """
+    modules: list[KnowledgeModule] = []
     try:
         for name in sorted(os.listdir(KNOWLEDGE_DIR)):
             if not name.lower().endswith(".md"):
@@ -46,16 +96,33 @@ def _read_all() -> str:
             try:
                 with open(os.path.join(KNOWLEDGE_DIR, name), encoding="utf-8") as fh:
                     text = fh.read().strip()
-                if text:
-                    parts.append(text)
-            except Exception:
-                continue
-    except FileNotFoundError:
-        return ""
-    combined = "\n\n".join(parts).strip()
-    if len(combined) > MAX_CHARS:
-        combined = combined[:MAX_CHARS] + "\n…(скорочено)"
-    return combined
+            except (OSError, UnicodeError) as exc:
+                raise KnowledgeReadinessError(
+                    "knowledge_file_unreadable", "knowledge file cannot be read",
+                    details={"id": f"knowledge:{name}", "error_type": type(exc).__name__},
+                ) from exc
+            if text:
+                modules.append(KnowledgeModule(f"knowledge:{name}", text, len(modules)))
+    except FileNotFoundError as exc:
+        raise KnowledgeReadinessError(
+            "knowledge_directory_missing", "knowledge directory is missing",
+            details={"source": "repository_knowledge"},
+        ) from exc
+    except OSError as exc:
+        raise KnowledgeReadinessError(
+            "knowledge_directory_unreadable", "knowledge directory cannot be read",
+            details={"source": "repository_knowledge", "error_type": type(exc).__name__},
+        ) from exc
+    payload = [{"id": module.id, "body": module.body, "priority": module.priority} for module in modules]
+    digest = sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return KnowledgeManifest(tuple(modules), digest)
+
+
+def _read_all() -> str:
+    """Compatibility wrapper for callers awaiting compiler integration."""
+    return read_knowledge_manifest().text
 
 
 def get_brand_knowledge() -> str:
@@ -64,8 +131,8 @@ def get_brand_knowledge() -> str:
     cached_mtime = cache.get(CACHE_MTIME_KEY)
     cached = cache.get(CACHE_KEY)
     if cached is not None and cached_mtime == mtime:
-        return cached
-    text = _read_all()
-    cache.set(CACHE_KEY, text, 3600)
+        return cached.text
+    manifest = read_knowledge_manifest()
+    cache.set(CACHE_KEY, manifest, 3600)
     cache.set(CACHE_MTIME_KEY, mtime, 3600)
-    return text
+    return manifest.text

@@ -1,23 +1,25 @@
-"""W1 / IMP-007 — Meta-reviewer в read-only sandbox (F-SEC-004).
+"""B02.4 — Meta-reviewer in an isolated read-only status surface.
 
 Внешний аккаунт из группы «Meta Bot Reviewer» нужен, чтобы Meta могла
 посмотреть, как работает приложение. Смотреть — да; управлять живым
 продакшеном — нет.
 
-Сейчас reviewer может: глобально запустить и остановить бота, поменять
-`ai_enabled` / `receive_via_poll` / `gemini_model` (эти три поля стоят
-ВНЕ блока `if not reviewer_mode`), поставить на паузу, скрыть и пометить
-«втрачено» реальную карточку клиента.
-
-Инвариант, который закрепляют тесты: reviewer читает, но не мутирует.
+Reviewer can read bounded liveness telemetry and cannot reach production
+controls or customer data, even when another Django role overlaps.
 """
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase, override_settings
 
-from management.bot_access import META_REVIEWER_GROUP_NAME
+from management.bot_access import (
+    EDIT_IG_PROMPT_PERMISSION,
+    MANAGE_IG_PAYMENTS_PERMISSION,
+    META_REVIEWER_GROUP_NAME,
+    OPERATE_IG_BOT_PERMISSION,
+    VIEW_IG_CONVERSATION_PII_PERMISSION,
+)
 from management.models import IgClient, InstagramBotLog, InstagramBotSettings
 
 
@@ -32,6 +34,15 @@ class ReviewerSandboxTests(TestCase):
         self.admin = get_user_model().objects.create_user(
             username="bot_admin", password="admin-pass", is_staff=True
         )
+        self.admin.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="management",
+            codename__in={
+                OPERATE_IG_BOT_PERMISSION.split(".", 1)[1],
+                VIEW_IG_CONVERSATION_PII_PERMISSION.split(".", 1)[1],
+                MANAGE_IG_PAYMENTS_PERMISSION.split(".", 1)[1],
+                EDIT_IG_PROMPT_PERMISSION.split(".", 1)[1],
+            },
+        ))
         self.client_card = IgClient.objects.create(
             igsid="5000000001", username="live_client"
         )
@@ -47,9 +58,8 @@ class ReviewerSandboxTests(TestCase):
             secure=True,
         )
 
-    # ------------------------------------- демо-контроль: можно, но с следом
-    def test_reviewer_stop_is_allowed_but_attributed(self):
-        """DR-006: демо-контроль сохранён, но перестаёт быть незаметным."""
+    # ------------------------------------- production controls are unavailable
+    def test_reviewer_stop_is_denied_before_side_effects(self):
         settings_row = InstagramBotSettings.load()
         settings_row.is_enabled = True
         settings_row.save(update_fields=["is_enabled"])
@@ -60,15 +70,10 @@ class ReviewerSandboxTests(TestCase):
         ):
             response = self._post("/bot/api/stop/")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(
-            InstagramBotLog.objects.filter(
-                event="reviewer_action", detail__contains="meta_reviewer"
-            ).exists(),
-            "остановка внешним reviewer'ом должна оставлять след с его именем",
-        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(InstagramBotLog.objects.filter(event="reviewer_action").exists())
 
-    def test_reviewer_start_is_attributed(self):
+    def test_reviewer_start_is_denied_before_side_effects(self):
         self._login_reviewer()
 
         with patch("management.bot_views.bot.start_bot"), patch(
@@ -76,14 +81,10 @@ class ReviewerSandboxTests(TestCase):
         ):
             response = self._post("/bot/api/start/")
 
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(
-            InstagramBotLog.objects.filter(
-                event="reviewer_action", detail__contains="bot_start"
-            ).exists()
-        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(InstagramBotLog.objects.filter(event="reviewer_action").exists())
 
-    def test_reviewer_alert_omits_username_but_keeps_local_actor_id(self):
+    def test_reviewer_denial_sends_no_manager_alert(self):
         marker = "private.reviewer@example.com"
         self.reviewer.username = marker
         self.reviewer.save(update_fields=["username"])
@@ -94,11 +95,8 @@ class ReviewerSandboxTests(TestCase):
         ) as notify_manager:
             response = self._post("/bot/api/stop/")
 
-        self.assertEqual(response.status_code, 200)
-        alert = notify_manager.call_args.args[0]
-        self.assertNotIn(marker, alert)
-        self.assertIn(f"Актор ID: {self.reviewer.pk}", alert)
-        self.assertIn("Тип збою: bot_stop", alert)
+        self.assertEqual(response.status_code, 403)
+        notify_manager.assert_not_called()
 
     def test_admin_action_is_not_logged_as_reviewer(self):
         """След reviewer'а не должен появляться от действий администратора."""
@@ -129,7 +127,7 @@ class ReviewerSandboxTests(TestCase):
                 },
             )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
         settings_row.refresh_from_db()
         self.assertEqual(
             settings_row.gemini_model,
@@ -303,10 +301,7 @@ class ReviewerSandboxTests(TestCase):
             secure=True,
         )
 
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
-        self.assertEqual(payload["clients"], [])
-        self.assertTrue(payload["reviewer_sandbox"])
+        self.assertEqual(response.status_code, 403)
         self.assertNotIn("live_client", response.content.decode())
 
     # ------------------------------------------- админ не пострадал

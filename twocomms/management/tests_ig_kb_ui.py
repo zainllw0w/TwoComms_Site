@@ -1,9 +1,11 @@
 """Тести Phase 8 / Task 23 — CRUD інструкцій/посилань/реклами у вкладці «Бот»."""
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from management.models import BotAdCampaign, BotInstruction, BotQuickLink
+from management.bot_access import EDIT_IG_PROMPT_PERMISSION
 
 User = get_user_model()
 MGMT = override_settings(ROOT_URLCONF="twocomms.urls_management")
@@ -13,6 +15,10 @@ MGMT = override_settings(ROOT_URLCONF="twocomms.urls_management")
 class BotKbApiTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user("kbadm", password="x", is_staff=True)
+        self.admin.user_permissions.add(Permission.objects.get(
+            content_type__app_label="management",
+            codename=EDIT_IG_PROMPT_PERMISSION.split(".", 1)[1],
+        ))
         self.client.force_login(self.admin)
 
     def test_create_instruction(self):

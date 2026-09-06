@@ -3752,6 +3752,15 @@ class InstagramBotSettings(models.Model):
     class Meta:
         verbose_name = "Instagram bot settings"
         verbose_name_plural = "Instagram bot settings"
+        permissions = (
+            ("operate_ig_bot", "Can operate Instagram bot"),
+            (
+                "view_ig_conversation_pii",
+                "Can view Instagram conversation personal data",
+            ),
+            ("manage_ig_payments", "Can manage Instagram payment decisions"),
+            ("edit_ig_prompt", "Can edit Instagram bot instructions"),
+        )
 
     @property
     def custom_direct_token(self) -> str:

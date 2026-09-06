@@ -9,6 +9,7 @@
 """
 from __future__ import annotations
 
+from dataclasses import dataclass
 import logging
 
 from management.models import BotInstruction, IgClient
@@ -91,6 +92,117 @@ def tags_for_client(client: IgClient | None) -> set[str]:
 MAX_INSTRUCTION_BLOCK_CHARS = 3500
 
 
+@dataclass(frozen=True)
+class InstructionModule:
+    """A whole editable playbook suitable for optional policy admission."""
+
+    id: str
+    body: str
+    priority: int
+    tags: tuple[str, ...]
+    active: bool
+
+    def policy_input(self) -> dict:
+        return {
+            "id": self.id,
+            "body": self.body,
+            "priority": self.priority,
+            "tags": self.tags,
+            "active": self.active,
+        }
+
+
+@dataclass(frozen=True)
+class InstructionOmission:
+    id: str
+    reason: str
+
+    def metadata(self) -> dict[str, str]:
+        return {"id": self.id, "reason": self.reason}
+
+
+@dataclass(frozen=True)
+class InstructionSelection:
+    """Selection metadata for the legacy prompt wrapper and policy compiler."""
+
+    modules: tuple[InstructionModule, ...]
+    omitted: tuple[InstructionOmission, ...]
+    visual_trigger_codes: tuple[str, ...]
+
+    @property
+    def selected_ids(self) -> tuple[str, ...]:
+        return tuple(module.id for module in self.modules)
+
+    def policy_inputs(self) -> list[dict]:
+        return [module.policy_input() for module in self.modules]
+
+    def metadata(self) -> dict:
+        return {
+            "selected_ids": list(self.selected_ids),
+            "omitted": [item.metadata() for item in self.omitted],
+            "visual_trigger_codes": list(self.visual_trigger_codes),
+        }
+
+
+def active_instruction_selection(
+    client: IgClient | None = None,
+    *,
+    turn_text: str = "",
+    budget_chars: int = MAX_INSTRUCTION_BLOCK_CHARS,
+    visual_trigger_codes=None,
+) -> InstructionSelection:
+    """Choose applicable playbooks without cutting any instruction body.
+
+    Visual trigger codes are accepted as explicit future B01.6 inputs. No
+    visual fact is inferred here: current ``BotInstruction`` tags only define
+    text/CRM routing, so the codes remain metadata until a later explicit
+    routing contract exists.
+    """
+    from management.services.bot_instruction_routing import instruction_matches, turn_triggers
+
+    try:
+        budget = int(budget_chars)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("instruction budget must be an integer") from exc
+    if budget < 0:
+        raise ValueError("instruction budget cannot be negative")
+    visual_codes = tuple(sorted({str(code) for code in (visual_trigger_codes or ()) if str(code)}))
+    client_tags = tags_for_client(client)
+    active_triggers = turn_triggers(turn_text)
+    modules: list[InstructionModule] = []
+    omitted: list[InstructionOmission] = []
+    used = 0
+    for inst in BotInstruction.objects.order_by("priority", "id"):
+        module_id = f"instruction:{inst.pk}"
+        body = (inst.body or "").strip()
+        if not inst.is_active:
+            omitted.append(InstructionOmission(module_id, "inactive"))
+            continue
+        if not body:
+            omitted.append(InstructionOmission(module_id, "empty_body"))
+            continue
+        if client is not None and not instruction_matches(
+            inst.intent_tags, client_tags, active_triggers=active_triggers
+        ):
+            omitted.append(InstructionOmission(module_id, "not_relevant"))
+            continue
+        title = (inst.title or "").strip()
+        rendered = f"• {title}: {body}" if title else f"• {body}"
+        cost = len(rendered) + (1 if modules else 0)
+        if used + cost > budget:
+            omitted.append(InstructionOmission(module_id, "budget_exhausted"))
+            continue
+        modules.append(InstructionModule(
+            id=module_id,
+            body=rendered,
+            priority=inst.priority,
+            tags=tuple(sorted(_split_tags(inst.intent_tags))),
+            active=True,
+        ))
+        used += cost
+    return InstructionSelection(tuple(modules), tuple(omitted), visual_codes)
+
+
 def active_instruction_block(
     client: IgClient | None = None,
     *,
@@ -106,34 +218,9 @@ def active_instruction_block(
     хід не підмішується. Це і є різниця між «клієнт питає про розмір зараз» і
     «в картці лежить objection=size з минулого тижня».
     """
-    from management.services.bot_instruction_routing import (
-        instruction_matches,
-        turn_triggers,
-    )
-
-    parts: list[str] = []
-    client_tags = tags_for_client(client)
-    active_triggers = turn_triggers(turn_text)
-    used = 0
-    dropped = 0
-    qs = BotInstruction.objects.filter(is_active=True).order_by("priority", "id")
-    for inst in qs:
-        body = (inst.body or "").strip()
-        if not body:
-            continue
-        if client is not None and not instruction_matches(
-            inst.intent_tags, client_tags, active_triggers=active_triggers
-        ):
-            continue
-        title = (inst.title or "").strip()
-        line = f"• {title}: {body}" if title else f"• {body}"
-        # Ліміт рахуємо по цілих інструкціях: обрізана посередині інструкція
-        # гірша за відсутню, бо модель прочитає половину правила як правило.
-        if used + len(line) + 1 > MAX_INSTRUCTION_BLOCK_CHARS:
-            dropped += 1
-            continue
-        parts.append(line)
-        used += len(line) + 1
+    selection = active_instruction_selection(client, turn_text=turn_text)
+    parts = [module.body for module in selection.modules]
+    dropped = sum(1 for item in selection.omitted if item.reason == "budget_exhausted")
     if dropped:
         parts.append(
             f"…({dropped} інструкцій не вміщено в бюджет; попроси адміністратора "

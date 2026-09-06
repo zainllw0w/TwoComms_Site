@@ -4,12 +4,16 @@ from datetime import timedelta
 from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from management.bot_access import META_REVIEWER_GROUP_NAME
+from management.bot_access import (
+    META_REVIEWER_GROUP_NAME,
+    OPERATE_IG_BOT_PERMISSION,
+    VIEW_IG_CONVERSATION_PII_PERMISSION,
+)
 from management.models import (
     IgClient,
     IgConversationAnalysisSnapshot,
@@ -94,6 +98,13 @@ class InboxRefreshRunTests(TestCase):
 class InboxRefreshApiTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_user("refresh-api-admin", is_staff=True)
+        self.admin.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="management",
+            codename__in={
+                OPERATE_IG_BOT_PERMISSION.split(".", 1)[1],
+                VIEW_IG_CONVERSATION_PII_PERMISSION.split(".", 1)[1],
+            },
+        ))
         self.reviewer = User.objects.create_user("refresh-api-reviewer")
         reviewer_group, _ = Group.objects.get_or_create(name=META_REVIEWER_GROUP_NAME)
         self.reviewer.groups.add(reviewer_group)

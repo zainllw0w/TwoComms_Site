@@ -5,11 +5,17 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 
-from .bot_access import META_REVIEWER_GROUP_NAME
+from .bot_access import (
+    EDIT_IG_PROMPT_PERMISSION,
+    MANAGE_IG_PAYMENTS_PERMISSION,
+    META_REVIEWER_GROUP_NAME,
+    OPERATE_IG_BOT_PERMISSION,
+    VIEW_IG_CONVERSATION_PII_PERMISSION,
+)
 from .models import (
     BotDataDeletionRequest,
     IgClient,
@@ -92,6 +98,15 @@ class InstagramBotPrivacyPolicyTests(TestCase):
             password="test-staff-password",
             is_staff=True,
         )
+        user.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="management",
+            codename__in={
+                OPERATE_IG_BOT_PERMISSION.split(".", 1)[1],
+                VIEW_IG_CONVERSATION_PII_PERMISSION.split(".", 1)[1],
+                MANAGE_IG_PAYMENTS_PERMISSION.split(".", 1)[1],
+                EDIT_IG_PROMPT_PERMISSION.split(".", 1)[1],
+            },
+        ))
         self.client.force_login(user)
         return user
 
@@ -450,21 +465,18 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Інстаграм-бот")
-        self.assertContains(response, "Meta reviewer mode")
+        self.assertContains(response, "DIRECT_BOT Reviewer Access")
+        self.assertContains(response, "Restricted access")
         self.assertContains(response, "Meta Bot Reviewer")
-        self.assertContains(response, "Запустити")
-        self.assertContains(response, "Зупинити")
-        self.assertContains(response, "Налаштування")
-        self.assertContains(response, "Клієнти")
-        self.assertContains(response, "is-disabled")
+        self.assertNotContains(response, 'id="bot-start"')
+        self.assertNotContains(response, 'name="system_prompt"')
         self.assertNotContains(response, "custom_direct_token")
         self.assertNotContains(response, "custom_gemini_key")
         self.assertNotContains(response, "allowed_senders")
         self.assertNotContains(response, "Системний промпт")
         self.assertNotContains(response, "Інструкції, посилання та реклама")
 
-    def test_meta_reviewer_can_use_bot_demo_apis_but_not_kb_admin_api(self):
+    def test_meta_reviewer_can_read_only_bounded_status_api(self):
         self._login_meta_reviewer()
 
         with patch("management.bot_views.bot.start_bot"), patch("management.bot_views.bot.stop_bot"):
@@ -476,9 +488,17 @@ class InstagramBotPrivacyPolicyTests(TestCase):
                         secure=True,
                         HTTP_X_REQUESTED_WITH="XMLHttpRequest",
                     )
-                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.status_code, 403)
 
-        for path in ("/bot/api/status/", "/bot/api/clients/"):
+        response = self.client.get(
+            "/bot/api/status/",
+            HTTP_HOST="management.twocomms.shop",
+            secure=True,
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        self.assertEqual(response.status_code, 200)
+
+        for path in ("/bot/api/clients/", "/bot/api/kb/"):
             with self.subTest(path=path):
                 response = self.client.get(
                     path,
@@ -486,15 +506,7 @@ class InstagramBotPrivacyPolicyTests(TestCase):
                     secure=True,
                     HTTP_X_REQUESTED_WITH="XMLHttpRequest",
                 )
-                self.assertEqual(response.status_code, 200)
-
-        response = self.client.get(
-            "/bot/api/kb/",
-            HTTP_HOST="management.twocomms.shop",
-            secure=True,
-            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
-        )
-        self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.status_code, 403)
 
     def test_meta_reviewer_settings_save_cannot_change_secret_fields(self):
         self._login_meta_reviewer()
@@ -504,6 +516,7 @@ class InstagramBotPrivacyPolicyTests(TestCase):
         settings_obj.system_prompt = "keep-system-prompt"
         settings_obj.allowed_senders = "keep-sender"
         settings_obj.save()
+        ai_before = settings_obj.ai_enabled
         model_before = settings_obj.gemini_model
 
         response = self.client.post(
@@ -522,12 +535,9 @@ class InstagramBotPrivacyPolicyTests(TestCase):
             HTTP_X_REQUESTED_WITH="XMLHttpRequest",
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
         settings_obj.refresh_from_db()
-        # Демо-перемикач основної функції reviewer'у залишений (DR-006).
-        self.assertTrue(settings_obj.ai_enabled)
-        # Робоча конфігурація продакшену — ні: транспорт приймання подій
-        # і модель Gemini reviewer змінювати не має (F-SEC-004, DR-006).
+        self.assertEqual(settings_obj.ai_enabled, ai_before)
         self.assertFalse(settings_obj.receive_via_poll)
         self.assertEqual(settings_obj.gemini_model, model_before)
         self.assertEqual(settings_obj.custom_direct_token, "keep-direct-secret")

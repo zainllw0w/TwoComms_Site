@@ -69,9 +69,12 @@ class IgClientMessageLinkTests(TestCase):
 
 
 class HiddenClientIngressTests(TestCase):
+    @patch("management.services.instagram_bot._schedule_inbound_analysis")
     @patch("management.services.bot_sales_classifier.classify_message")
     @patch("management.services.bot_followups.schedule_after_inbound")
-    def test_hidden_client_is_not_enqueued_or_classified(self, schedule_followup, classify_message):
+    def test_hidden_client_is_observed_without_automation(
+        self, schedule_followup, classify_message, schedule_analysis
+    ):
         settings = InstagramBotSettings.load()
         settings.is_enabled = True
         settings.allowed_senders = ""
@@ -84,12 +87,15 @@ class HiddenClientIngressTests(TestCase):
             settings, sender_id=client.igsid, text="не обробляйте", mid="hidden-mid"
         )
 
-        self.assertFalse(queued)
-        self.assertFalse(InstagramBotMessage.objects.filter(mid="hidden-mid").exists())
+        self.assertTrue(queued)
+        message = InstagramBotMessage.objects.get(mid="hidden-mid")
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertFalse(message.media_capture_eligible)
         schedule_followup.assert_not_called()
         classify_message.assert_not_called()
+        schedule_analysis.assert_not_called()
         settings.refresh_from_db()
-        self.assertIsNone(settings.last_inbound_at)
+        self.assertIsNotNone(settings.last_inbound_at)
 
     def test_overview_counters_exclude_hidden_clients_and_messages(self):
         active = IgClient.get_or_create_for_sender("active_overview")

@@ -1215,10 +1215,10 @@ body.bot-drawer-open{overflow:hidden;}
       <h1>Інстаграм-бот</h1>
       <span class="bot-pill" id="bot-pill"><i class="dot"></i><span id="bot-pill-text">Завантаження…</span></span>
     </div>
-    <div class="bot-top-actions">
+    {% if bot_can_operate %}<div class="bot-top-actions">
       <button class="bot-btn start" id="bot-start">Запустити</button>
       <button class="bot-btn stop" id="bot-stop">Зупинити</button>
-    </div>
+    </div>{% endif %}
   </header>
   <div id="bot-global-feedback" class="bot-feedback" role="status" aria-live="polite"></div>
   {% if meta_bot_reviewer_mode %}
@@ -1229,18 +1229,16 @@ body.bot-drawer-open{overflow:hidden;}
 
   <nav class="bot-tabs" id="bot-tabs" role="tablist" aria-label="Розділи Instagram-бота">
     <button class="bot-tab active" role="tab" aria-selected="true" data-tab="overview">Огляд<span class="badge" id="badge-pending" style="display:none;"></span></button>
-    <button class="bot-tab" role="tab" aria-selected="false" data-tab="settings">Налаштування</button>
-    {% if bot_is_admin %}
+    {% if bot_can_operate or bot_can_edit_prompt %}<button class="bot-tab" role="tab" aria-selected="false" data-tab="settings">Налаштування</button>{% endif %}
+    {% if bot_can_operate %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="api">API</button>
     {% endif %}
-    {% if not meta_bot_reviewer_mode %}
+    {% if bot_can_edit_prompt %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="kb">Інструкції</button>
     {% endif %}
+    {% if bot_can_view_pii %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="clients">Клієнти<span class="badge" id="badge-clients" style="display:none;"></span></button>
-    {% if not meta_bot_reviewer_mode %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="stats">Статистика</button>
-    {% endif %}
-    {% if not meta_bot_reviewer_mode %}
     <button class="bot-tab" role="tab" aria-selected="false" data-tab="orders">Замовлення<span class="badge" id="badge-orders-action" style="display:none;"></span></button>
     {% endif %}
     <span class="bot-tab-ind" id="bot-tab-ind"></span>
@@ -1282,7 +1280,7 @@ body.bot-drawer-open{overflow:hidden;}
       </div>
       <div class="bot-console-box" id="bot-console"></div>
     </div>
-    {% if not meta_bot_reviewer_mode %}
+    {% if bot_is_admin %}
     <div class="bot-card" id="bot-notification-review" style="display:none;margin-top:16px;">
       <div class="bot-card-head">
         <h2>Сповіщення, які потребують перевірки</h2>
@@ -1297,7 +1295,7 @@ body.bot-drawer-open{overflow:hidden;}
   </section>
 
   <!-- ===== Налаштування ===== -->
-  <section class="bot-panel" data-panel="settings">
+  {% if bot_can_operate or bot_can_edit_prompt %}<section class="bot-panel" data-panel="settings">
     <div class="bot-card">
       <h2>Ключі та параметри</h2>
       {% if meta_bot_reviewer_mode %}
@@ -1307,7 +1305,7 @@ body.bot-drawer-open{overflow:hidden;}
       {% endif %}
       <form id="bot-settings-form">
         <input type="hidden" name="settings_revision" value="{{ settings.settings_revision }}">
-        {% if not meta_bot_reviewer_mode %}
+        {% if bot_can_operate %}
         <div class="bot-grid2">
           <div class="bot-field">
             <label>Instagram Direct API · Facebook Token</label>
@@ -1324,7 +1322,6 @@ body.bot-drawer-open{overflow:hidden;}
             {% if has_custom_gemini_key %}<small class="bot-hint">Свій Gemini ключ уже збережено; значення приховано.</small>{% endif %}
           </div>
         </div>
-        {% endif %}
         <div class="bot-grid2">
           <div class="bot-field">
             <label>Режим відповіді</label>
@@ -1348,8 +1345,8 @@ body.bot-drawer-open{overflow:hidden;}
             <input type="number" name="pinned_minutes" min="1" max="60" value="60" aria-label="Тривалість emergency pin у хвилинах" style="margin-top:8px;">
             <small class="bot-hint">Adaptive сам обирає модель за класом ходу. Pin діє максимум 60 хвилин і записується в audit log.</small>
           </div>
-        </div>
-        {% if not meta_bot_reviewer_mode %}
+        </div>{% endif %}
+        {% if bot_can_edit_prompt %}
         <div class="bot-field">
           <label>Системні правила (як бот має відповідати)</label>
           <textarea name="system_prompt" rows="6">{{ settings.system_prompt }}</textarea>
@@ -1359,7 +1356,8 @@ body.bot-drawer-open{overflow:hidden;}
           <textarea name="knowledge_base" rows="4" placeholder="Напр.: Сьогодні немає білих футболок розміру L — пропонувати чорні.">{{ settings.knowledge_base }}</textarea>
           <div class="bot-hint" style="margin-top:6px;">Постійні інструкції та посилання — на вкладці «Інструкції».</div>
         </div>
-        <div class="bot-grid2">
+        {% endif %}
+        {% if bot_can_operate %}<div class="bot-grid2">
           <div class="bot-field">
             <label>Дозволені відправники (IGSID, через кому) — порожньо = всім</label>
             <input type="text" name="allowed_senders" value="{{ settings.allowed_senders }}" placeholder="напр. 955313600823130">
@@ -1381,21 +1379,21 @@ body.bot-drawer-open{overflow:hidden;}
             <input type="text" name="meta_feedback_test_event_code" value="{{ settings.meta_feedback_test_event_code }}" placeholder="TEST...">
           </div>
         </div>
-        <div class="bot-field">
+        {% endif %}
+        {% if bot_can_edit_prompt %}<div class="bot-field">
           <label>Простий режим (коли ШІ вимкнено): тригер / відповідь</label>
           <div class="bot-grid2">
             <input type="text" name="trigger_text" value="{{ settings.trigger_text }}" placeholder="Тригер">
             <input type="text" name="reply_text" value="{{ settings.reply_text }}" placeholder="Текст відповіді">
           </div>
-        </div>
-        {% endif %}
+        </div>{% endif %}
         <button type="submit" class="bot-save">Зберегти</button>
         <span class="bot-hint" id="bot-save-hint" style="margin-left:10px;"></span>
       </form>
     </div>
-  </section>
+  </section>{% endif %}
 
-  {% if bot_is_admin %}
+  {% if bot_can_operate %}
   <!-- ===== Gemini API ===== -->
   <section class="bot-panel" data-panel="api">
     <section
@@ -1509,7 +1507,7 @@ body.bot-drawer-open{overflow:hidden;}
   </section>
   {% endif %}
 
-  {% if not meta_bot_reviewer_mode %}
+  {% if bot_can_edit_prompt %}
   <!-- ===== Інструкції ===== -->
   <section class="bot-panel" data-panel="kb">
     <div class="bot-card">
@@ -1641,7 +1639,6 @@ body.bot-drawer-open{overflow:hidden;}
     </div>
   </section>
 
-  {% if not meta_bot_reviewer_mode %}
   <!-- ===== Статистика ===== -->
   <section class="bot-panel" data-panel="stats">
     <div class="bot-card bot-stats-card">
@@ -1713,9 +1710,7 @@ body.bot-drawer-open{overflow:hidden;}
       <div id="bot-stats-detail-drawer-body" class="bot-stats-detail-drawer-body"></div>
     </section>
   </div>
-  {% endif %}
 
-  {% if not meta_bot_reviewer_mode %}
   <!-- ===== Замовлення ===== -->
   <section class="bot-panel" data-panel="orders">
     <div class="bot-card">
@@ -1756,7 +1751,6 @@ body.bot-drawer-open{overflow:hidden;}
       </div>
     </div>
   </section>
-  {% endif %}
 
   <div id="bot-assignment-drawer" class="bot-drawer" hidden>
     <button type="button" class="bot-drawer-backdrop" data-assignment-drawer-close aria-label="Закрити прив'язку замовлень"></button>
@@ -1783,7 +1777,7 @@ body.bot-drawer-open{overflow:hidden;}
 {% endblock %}
 
 {% block extra_js %}
-{% if bot_is_admin %}<script src="{% static 'management/gemini_v2_panel.js' %}"></script>{% endif %}
+{% if bot_can_operate %}<script src="{% static 'management/gemini_v2_panel.js' %}"></script>{% endif %}
 <script>
 (function(){
   const csrf = (document.querySelector('input[name=csrfmiddlewaretoken]')||{}).value || '';
@@ -1877,7 +1871,7 @@ body.bot-drawer-open{overflow:hidden;}
     moveInd(btn);
     centerActiveBotTab(btn);
     if(save){ try{ localStorage.setItem('bot_tab', btn.dataset.tab); }catch(e){} }
-    {% if bot_is_admin %}
+    {% if bot_can_operate %}
     if(btn.dataset.tab==='api'&&!loaded.geminiV2){loaded.geminiV2=true;window.GeminiV2Panel.load();}
     window.GeminiV2Panel.syncTimers();
     {% endif %}
@@ -1895,6 +1889,8 @@ body.bot-drawer-open{overflow:hidden;}
 
   /* ============ Status + Console ============ */
   const box = document.getElementById('bot-console');
+  const startButton=document.getElementById('bot-start');
+  const stopButton=document.getElementById('bot-stop');
   const overviewDiagnostics=document.getElementById('bot-overview-diagnostics');
   function setOverviewDiagnostic(element,text,color=''){
     if(!element)return;
@@ -2011,8 +2007,8 @@ body.bot-drawer-open{overflow:hidden;}
     }
     setOverviewDiagnostic(document.getElementById('bot-error'),st.last_error||'','#f87171');
     syncOverviewDiagnostics();
-    document.getElementById('bot-start').disabled=st.is_enabled;
-    document.getElementById('bot-stop').disabled=!st.is_enabled;
+    if(startButton)startButton.disabled=st.is_enabled;
+    if(stopButton)stopButton.disabled=!st.is_enabled;
     setBadge(document.getElementById('badge-pending'), st.pending||0);
   }
   let polling=false; let lastStatusOnline=null;
@@ -2032,9 +2028,10 @@ body.bot-drawer-open{overflow:hidden;}
       render(data.status);setGlobalFeedback(successMessage||'Дію виконано.','success');await poll();
     }catch(error){setGlobalFeedback(error.message||'Не вдалося виконати дію.','error');}
   }
-  document.getElementById('bot-start').addEventListener('click',()=>action('{% url "management_bot_start_api" %}',{successMessage:'Бота запущено.'}));
-  document.getElementById('bot-stop').addEventListener('click',()=>action('{% url "management_bot_stop_api" %}',{confirmMessage:'Зупинити відповіді бота для всіх клієнтів?',successMessage:'Відповіді бота зупинено.'}));
-  document.getElementById('bot-settings-form').addEventListener('submit',async function(e){
+  if(startButton)startButton.addEventListener('click',()=>action('{% url "management_bot_start_api" %}',{successMessage:'Бота запущено.'}));
+  if(stopButton)stopButton.addEventListener('click',()=>action('{% url "management_bot_stop_api" %}',{confirmMessage:'Зупинити відповіді бота для всіх клієнтів?',successMessage:'Відповіді бота зупинено.'}));
+  const settingsForm=document.getElementById('bot-settings-form');
+  if(settingsForm)settingsForm.addEventListener('submit',async function(e){
     e.preventDefault();
     const h=document.getElementById('bot-save-hint');const submit=this.querySelector('[type="submit"]');if(submit)submit.disabled=true;h.textContent='Зберігаємо…';h.style.color='';
     try{
@@ -4050,11 +4047,11 @@ body.bot-drawer-open{overflow:hidden;}
   activate(initialTab, false);
 
   // початкове завантаження лічильника клієнтів (для бейджа), без відкриття вкладки
-  fetch('{% url "management_bot_clients_api" %}?summary=1',{headers:{'X-Requested-With':'XMLHttpRequest'}})
+  {% if bot_can_view_pii %}fetch('{% url "management_bot_clients_api" %}?summary=1',{headers:{'X-Requested-With':'XMLHttpRequest'}})
     .then(async response=>{const data=await readJsonResponse(response,'Не вдалося завантажити лічильник клієнтів.');if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося завантажити лічильник клієнтів.');return data;})
     .then(data=>{setBadge(document.getElementById('badge-clients'),data.total||0);})
     .catch(error=>{setGlobalFeedback(error.message||'Не вдалося завантажити лічильник клієнтів.','error');});
-  if(initialTab!=='orders') Orders.load();
+  if(initialTab!=='orders') Orders.load();{% endif %}
 })();
 </script>
 {% endblock %}

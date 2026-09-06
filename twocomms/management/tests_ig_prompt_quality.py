@@ -325,9 +325,8 @@ class CanonicalPromptPolicyTests(TestCase):
         self.assertIn("не більше одного запитання", prompt)
         self.assertNotIn("ОПЕРАТИВНІ ДИРЕКТИВИ — найвищий пріоритет", prompt)
 
-    def test_live_directives_are_bounded_by_complete_paragraphs(self):
+    def test_mandatory_live_directives_are_not_cut_by_the_old_optional_limit(self):
         from management.services.instagram_bot import (
-            MAX_LIVE_DIRECTIVE_CHARS,
             assemble_system_instruction,
         )
 
@@ -341,9 +340,8 @@ class CanonicalPromptPolicyTests(TestCase):
 
         self.assertIn(first, prompt)
         self.assertIn(second, prompt)
-        self.assertNotIn("DIRECTIVE-THREE", prompt)
-        self.assertIn("оперативних директив: 1 блок(ів) не вмістилися", prompt)
-        self.assertLess(len(first) + len(second) + 2, MAX_LIVE_DIRECTIVE_CHARS)
+        self.assertIn(third, prompt)
+        self.assertNotIn("оперативних директив: 1 блок(ів) не вмістилися", prompt)
 
 
 class ClientProfileTests(TestCase):

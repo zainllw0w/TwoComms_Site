@@ -9,11 +9,17 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.db import DatabaseError, connection, transaction
 from django.db.models.fields import NOT_PROVIDED
 from django.test import SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+
+from management.bot_access import (
+    MANAGE_IG_PAYMENTS_PERMISSION,
+    VIEW_IG_CONVERSATION_PII_PERMISSION,
+)
 
 
 class InstagramLegacyPaymentResolutionModelContractTests(SimpleTestCase):
@@ -543,6 +549,13 @@ class InstagramPaymentDecisionApiTests(TestCase):
             password="test-password",
             is_staff=True,
         )
+        self.actor.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="management",
+            codename__in={
+                MANAGE_IG_PAYMENTS_PERMISSION.split(".", 1)[1],
+                VIEW_IG_CONVERSATION_PII_PERMISSION.split(".", 1)[1],
+            },
+        ))
         self.client.force_login(self.actor)
         self.ig_client = IgClient.get_or_create_for_sender("payment-api-client")
         self.ig_client.stage = IgClient.Stage.PAYMENT_PENDING

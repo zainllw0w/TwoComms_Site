@@ -30,7 +30,16 @@ from urllib.parse import urlencode, urlsplit
 from base64_utils import strict_b64decode
 from twocomms.db_resilience import retry_mysql_read
 
-from .bot_access import is_meta_bot_reviewer
+from .bot_access import (
+    EDIT_IG_PROMPT_PERMISSION,
+    MANAGE_IG_PAYMENTS_PERMISSION,
+    OPERATE_IG_BOT_PERMISSION,
+    VIEW_IG_CONVERSATION_PII_PERMISSION,
+    has_all_bot_capabilities,
+    has_any_bot_capability,
+    has_bot_capability,
+    is_meta_bot_reviewer,
+)
 from .models import (
     AdminAuditLog,
     IgBotNotification,
@@ -62,16 +71,12 @@ from .services.bot_payment_truth import (
 )
 
 
-def _is_admin(user) -> bool:
-    return bool(user.is_authenticated and (user.is_staff or user.is_superuser))
-
-
 def _can_use_bot(user) -> bool:
-    return _is_admin(user) or is_meta_bot_reviewer(user)
+    return is_meta_bot_reviewer(user) or has_any_bot_capability(user)
 
 
 def _is_reviewer_only(user) -> bool:
-    return is_meta_bot_reviewer(user) and not _is_admin(user)
+    return is_meta_bot_reviewer(user)
 
 
 _REVIEWER_STATUS_ALLOWED_KEYS = frozenset({
@@ -86,9 +91,13 @@ _REVIEWER_STATUS_ALLOWED_KEYS = frozenset({
 
 
 def _reviewer_safe_status(request):
-    """Return only the documented liveness telemetry to an external reviewer."""
+    """Return PII-bearing diagnostics only to operators who may view PII."""
     status = gemini_health.public_projection(bot.status_snapshot())
-    if not _is_reviewer_only(request.user):
+    if has_all_bot_capabilities(
+        request.user,
+        OPERATE_IG_BOT_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    ):
         return status
     return {
         key: status[key]
@@ -693,9 +702,12 @@ def _display_interaction_type(client, interaction_type):
     return interaction_type
 
 
-def _require_admin_json(request):
-    if not _is_admin(request.user):
-        return JsonResponse({"success": False, "error": "Доступ лише для адміністраторів."}, status=403)
+def _require_bot_capabilities(request, *permissions):
+    if not has_all_bot_capabilities(request.user, *permissions):
+        return JsonResponse(
+            {"success": False, "error": "Недостатньо прав для цієї дії."},
+            status=403,
+        )
     return None
 
 
@@ -881,69 +893,12 @@ def _gemini_health_pool_row(key_name: str, now) -> dict:
     return {}
 
 
-def _require_bot_json(request):
-    if not _can_use_bot(request.user):
-        return JsonResponse({"success": False, "error": "Доступ лише до вкладки бота."}, status=403)
-    return None
-
-
 def _require_bot_write_json(request):
-    """Действия над реальными карточками клиентов: reviewer не допускается.
-
-    Внешний Meta-reviewer существует, чтобы посмотреть работу приложения.
-    Чтобы это показать, не нужно ставить на паузу, скрывать или помечать
-    «втрачено» карточку живого покупателя — а раньше он это мог (F-SEC-004).
-
-    Демо-контроль (start/stop, ai_enabled) сознательно НЕ закрыт: см. DR-006.
-    Он остаётся доступным, но становится атрибутируемым через
-    `_audit_reviewer_action`.
-    """
-    blocked = _require_bot_json(request)
-    if blocked:
-        return blocked
-    if _is_reviewer_only(request.user):
-        return JsonResponse(
-            {
-                "success": False,
-                "error": "Режим перевірки Meta: дії над реальними картками недоступні.",
-            },
-            status=403,
-        )
-    return None
-
-
-def _audit_reviewer_action(request, action: str) -> None:
-    """Оставить след, если глобальное состояние изменил внешний reviewer.
-
-    Раньше остановку бота внешним аккаунтом нельзя было отличить от
-    остановки администратором: `start_bot`/`stop_bot` не знают актора.
-    При слабой наблюдаемости (F-OPS-004) это означало, что остановка
-    продажной автоматики оставалась незамеченной.
-    """
-    if not _is_reviewer_only(request.user):
-        return
-    who = getattr(request.user, "username", "") or "unknown"
-    actor_id = getattr(request.user, "pk", None)
-    try:
-        bot.log("warning", "reviewer_action", f"{who}: {action}")
-    except Exception:
-        pass
-    try:
-        from .services.ig_alerts import format_technical_alert
-
-        bot.notify_manager(
-            format_technical_alert(
-                "⚠️ Зовнішній Meta-reviewer виконав дію",
-                event_type="reviewer_action",
-                actor_id=actor_id,
-                failure_kind=action,
-                instruction_code="reviewer_action",
-            ),
-            dedupe_key=f"reviewer-action:{actor_id or 'unknown'}:{action}",
-            event_type="reviewer_action",
-        )
-    except Exception:
-        pass
+    return _require_bot_capabilities(
+        request,
+        OPERATE_IG_BOT_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    )
 
 
 _PUBLIC_BOT_LOG_LEVELS = frozenset({
@@ -974,21 +929,42 @@ def _log_items(limit: int = 80):
 def bot_dashboard(request):
     if not _can_use_bot(request.user):
         return redirect("management_home")
+    if _is_reviewer_only(request.user):
+        return render(
+            request,
+            "management/bot_reviewer.html",
+            {
+                "status": _reviewer_safe_status(request),
+                "meta_bot_reviewer_mode": True,
+            },
+        )
     settings_obj = InstagramBotSettings.load()
-    reviewer_mode = _is_reviewer_only(request.user)
+    can_operate = has_bot_capability(request.user, OPERATE_IG_BOT_PERMISSION)
+    can_view_pii = has_bot_capability(
+        request.user, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
+    can_manage_payments = has_bot_capability(
+        request.user, MANAGE_IG_PAYMENTS_PERMISSION
+    )
+    can_edit_prompt = has_bot_capability(request.user, EDIT_IG_PROMPT_PERMISSION)
     return render(
         request,
         "management/bot.html",
         {
             "settings": settings_obj,
             "status": _reviewer_safe_status(request),
-            "log_items": [] if reviewer_mode else _log_items(),
+            "log_items": _log_items() if can_operate and can_view_pii else [],
             "cred_env": InstagramBotSettings.CredSource.ENV,
             "cred_custom": InstagramBotSettings.CredSource.CUSTOM,
             "has_custom_direct_token": settings_obj.has_custom_direct_token,
             "has_custom_gemini_key": settings_obj.has_custom_gemini_key,
-            "meta_bot_reviewer_mode": reviewer_mode,
-            "bot_is_admin": _is_admin(request.user),
+            "meta_bot_reviewer_mode": False,
+            "bot_can_operate": can_operate,
+            "bot_can_view_pii": can_view_pii,
+            "bot_can_manage_payments": can_manage_payments,
+            "bot_can_edit_prompt": can_edit_prompt,
+            "bot_can_view_full_status": can_operate and can_view_pii,
+            "bot_is_admin": can_operate and can_view_pii,
         },
     )
 
@@ -996,10 +972,9 @@ def bot_dashboard(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_start_api(request):
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
-    _audit_reviewer_action(request, "bot_start")
     bot.start_bot()
     return JsonResponse({"success": True, "status": _reviewer_safe_status(request)})
 
@@ -1007,10 +982,9 @@ def bot_start_api(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_stop_api(request):
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
-    _audit_reviewer_action(request, "bot_stop")
     bot.stop_bot()
     return JsonResponse({"success": True, "status": _reviewer_safe_status(request)})
 
@@ -1018,15 +992,21 @@ def bot_stop_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_status_api(request):
-    blocked = _require_bot_json(request)
-    if blocked:
-        return blocked
+    if not (_can_use_bot(request.user)):
+        return JsonResponse(
+            {"success": False, "error": "Недостатньо прав для цієї дії."},
+            status=403,
+        )
     try:
         after_id = int(request.GET.get("after_id") or 0)
     except (TypeError, ValueError):
         after_id = 0
 
-    if _is_reviewer_only(request.user):
+    if not has_all_bot_capabilities(
+        request.user,
+        OPERATE_IG_BOT_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    ):
         return JsonResponse({
             "success": True,
             "status": _reviewer_safe_status(request),
@@ -1048,7 +1028,7 @@ def bot_status_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_gemini_health_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     # This endpoint is intentionally passive: build_snapshot reads only the
@@ -1059,7 +1039,7 @@ def bot_gemini_health_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_gemini_v2_quotas_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     try:
@@ -1074,7 +1054,7 @@ def bot_gemini_v2_quotas_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_gemini_v2_routes_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     try:
@@ -1089,7 +1069,7 @@ def bot_gemini_v2_routes_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_gemini_v2_attempts_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     try:
@@ -1111,7 +1091,7 @@ def bot_gemini_v2_attempts_api(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_gemini_health_probe_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
 
@@ -1260,7 +1240,7 @@ def bot_health(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_inbox_refresh_start_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     from .services.ig_inbox_refresh import create_refresh_run, serialize_refresh_run
@@ -1278,7 +1258,7 @@ def bot_inbox_refresh_start_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_inbox_refresh_status_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     from .services.ig_inbox_refresh import latest_refresh_run, serialize_refresh_run
@@ -1292,7 +1272,7 @@ def bot_inbox_refresh_status_api(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_inbox_refresh_cancel_api(request, run_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     from .services.ig_inbox_refresh import request_refresh_cancel, serialize_refresh_run
@@ -1314,7 +1294,7 @@ def bot_inbox_refresh_cancel_api(request, run_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_inbox_refresh_retry_api(request, run_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
     if blocked:
         return blocked
     from .models import IgInboxRefreshRun
@@ -1379,7 +1359,7 @@ _NOTIFICATION_FAILURE_LABELS = {
 @login_required(login_url="management_login")
 @require_GET
 def bot_notification_review_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     rows = IgBotNotification.objects.filter(
@@ -1410,7 +1390,7 @@ def bot_notification_review_api(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_notification_review_action_api(request, notification_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     action = (request.POST.get("action") or "").strip()
@@ -1458,7 +1438,9 @@ def bot_notification_review_action_api(request, notification_id):
 @login_required(login_url="management_login")
 @require_GET
 def bot_payment_reviews_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
     from .ig_bot_models import IgPaymentConfirmationReview
@@ -2586,7 +2568,9 @@ def _canonical_order_workspace_cards(review_rows, attribution_rows, *, limit=100
 @require_GET
 def bot_orders_workspace_api(request):
     """Bounded source of truth for the dedicated ``Замовлення`` workspace."""
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
     from .ig_bot_models import IgPaymentConfirmationReview
@@ -2887,7 +2871,9 @@ def _checkout_proposal_workspace_payload(proposal, *, include_history=False):
 @require_GET
 def bot_checkout_proposals_api(request):
     """Staff observability for proposal links awaiting payment."""
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
     state = (request.GET.get("state") or "awaiting_payment").strip().lower()
@@ -2939,7 +2925,9 @@ def bot_checkout_proposals_api(request):
 @login_required(login_url="management_login")
 @require_GET
 def bot_checkout_proposal_preview_api(request, proposal_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
     proposal = get_object_or_404(
@@ -2952,7 +2940,11 @@ def bot_checkout_proposal_preview_api(request, proposal_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_checkout_proposal_action_api(request, proposal_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request,
+        MANAGE_IG_PAYMENTS_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    )
     if blocked:
         return blocked
     proposal = get_object_or_404(
@@ -3090,7 +3082,9 @@ def bot_checkout_proposal_action_api(request, proposal_id):
 @require_GET
 def bot_order_candidates_api(request):
     """Compact, searchable staff selector for linking an existing order."""
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
     from orders.models import Order
@@ -3287,7 +3281,11 @@ def bot_order_candidates_api(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_order_link_api(request, client_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request,
+        MANAGE_IG_PAYMENTS_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    )
     if blocked:
         return blocked
     from .ig_bot_models import IgClient, IgOrderAssignment, IgOrderAssignmentEvent
@@ -3361,7 +3359,11 @@ def bot_client_order_link_api(request, client_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_order_unlink_api(request, client_id, assignment_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request,
+        MANAGE_IG_PAYMENTS_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    )
     if blocked:
         return blocked
     from .ig_bot_models import IgClient, IgOrderAssignment, IgOrderAssignmentEvent
@@ -3436,7 +3438,11 @@ def bot_client_order_unlink_api(request, client_id, assignment_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_payment_review_action_api(request, review_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request,
+        MANAGE_IG_PAYMENTS_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    )
     if blocked:
         return blocked
     from .ig_bot_models import IgPaymentConfirmationReview
@@ -3691,98 +3697,145 @@ def bot_payment_review_action_api(request, review_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_settings_save_api(request):
-    blocked = _require_bot_json(request)
-    if blocked:
-        return blocked
+    prompt_fields = {
+        "trigger_text",
+        "reply_text",
+        "system_prompt",
+        "knowledge_base",
+    }
+    operate_fields = {
+        "direct_source",
+        "gemini_source",
+        "custom_direct_token",
+        "clear_custom_direct_token",
+        "custom_gemini_key",
+        "clear_custom_gemini_key",
+        "ai_enabled",
+        "receive_via_poll",
+        "meta_feedback_enabled",
+        "meta_feedback_test_event_code",
+        "gemini_model",
+        "gemini_routing_mode",
+        "pinned_chat_model",
+        "pinned_minutes",
+        "allowed_senders",
+        "poll_interval_seconds",
+    }
+    submitted = set(request.POST)
+    requested_prompt_fields = submitted & prompt_fields
+    requested_operate_fields = submitted & operate_fields
+    if not requested_prompt_fields and not requested_operate_fields:
+        return JsonResponse(
+            {"success": False, "error": "Немає налаштувань для збереження."},
+            status=400,
+        )
+    if requested_prompt_fields:
+        blocked = _require_bot_capabilities(request, EDIT_IG_PROMPT_PERMISSION)
+        if blocked:
+            return blocked
+    if requested_operate_fields:
+        blocked = _require_bot_capabilities(request, OPERATE_IG_BOT_PERMISSION)
+        if blocked:
+            return blocked
     s = InstagramBotSettings.load()
+    if {"system_prompt", "knowledge_base"} & submitted:
+        from management.services.ig_policy_compiler import PolicyReadinessError
+
+        merged_system_prompt = (
+            (request.POST.get("system_prompt") or "").strip()
+            if "system_prompt" in request.POST
+            else s.system_prompt
+        )
+        merged_live_directives = (
+            (request.POST.get("knowledge_base") or "").strip()
+            if "knowledge_base" in request.POST
+            else s.knowledge_base
+        )
+        try:
+            bot.validate_core_policy_for_publication(
+                merged_system_prompt,
+                merged_live_directives,
+            )
+        except PolicyReadinessError as exc:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "code": exc.code,
+                    "error": "Обов'язкові правила не готові до публікації.",
+                },
+                status=400,
+            )
     posted_update_fields: set[str] = set()
     requested_allowed_senders = (
         (request.POST.get("allowed_senders") or "").strip()
         if "allowed_senders" in request.POST
         else s.allowed_senders
     )
-    reviewer_mode = _is_reviewer_only(request.user)
     routing_before = {
         "mode": s.gemini_routing_mode,
         "pinned_model": s.pinned_chat_model,
         "pinned_until": s.pinned_until.isoformat() if s.pinned_until else "",
     }
-    routing_requested = bool(
-        not reviewer_mode and "gemini_routing_mode" in request.POST
-    )
-    if not reviewer_mode:
-        direct_source = (request.POST.get("direct_source") or "").strip()
-        if "direct_source" in request.POST and direct_source in InstagramBotSettings.CredSource.values:
-            s.direct_source = direct_source
-            posted_update_fields.add("direct_source")
-        gemini_source = (request.POST.get("gemini_source") or "").strip()
-        if "gemini_source" in request.POST and gemini_source in InstagramBotSettings.CredSource.values:
-            s.gemini_source = gemini_source
-            posted_update_fields.add("gemini_source")
+    routing_requested = "gemini_routing_mode" in request.POST
+    direct_source = (request.POST.get("direct_source") or "").strip()
+    if "direct_source" in request.POST and direct_source in InstagramBotSettings.CredSource.values:
+        s.direct_source = direct_source
+        posted_update_fields.add("direct_source")
+    gemini_source = (request.POST.get("gemini_source") or "").strip()
+    if "gemini_source" in request.POST and gemini_source in InstagramBotSettings.CredSource.values:
+        s.gemini_source = gemini_source
+        posted_update_fields.add("gemini_source")
 
-        try:
-            if "custom_direct_token" in request.POST:
-                value = (request.POST.get("custom_direct_token") or "").strip()
-                if value:
-                    s.custom_direct_token = value
-                    posted_update_fields.add("custom_direct_token_encrypted")
-            if _truthy(request.POST.get("clear_custom_direct_token")):
-                s.custom_direct_token = ""
+    try:
+        if "custom_direct_token" in request.POST:
+            value = (request.POST.get("custom_direct_token") or "").strip()
+            if value:
+                s.custom_direct_token = value
                 posted_update_fields.add("custom_direct_token_encrypted")
-            if "custom_gemini_key" in request.POST:
-                value = (request.POST.get("custom_gemini_key") or "").strip()
-                if value:
-                    s.custom_gemini_key = value
-                    posted_update_fields.add("custom_gemini_key_encrypted")
-            if _truthy(request.POST.get("clear_custom_gemini_key")):
-                s.custom_gemini_key = ""
+        if _truthy(request.POST.get("clear_custom_direct_token")):
+            s.custom_direct_token = ""
+            posted_update_fields.add("custom_direct_token_encrypted")
+        if "custom_gemini_key" in request.POST:
+            value = (request.POST.get("custom_gemini_key") or "").strip()
+            if value:
+                s.custom_gemini_key = value
                 posted_update_fields.add("custom_gemini_key_encrypted")
-        except BotSecretEncryptionUnavailable:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": "Не налаштовано захист для збереження ключа. Зверніться до адміністратора.",
-                },
-                status=503,
-            )
+        if _truthy(request.POST.get("clear_custom_gemini_key")):
+            s.custom_gemini_key = ""
+            posted_update_fields.add("custom_gemini_key_encrypted")
+    except BotSecretEncryptionUnavailable:
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Не налаштовано захист для збереження ключа. Зверніться до адміністратора.",
+            },
+            status=503,
+        )
 
-        trigger = (request.POST.get("trigger_text") or "").strip()
-        if "trigger_text" in request.POST and trigger:
-            s.trigger_text = trigger[:255]
-            posted_update_fields.add("trigger_text")
-        reply = (request.POST.get("reply_text") or "").strip()
-        if "reply_text" in request.POST and reply:
-            s.reply_text = reply[:1000]
-            posted_update_fields.add("reply_text")
+    trigger = (request.POST.get("trigger_text") or "").strip()
+    if "trigger_text" in request.POST and trigger:
+        s.trigger_text = trigger[:255]
+        posted_update_fields.add("trigger_text")
+    reply = (request.POST.get("reply_text") or "").strip()
+    if "reply_text" in request.POST and reply:
+        s.reply_text = reply[:1000]
+        posted_update_fields.add("reply_text")
 
     # AI-режим / модель / правило / білий список.
-    # `ai_enabled` залишається доступним reviewer'у: це демонстрація основної
-    # функції додатка. Дія фіксується через `_audit_reviewer_action`.
-    # Читаємо беззастережно: незнятий чекбокс браузер не надсилає, тому
-    # умовне читання зламало б саме вимикання ШІ.
-    ai_enabled_before = s.ai_enabled
     if "ai_enabled" in request.POST:
         s.ai_enabled = (request.POST.get("ai_enabled") or "").strip() in {"1", "true", "on", "yes"}
         posted_update_fields.add("ai_enabled")
-    if reviewer_mode and s.ai_enabled != ai_enabled_before:
-        _audit_reviewer_action(
-            request, f"ai_enabled={'on' if s.ai_enabled else 'off'}"
-        )
-    if not reviewer_mode:
-        # Транспорт приймання подій — робоча конфігурація продакшену,
-        # а не демо-перемикач (F-SEC-004, DR-006).
-        if "receive_via_poll" in request.POST:
-            s.receive_via_poll = (request.POST.get("receive_via_poll") or "").strip() in {"1", "true", "on", "yes"}
-            posted_update_fields.add("receive_via_poll")
-        if "meta_feedback_enabled" in request.POST:
-            s.meta_feedback_enabled = _truthy(request.POST.get("meta_feedback_enabled"))
-            posted_update_fields.add("meta_feedback_enabled")
-        if "meta_feedback_test_event_code" in request.POST:
-            s.meta_feedback_test_event_code = (request.POST.get("meta_feedback_test_event_code") or "")[:120]
-            posted_update_fields.add("meta_feedback_test_event_code")
+    if "receive_via_poll" in request.POST:
+        s.receive_via_poll = (request.POST.get("receive_via_poll") or "").strip() in {"1", "true", "on", "yes"}
+        posted_update_fields.add("receive_via_poll")
+    if "meta_feedback_enabled" in request.POST:
+        s.meta_feedback_enabled = _truthy(request.POST.get("meta_feedback_enabled"))
+        posted_update_fields.add("meta_feedback_enabled")
+    if "meta_feedback_test_event_code" in request.POST:
+        s.meta_feedback_test_event_code = (request.POST.get("meta_feedback_test_event_code") or "")[:120]
+        posted_update_fields.add("meta_feedback_test_event_code")
     model = (request.POST.get("gemini_model") or "").strip()
-    if model and not reviewer_mode:
-        # Зміна робочої моделі Gemini — не демо-дія (F-SEC-004, DR-006).
+    if model:
         from management.services.gemini_keys import is_allowed_chat_model
 
         if not is_allowed_chat_model(model):
@@ -3827,19 +3880,16 @@ def bot_settings_save_api(request):
             "gemini_routing_mode", "pinned_chat_model", "pinned_until"
         })
     if "system_prompt" in request.POST:
-        if not reviewer_mode:
-            s.system_prompt = (request.POST.get("system_prompt") or "").strip()
-            posted_update_fields.add("system_prompt")
+        s.system_prompt = (request.POST.get("system_prompt") or "").strip()
+        posted_update_fields.add("system_prompt")
     if "knowledge_base" in request.POST:
-        if not reviewer_mode:
-            s.knowledge_base = (request.POST.get("knowledge_base") or "").strip()
-            posted_update_fields.add("knowledge_base")
+        s.knowledge_base = (request.POST.get("knowledge_base") or "").strip()
+        posted_update_fields.add("knowledge_base")
     if "allowed_senders" in request.POST:
-        if not reviewer_mode:
-            s.allowed_senders = (request.POST.get("allowed_senders") or "").strip()
-            posted_update_fields.add("allowed_senders")
+        s.allowed_senders = (request.POST.get("allowed_senders") or "").strip()
+        posted_update_fields.add("allowed_senders")
 
-    if not reviewer_mode and "poll_interval_seconds" in request.POST:
+    if "poll_interval_seconds" in request.POST:
         try:
             interval = int(request.POST.get("poll_interval_seconds") or s.poll_interval_seconds)
             s.poll_interval_seconds = max(2, min(60, interval))
@@ -4698,24 +4748,11 @@ def _client_card(c, *, follow_settings=None, follow_now=None) -> dict:
 @login_required(login_url="management_login")
 @require_GET
 def bot_clients_api(request):
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
-    if _is_reviewer_only(request.user):
-        return JsonResponse({
-            "success": True,
-            "clients": [],
-            "total": 0,
-            "pagination": {
-                "page": 1,
-                "total_pages": 1,
-                "total_items": 0,
-                "start_item": 0,
-                "end_item": 0,
-                "has_next": False,
-            },
-            "reviewer_sandbox": True,
-        })
     from django.db.models import Q
 
     from .models import IgClient, IgDeal
@@ -5047,7 +5084,7 @@ def bot_clients_api(request):
 @require_POST
 def bot_client_follow_refresh_api(request, client_id):
     """Explicit manager refresh for one stale/unknown follow projection."""
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     client = IgClient.objects.select_related("follow_state_projection").filter(
@@ -5079,7 +5116,7 @@ def bot_client_follow_refresh_api(request, client_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_followup_delivery_resolve_api(request, client_id, task_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     task = IgFollowUpTask.objects.filter(pk=task_id, client_id=client_id).first()
@@ -5120,7 +5157,7 @@ def bot_client_followup_delivery_resolve_api(request, client_id, task_id):
 @require_POST
 def bot_client_followup_continue_api(request, client_id, task_id):
     """Audited staff continuation for an event-triggered policy task."""
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     task = IgFollowUpTask.objects.filter(pk=task_id, client_id=client_id).first()
@@ -5161,7 +5198,9 @@ def bot_client_followup_continue_api(request, client_id, task_id):
 @login_required(login_url="management_login")
 @require_GET
 def bot_client_detail_api(request, client_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
     from .models import IgClient, InstagramBotMessage
@@ -5724,7 +5763,11 @@ def bot_client_detail_api(request, client_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_ugc_reward_api(request, client_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request,
+        MANAGE_IG_PAYMENTS_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    )
     if blocked:
         return blocked
 
@@ -5774,7 +5817,11 @@ def bot_client_ugc_reward_api(request, client_id):
 @require_POST
 def bot_client_ugc_assessment_review_api(request, client_id, assessment_id):
     """Approve/reject one generation-bound external UGC assessment."""
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(
+        request,
+        MANAGE_IG_PAYMENTS_PERMISSION,
+        VIEW_IG_CONVERSATION_PII_PERMISSION,
+    )
     if blocked:
         return blocked
     from .ig_bot_models import IgUgcEvidenceAssessment
@@ -5903,7 +5950,7 @@ def bot_client_ugc_assessment_review_api(request, client_id, assessment_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_post_sale_case_api(request, client_id, case_id):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     from .ig_bot_models import IgCommercialEpisode, IgOrderAttribution, IgPostSaleCase
@@ -6227,7 +6274,7 @@ def bot_client_mark_lost_api(request, client_id):
 @require_POST
 def bot_client_reset_funnel_api(request, client_id):
     """Reset mutable CRM inference only after an explicit operator confirm."""
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
     if str(request.POST.get("confirm_reset") or "").lower() not in {"1", "true", "yes"}:
@@ -6258,14 +6305,11 @@ def bot_client_reset_funnel_api(request, client_id):
 @login_required(login_url="management_login")
 @require_GET
 def bot_stats_api(request):
-    blocked = _require_bot_json(request)
+    blocked = _require_bot_capabilities(
+        request, VIEW_IG_CONVERSATION_PII_PERMISSION
+    )
     if blocked:
         return blocked
-    if _is_reviewer_only(request.user):
-        return JsonResponse(
-            {"success": False, "error": "Статистика доступна лише адміністраторам."},
-            status=403,
-        )
     query_count_start = (
         len(connection.queries)
         if (settings.DEBUG or connection.force_debug_cursor)
@@ -7521,7 +7565,7 @@ def _truthy(v) -> bool:
 @login_required(login_url="management_login")
 @require_GET
 def bot_kb_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, EDIT_IG_PROMPT_PERMISSION)
     if blocked:
         return blocked
     from .models import BotAdCampaign, BotInstruction, BotQuickLink
@@ -7553,7 +7597,7 @@ def bot_kb_api(request):
 @login_required(login_url="management_login")
 @require_POST
 def bot_kb_save_api(request):
-    blocked = _require_admin_json(request)
+    blocked = _require_bot_capabilities(request, EDIT_IG_PROMPT_PERMISSION)
     if blocked:
         return blocked
     from .models import BotAdCampaign, BotInstruction, BotQuickLink

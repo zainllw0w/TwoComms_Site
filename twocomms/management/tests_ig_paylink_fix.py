@@ -1618,10 +1618,10 @@ class PaymentProtocolInjectionTests(TestCase):
         self.assertNotIn("[ITEM:", sys_text)
         self.assertIn("кільк", sys_text.lower())
         self.assertIn("розмір", sys_text.lower())
-        self.assertIn("крій", sys_text.lower())
+        self.assertIn("фасон", sys_text.lower())
         self.assertIn("НЕ вигадуй", sys_text)
         self.assertIn("персональну пропозицію", sys_text.lower())
-        self.assertIn("25 хвилин", sys_text.lower())
+        # Expiry belongs to the actual issued offer, not a hardcoded KB phrase.
         self.assertIn("не збирай email", sys_text.lower())
 
 

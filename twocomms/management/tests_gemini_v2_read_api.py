@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -20,6 +21,7 @@ from management.models import (
     InstagramBotMessage,
     InstagramBotSettings,
 )
+from management.bot_access import OPERATE_IG_BOT_PERMISSION
 from management.services import (
     gemini_accounting_contract,
     gemini_routing,
@@ -33,6 +35,10 @@ class GeminiV2ReadApiTests(TestCase):
         self.admin = get_user_model().objects.create_user(
             username="gemini-v2-read-admin", password="secret", is_staff=True
         )
+        self.admin.user_permissions.add(Permission.objects.get(
+            content_type__app_label="management",
+            codename=OPERATE_IG_BOT_PERMISSION.split(".", 1)[1],
+        ))
         self.user = get_user_model().objects.create_user(
             username="gemini-v2-read-user", password="secret"
         )

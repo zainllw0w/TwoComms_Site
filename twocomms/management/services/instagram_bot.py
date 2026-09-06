@@ -2511,6 +2511,7 @@ def _stage_permission_message(
     synthetic_event_key: str = "",
     reply_to_provider_message_id: str = "",
     quick_reply_payload: str = "",
+    allow_media_capture: bool = True,
 ) -> tuple[InstagramBotMessage | None, bool]:
     """Persist a permission-changing message without locking its client FK."""
     existing = None
@@ -2546,7 +2547,7 @@ def _stage_permission_message(
                         "ingress" if source == "webhook" else "legacy_positional"
                     ),
                 ),
-                media_capture_eligible=source == "webhook",
+                media_capture_eligible=(source == "webhook" and allow_media_capture),
                 provider_created_at=provider_created_at,
                 reply_to_provider_message_id=reply_to_provider_message_id,
                 quick_reply_payload=quick_reply_payload,
@@ -7596,16 +7597,30 @@ def gemini_generate(
                 failure_context["kind"] = "invalid_candidate_set"
             log("error", "catalog_candidate_digest", "candidate snapshot integrity failed")
             return None
-    sys_text = assemble_system_instruction(
-        s,
-        client=client,
-        memory_note=memory_note,
-        context_note=context_note,
-        match_hint=match_hint,
-        media_hint=media_hint,
-        turn_note=turn_note,
-        turn_text=latest_user_text,
-    )
+    from management.services.ig_policy_compiler import PolicyReadinessError
+    from management.services.bot_knowledge import KnowledgeReadinessError
+
+    policy_metadata = {}
+    try:
+        sys_text = assemble_system_instruction(
+            s,
+            client=client,
+            memory_note=memory_note,
+            context_note=context_note,
+            match_hint=match_hint,
+            media_hint=media_hint,
+            turn_note=turn_note,
+            turn_text=latest_user_text,
+            compiled_metadata=policy_metadata,
+        )
+    except (PolicyReadinessError, KnowledgeReadinessError) as exc:
+        if failure_context is not None:
+            failure_context["kind"] = "invalid_payload"
+            failure_context["policy_readiness"] = exc.code
+        log("error", "policy_not_ready", exc.code)
+        return None
+    if failure_context is not None:
+        failure_context["compiled_policy"] = policy_metadata
     if str(getattr(routing_decision, "task_class", "") or "") == "complex_live":
         sys_text += (
             "\n\n[TURN INTELLIGENCE — REQUIRED FOR THIS COMPLEX TURN]\n"
@@ -7952,6 +7967,7 @@ def assemble_system_instruction(
     media_hint: str | None = None,
     turn_note: str | None = None,
     turn_text: str = "",
+    compiled_metadata: dict | None = None,
 ) -> str:
     """Собрать system_instruction; на время сборки — один снимок фактов (Э8.5).
 
@@ -7982,7 +7998,36 @@ def assemble_system_instruction(
             media_hint=media_hint,
             turn_note=turn_note,
             turn_text=turn_text,
+            compiled_metadata=compiled_metadata,
         )
+
+
+def _policy_core_modules(system_prompt: str, live_directives: str = ""):
+    from management.services.ig_policy_compiler import PolicyModule
+
+    core = [PolicyModule("core:payment_protocol", PAYMENT_PROTOCOL_NOTE),
+            PolicyModule("core:truth_boundaries", ANTI_HALLUCINATION_NOTE)]
+    if str(system_prompt or "").strip():
+        core.insert(0, PolicyModule("core:published_prompt", str(system_prompt).strip()))
+    if str(live_directives or "").strip():
+        core.append(PolicyModule(
+            "core:live_directives",
+            "[ОПЕРАТИВНІ ДИРЕКТИВИ — у межах повноважень і перевірених фактів]\n"
+            + str(live_directives).strip(),
+        ))
+    return core
+
+
+def validate_core_policy_for_publication(system_prompt: str, live_directives: str = "") -> None:
+    """Reject an incomplete/oversized mandatory set before a settings write."""
+    from management.services.ig_policy_compiler import PolicyModule, compile_policy
+
+    compile_policy(
+        immutable_authority=[PolicyModule("authority:server", CANONICAL_PROMPT_AUTHORITY_POLICY)],
+        published_core=_policy_core_modules(system_prompt, live_directives),
+        verified_dynamic_facts=[],
+        budget_chars=int(getattr(settings, "IG_BOT_POLICY_BUDGET_CHARS", 48000)),
+    )
 
 
 def _assemble_system_instruction(
@@ -7995,68 +8040,64 @@ def _assemble_system_instruction(
     media_hint: str | None = None,
     turn_note: str | None = None,
     turn_text: str = "",
+    compiled_metadata: dict | None = None,
 ) -> str:
-    """Собрать system_instruction из всех источников.
+    """Compile one ordered policy; mandatory sources are never truncated."""
+    from management.services.ig_policy_compiler import PolicyModule, compile_policy
+    from management.services.bot_knowledge import read_knowledge_manifest
+    from management.services.bot_playbooks import active_instruction_selection
+    from management.services.bot_catalog import get_catalog_context
+    from management.models import BotQuickLink
 
-    Вынесено из `gemini_generate`, чтобы промпт можно было проверять тестами.
-    IMP-026: свойства *ответа* модели непроверяемы (в тестах он замокан
-    константой), а свойства *промпта* — проверяемы и детерминированы.
-    """
-    sys_text = (s.system_prompt or "").strip()
-    sys_text = (sys_text + "\n\n" + CANONICAL_PROMPT_AUTHORITY_POLICY).strip()
-    live = _bounded_prompt_source(
-        s.knowledge_base or "",
-        limit=MAX_LIVE_DIRECTIVE_CHARS,
-        split_pattern=r"\n\s*\n",
-        separator="\n\n",
-        source_name="оперативних директив",
+    budget = int(getattr(settings, "IG_BOT_POLICY_BUDGET_CHARS", 48000))
+    # Reading mandatory knowledge is deliberately outside _prompt_section:
+    # unreadability is a named readiness fault, not a silent missing rule.
+    knowledge = read_knowledge_manifest()
+    selection = active_instruction_selection(
+        client, turn_text=turn_text or "", budget_chars=budget,
     )
-    if live:
-        sys_text += "\n\n[ОПЕРАТИВНІ ДИРЕКТИВИ — застосовуй у межах порядку істини вище]\n" + live
-    sys_text += _context_sections(client, turn_text=turn_text or "")
-    sys_text = sys_text.strip()
-    # Протокол оплати ([PAYLINK]+[PRODUCT], без вигаданих URL) + правило точності.
-    sys_text = (
-        (sys_text + "\n\n" + PAYMENT_PROTOCOL_NOTE).strip() if sys_text else PAYMENT_PROTOCOL_NOTE
+    dynamic = []
+    omissions = list(selection.omitted)
+    for key, loader in (
+        ("automation", lambda: automation_guardrails(client)),
+        ("client_state", lambda: client_state_note(client)),
+        ("checkout_readiness", lambda: _checkout_readiness_note(client)),
+        ("shown_products", lambda: shown_products_note(client)),
+        ("funnel_journal", lambda: _funnel_journal_note(client)),
+        ("objection_lifecycle", lambda: _objection_lifecycle_note(client)),
+        ("catalog", lambda: get_catalog_context(compact=True)),
+    ):
+        value = _prompt_section(key, loader)
+        if value:
+            dynamic.append(PolicyModule("facts:" + key, value))
+        else:
+            omissions.append({"id": "facts:" + key, "reason": "empty_or_unavailable"})
+    links = _prompt_section("quick_links", BotQuickLink.active_block)
+    if links:
+        dynamic.append(PolicyModule(
+            "facts:quick_links", "[ДОСТУПНІ ПОСИЛАННЯ — лише доречні запиту]\n" + links,
+        ))
+    customer = [
+        PolicyModule("context:" + key, str(value).strip(), priority=position)
+        for position, (key, value) in enumerate((
+            ("memory", memory_note), ("conversation", context_note),
+            ("match", match_hint), ("media", media_hint), ("turn", turn_note),
+        )) if value and str(value).strip()
+    ]
+    compiled = compile_policy(
+        immutable_authority=[PolicyModule("authority:server", CANONICAL_PROMPT_AUTHORITY_POLICY)],
+        published_core=_policy_core_modules(s.system_prompt, s.knowledge_base),
+        verified_dynamic_facts=dynamic,
+        playbooks=selection.policy_inputs(),
+        knowledge=knowledge.policy_inputs(),
+        customer_data=customer,
+        preselected_omissions=omissions,
+        budget_chars=budget,
+        version="compiled-core-v1",
     )
-    sys_text = (sys_text + "\n\n" + ANTI_HALLUCINATION_NOTE).strip()
-    sys_text = (sys_text + "\n\n" + automation_guardrails(client)).strip()
-    state_note = client_state_note(client)
-    if state_note:
-        sys_text = (sys_text + "\n\n" + state_note).strip()
-    # Факти про готовність замовлення — до генерації, а не після. Раніше система
-    # дізнавалась про брак фасону/розміру вже після відповіді моделі й тому
-    # писала клієнту сама. Тепер модель бачить той самий стан і питає своїми
-    # словами.
-    readiness_note = _prompt_section("checkout_readiness", lambda: _checkout_readiness_note(client))
-    if readiness_note:
-        sys_text = (sys_text + "\n\n" + readiness_note).strip()
-    shown_note = _prompt_section("shown_products", lambda: shown_products_note(client))
-    if shown_note:
-        sys_text = (sys_text + "\n\n" + shown_note).strip()
-    # Історія вибору товару: не «який товар зараз», а «як ми до нього дійшли».
-    # Два переходи через відсутність вимагають іншої реакції, ніж два переходи
-    # за смаком, і модель має бачити різницю.
-    journal_note = _prompt_section("funnel_journal", lambda: _funnel_journal_note(client))
-    if journal_note:
-        sys_text = (sys_text + "\n\n" + journal_note).strip()
-    objection_note = _prompt_section(
-        "objection_lifecycle",
-        lambda: _objection_lifecycle_note(client),
-    )
-    if objection_note:
-        sys_text = (sys_text + "\n\n" + objection_note).strip()
-    if memory_note:
-        sys_text = (sys_text + "\n\n" + memory_note).strip()
-    if context_note:
-        sys_text = (sys_text + "\n\n" + context_note).strip()
-    if match_hint:
-        sys_text = (sys_text + "\n\n" + match_hint).strip()
-    if media_hint:
-        sys_text = (sys_text + "\n\n" + media_hint).strip()
-    if turn_note:
-        sys_text = (sys_text + "\n\n" + turn_note).strip()
-    return sys_text
+    if compiled_metadata is not None:
+        compiled_metadata.update(compiled.metadata())
+    return compiled.text
 
 
 def build_prompt_snapshot(client=None, *, turn_text: str = "") -> str:
@@ -11128,13 +11169,14 @@ def _observe_not_allowed_inbound(
     reply_to_provider_message_id: str,
     quick_reply_payload: str,
     synthetic_event_key: str,
+    observation_reason: str = "allowlist",
     _commercial_lock_held: bool = False,
 ) -> bool:
-    """Persist a valid allowlist-excluded turn as CRM history only.
+    """Persist a valid excluded turn as CRM history only.
 
-    The allowlist controls automation, not the operator's ability to see a
-    real inbound conversation.  This deliberately never calls classification,
-    analysis, follow-up scheduling, or the reply queue.
+    Exclusion controls automation, not durable observation of a valid signed
+    inbound. This deliberately never calls media capture, classification,
+    analysis, commerce, follow-up scheduling, or the reply queue.
     """
     client = IgClient.get_or_create_for_sender(sender_id)
     if client.privacy_erasure_started_at:
@@ -11155,13 +11197,14 @@ def _observe_not_allowed_inbound(
                 reply_to_provider_message_id=reply_to_provider_message_id,
                 quick_reply_payload=quick_reply_payload,
                 synthetic_event_key=synthetic_event_key,
+                observation_reason=observation_reason,
                 _commercial_lock_held=True,
             )
 
     try:
         with transaction.atomic():
             client = IgClient.objects.select_for_update().get(pk=client.pk)
-            if client.hidden_at or client.privacy_erasure_started_at:
+            if client.privacy_erasure_started_at:
                 return False
             existing = (
                 InstagramBotMessage.objects.select_for_update().filter(mid=mid).first()
@@ -11179,7 +11222,7 @@ def _observe_not_allowed_inbound(
             initial_media = _normalize_message_media(
                 _attachment_media_metadata(
                     attachments,
-                    source="allowlist_restricted",
+                    source=f"{observation_reason}_restricted",
                 ),
                 message_scope=mid or synthetic_event_key,
             )
@@ -11211,7 +11254,7 @@ def _observe_not_allowed_inbound(
         return False
 
     s.last_inbound_at = inbound_at
-    log("info", "observed_not_allowed", "allowlist")
+    log("info", "observed_not_allowed", observation_reason)
     return True
 
 
@@ -11296,6 +11339,22 @@ def enqueue_inbound(
         and client.opted_in_at
         and client.opted_in_at >= provider_event_at
     )
+    if client.hidden_at and (not explicit_opt_out or stale_explicit_opt_out):
+        return _observe_not_allowed_inbound(
+            s,
+            sender_id=sender_id,
+            text=text,
+            mid=mid,
+            source=source,
+            attachments=attachments,
+            attachment_metadata=attachment_metadata,
+            received_at=received_at,
+            reply_to_provider_message_id=reply_to_provider_message_id,
+            quick_reply_payload=quick_reply_payload,
+            synthetic_event_key=synthetic_event_key,
+            observation_reason="hidden",
+            _commercial_lock_held=True,
+        )
     if not _is_allowed(s, sender_id) and (
         not explicit_opt_out or stale_explicit_opt_out
     ):
@@ -11311,12 +11370,10 @@ def enqueue_inbound(
             reply_to_provider_message_id=reply_to_provider_message_id,
             quick_reply_payload=quick_reply_payload,
             synthetic_event_key=synthetic_event_key,
+            observation_reason="allowlist",
             _commercial_lock_held=True,
         )
     if explicit_opt_out and not stale_explicit_opt_out:
-        if client.hidden_at:
-            log("info", "skip_hidden", f"[{source}] {sender_id}: прихований клієнт")
-            return False
         msg, message_created = _stage_permission_message(
             sender_id=sender_id,
             role=InstagramBotMessage.Role.USER,
@@ -11328,6 +11385,7 @@ def enqueue_inbound(
             synthetic_event_key=synthetic_event_key,
             reply_to_provider_message_id=reply_to_provider_message_id,
             quick_reply_payload=quick_reply_payload,
+            allow_media_capture=not bool(client.hidden_at),
         )
         if msg is None:
             return False
@@ -11359,9 +11417,24 @@ def enqueue_inbound(
             # приховування, або приховування вже виграло і жодного side effect
             # (черги, CRM, classifier, follow-up) не буде.
             client = IgClient.objects.select_for_update().get(pk=client.pk)
-            if client.hidden_at or client.privacy_erasure_started_at:
-                log("info", "skip_hidden", f"[{source}] {sender_id}: прихований клієнт")
+            if client.privacy_erasure_started_at:
                 return False
+            if client.hidden_at:
+                return _observe_not_allowed_inbound(
+                    current_settings,
+                    sender_id=sender_id,
+                    text=text,
+                    mid=mid,
+                    source=source,
+                    attachments=attachments,
+                    attachment_metadata=attachment_metadata,
+                    received_at=received_at,
+                    reply_to_provider_message_id=reply_to_provider_message_id,
+                    quick_reply_payload=quick_reply_payload,
+                    synthetic_event_key=synthetic_event_key,
+                    observation_reason="hidden",
+                    _commercial_lock_held=True,
+                )
             existing = (
                 InstagramBotMessage.objects.select_for_update().filter(mid=mid).first()
                 if mid

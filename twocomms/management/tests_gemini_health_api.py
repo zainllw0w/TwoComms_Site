@@ -4,13 +4,17 @@ import os
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.core.cache import cache
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from management.bot_access import META_REVIEWER_GROUP_NAME
+from management.bot_access import (
+    META_REVIEWER_GROUP_NAME,
+    OPERATE_IG_BOT_PERMISSION,
+    VIEW_IG_CONVERSATION_PII_PERMISSION,
+)
 from management.models import (
     GeminiKeyState,
     GeminiRequestAttempt,
@@ -27,6 +31,13 @@ class GeminiHealthApiTests(TestCase):
         self.staff = get_user_model().objects.create_user(
             username="gemini-health-admin", password="secret", is_staff=True
         )
+        self.staff.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="management",
+            codename__in={
+                OPERATE_IG_BOT_PERMISSION.split(".", 1)[1],
+                VIEW_IG_CONVERSATION_PII_PERMISSION.split(".", 1)[1],
+            },
+        ))
         self.user = get_user_model().objects.create_user(
             username="gemini-health-user", password="secret"
         )

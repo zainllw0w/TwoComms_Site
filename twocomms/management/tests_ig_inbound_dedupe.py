@@ -181,11 +181,12 @@ class AllowlistObservationTests(TestCase):
 
         message = InstagramBotMessage.objects.get(mid="unlisted-media-inbound-mid")
         self.assertFalse(message.media_capture_eligible)
-        self.assertEqual(message.attachment_media, [{
-            "url": url,
-            "provenance": "historical_import",
-            "status": "metadata_only",
-        }])
+        self.assertEqual(len(message.attachment_media), 1)
+        self.assertEqual(message.attachment_media[0]["url"], url)
+        self.assertEqual(
+            message.attachment_media[0]["provenance"], "historical_import"
+        )
+        self.assertEqual(message.attachment_media[0]["status"], "metadata_only")
 
         instagram_bot._capture_message_media(message)
 
@@ -194,7 +195,7 @@ class AllowlistObservationTests(TestCase):
     @patch("management.services.instagram_bot._schedule_inbound_analysis")
     @patch("management.services.bot_sales_classifier.classify_message")
     @patch("management.services.bot_followups.schedule_after_inbound")
-    def test_hidden_nonallowed_client_remains_unobserved(
+    def test_hidden_nonallowed_client_is_observed_once_without_automation(
         self,
         schedule_followup,
         classify_message,
@@ -204,6 +205,16 @@ class AllowlistObservationTests(TestCase):
         client.hidden_at = datetime.now(timezone.utc)
         client.save(update_fields=["hidden_at", "updated_at"])
 
+        self.assertTrue(
+            instagram_bot.enqueue_inbound(
+                self.settings,
+                sender_id=client.igsid,
+                text="Do not show this in CRM",
+                mid="hidden-unlisted-inbound-mid",
+                source="webhook",
+                attachments=["https://lookaside.example/hidden.jpg"],
+            )
+        )
         self.assertFalse(
             instagram_bot.enqueue_inbound(
                 self.settings,
@@ -211,13 +222,65 @@ class AllowlistObservationTests(TestCase):
                 text="Do not show this in CRM",
                 mid="hidden-unlisted-inbound-mid",
                 source="webhook",
+                attachments=["https://lookaside.example/hidden.jpg"],
             )
         )
-        self.assertFalse(
-            InstagramBotMessage.objects.filter(mid="hidden-unlisted-inbound-mid").exists()
+        message = InstagramBotMessage.objects.get(mid="hidden-unlisted-inbound-mid")
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertFalse(message.media_capture_eligible)
+        self.assertEqual(
+            InstagramBotMessage.objects.filter(mid="hidden-unlisted-inbound-mid").count(),
+            1,
         )
         self.settings.refresh_from_db()
-        self.assertIsNone(self.settings.last_inbound_at)
+        self.assertIsNotNone(self.settings.last_inbound_at)
         schedule_followup.assert_not_called()
         classify_message.assert_not_called()
         schedule_analysis.assert_not_called()
+
+    def test_hidden_explicit_opt_out_is_applied_without_media_capture(self):
+        client = IgClient.get_or_create_for_sender("hidden-opt-out-sender")
+        client.hidden_at = datetime.now(timezone.utc)
+        client.save(update_fields=["hidden_at", "updated_at"])
+
+        observed = instagram_bot.enqueue_inbound(
+            self.settings,
+            sender_id=client.igsid,
+            text="Стоп, не пишіть мені",
+            mid="hidden-opt-out-mid",
+            source="webhook",
+            attachments=["https://lookaside.example/hidden-opt-out.jpg"],
+        )
+
+        self.assertTrue(observed)
+        client.refresh_from_db()
+        self.assertIsNotNone(client.opted_out_at)
+        message = InstagramBotMessage.objects.get(mid="hidden-opt-out-mid")
+        self.assertEqual(message.client_id, client.pk)
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertFalse(message.media_capture_eligible)
+
+    def test_erasure_fence_and_owner_echo_remain_unattached(self):
+        erased = IgClient.get_or_create_for_sender("erased-hidden-sender")
+        erased.privacy_erasure_started_at = datetime.now(timezone.utc)
+        erased.save(update_fields=["privacy_erasure_started_at", "updated_at"])
+        self.settings.ig_user_id = "provider-owner-id"
+        self.settings.save(update_fields=["ig_user_id"])
+
+        self.assertFalse(instagram_bot.enqueue_inbound(
+            self.settings,
+            sender_id=erased.igsid,
+            text="must remain erased",
+            mid="erased-hidden-mid",
+            source="webhook",
+        ))
+        self.assertFalse(instagram_bot.enqueue_inbound(
+            self.settings,
+            sender_id="provider-owner-id",
+            text="owner echo",
+            mid="owner-echo-mid",
+            source="webhook",
+        ))
+        self.assertFalse(InstagramBotMessage.objects.filter(
+            mid__in=["erased-hidden-mid", "owner-echo-mid"]
+        ).exists())
