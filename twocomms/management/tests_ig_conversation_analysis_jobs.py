@@ -407,15 +407,15 @@ class ConversationAnalysisProviderPolicyTests(SimpleTestCase):
             "user",
             images=[("image/jpeg", b"first"), ("image/png", b"second")],
             image_labels=[
-                {"inline_image_index": 0, "message_id": 101, "media_index": 0},
-                {"inline_image_index": 1, "message_id": 202, "media_index": 1},
+                {"inline_image_index": 0, "original_index": 3},
+                {"inline_image_index": 1, "original_index": 7},
             ],
         )
 
         parts = run.call_args.args[1]["contents"][0]["parts"]
-        self.assertEqual(parts[1]["text"], "INLINE_IMAGE index=0 message_id=101 media_index=0")
+        self.assertEqual(parts[1]["text"], "INLINE_IMAGE index=0 original_index=3")
         self.assertEqual(parts[2]["inline_data"]["mime_type"], "image/jpeg")
-        self.assertEqual(parts[3]["text"], "INLINE_IMAGE index=1 message_id=202 media_index=1")
+        self.assertEqual(parts[3]["text"], "INLINE_IMAGE index=1 original_index=7")
         self.assertEqual(parts[4]["inline_data"]["mime_type"], "image/png")
 
 
@@ -759,7 +759,7 @@ class ConversationAnalysisJobTests(TestCase):
             for item in media_sources
         ))
 
-    def test_live_turn_intelligence_reuses_artifact_without_second_media_pass(self):
+    def test_generic_turn_intelligence_does_not_claim_media_was_inspected(self):
         url = "https://lookaside.example/already-analyzed.jpg"
         message = self.message(
             "Ось фото",
@@ -798,6 +798,53 @@ class ConversationAnalysisJobTests(TestCase):
             7,
         )
         self.assertTrue(any(item["message_id"] == message.pk for item in transcript))
+        self.assertTrue(any(item.get("url") == url for item in media_sources))
+
+    def test_hash_bound_per_part_inspection_avoids_second_media_pass(self):
+        from management.services.ig_media_manifest import normalize_attachment_media
+
+        url = "https://lookaside.example/bound-inspection.jpg"
+        content_hash = "a" * 64
+        media = normalize_attachment_media([{
+            "url": url,
+            "provenance": "live_webhook",
+            "status": "owned",
+            "storage_name": "ig/bound-inspection.jpg",
+            "mime": "image/jpeg",
+            "content_hash": content_hash,
+        }], message_scope="analysis-bound-inspection", identity_origin="ingress")
+        media[0]["inspection"] = {
+            "state": "inspected",
+            "outcome": "understood",
+            "content_hash": content_hash,
+            "request_id": "request-bound",
+            "provider_model": "gemini-actual",
+        }
+        message = self.message(
+            "Ось фото",
+            source="webhook",
+            attachments=json.dumps([url]),
+            attachment_media=media,
+        )
+        message.turn_intelligence_artifact = {
+            "schema_version": 1,
+            "catalog_candidates": [],
+            "transcript": "",
+            "intent": "media_review",
+            "confidence": 0.8,
+            "image_observations": [{
+                "source_part_id": media[0]["source_part_id"],
+                "content_hash": content_hash,
+                "outcome": "understood",
+            }],
+        }
+        message.save(update_fields=["turn_intelligence_artifact"])
+
+        _transcript, _by_id, media_sources = analysis._conversation(
+            self.client.pk,
+            message.pk,
+        )
+
         self.assertFalse(any(item.get("url") == url for item in media_sources))
 
     @patch("management.services.instagram_bot.download_image", return_value=None)

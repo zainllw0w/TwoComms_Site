@@ -4,6 +4,7 @@ from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
+import hashlib
 import json
 import os
 import stat
@@ -883,12 +884,237 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         ))
 
         row = InstagramBotMessage.objects.get(mid="owned-media-webhook-mid")
-        self.assertEqual(row.attachment_media, [{
-            "url": url,
-            "provenance": "live_webhook",
-            "status": "pending",
-        }])
+        self.assertEqual(len(row.attachment_media), 1)
+        part = row.attachment_media[0]
+        self.assertEqual(part["url"], url)
+        self.assertEqual(part["provenance"], "live_webhook")
+        self.assertEqual(part["status"], "pending")
+        self.assertEqual(part["original_index"], 0)
+        self.assertEqual(part["identity_origin"], "ingress")
+        self.assertTrue(part["source_part_id"].startswith("mp1_"))
+        self.assertEqual(part["capture_state"], "discovered")
+        self.assertEqual(part["inspection"]["state"], "uninspected")
         download.assert_not_called()
+
+    def test_persisted_inspection_updates_only_hash_bound_part(self):
+        from management.services import instagram_bot
+
+        owned_hash = hashlib.sha256(b"owned").hexdigest()
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Два фото",
+            source="webhook",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        row.attachment_media = instagram_bot._normalize_message_media([
+            {
+                "url": "https://lookaside.example/owned.jpg",
+                "provenance": "live_webhook",
+                "status": "owned",
+                "content_hash": owned_hash,
+            },
+            {
+                "url": "https://lookaside.example/missing.jpg",
+                "provenance": "live_webhook",
+                "status": "unavailable",
+                "error_kind": "download_failed",
+            },
+        ], message_scope=row.pk, identity_origin="ingress")
+        row.save(update_fields=["attachment_media"])
+        first = row.attachment_media[0]
+        artifact = {
+            "schema_version": 1,
+            "image_observations": [{
+                "source_part_id": first["source_part_id"],
+                "content_hash": owned_hash,
+                "outcome": "understood",
+                "evidence_code": "visual_content",
+                "type_code": "product",
+            }],
+            "media_request": {
+                "request_id": "request-bound",
+                "provider_model": "gemini-actual",
+                "inline_count_known": True,
+                "actual_inline_count": 1,
+                "submitted_parts": [{
+                    "source_part_id": first["source_part_id"],
+                    "content_hash": owned_hash,
+                }],
+            },
+        }
+
+        instagram_bot._persist_turn_intelligence(row, artifact)
+        row.refresh_from_db()
+
+        self.assertEqual(row.attachment_media[0]["inspection"]["state"], "inspected")
+        self.assertEqual(
+            row.attachment_media[1]["inspection"]["outcome"],
+            "capture_unavailable",
+        )
+        self.assertEqual(row.turn_intelligence_artifact["media_coverage"]["inspected"], 1)
+        self.assertEqual(row.turn_intelligence_artifact["media_coverage"]["missing"], 1)
+
+    def test_wrong_hash_reply_artifact_does_not_mark_part_inspected(self):
+        from management.services import instagram_bot
+
+        owned_hash = hashlib.sha256(b"owned").hexdigest()
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Фото",
+            source="webhook",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        row.attachment_media = instagram_bot._normalize_message_media([{
+            "url": "https://lookaside.example/hash.jpg",
+            "provenance": "live_webhook",
+            "status": "owned",
+            "content_hash": owned_hash,
+        }], message_scope=row.pk, identity_origin="ingress")
+        row.save(update_fields=["attachment_media"])
+        part = row.attachment_media[0]
+        wrong_hash = hashlib.sha256(b"other").hexdigest()
+
+        instagram_bot._persist_turn_intelligence(row, {
+            "schema_version": 1,
+            "image_observations": [{
+                "source_part_id": part["source_part_id"],
+                "content_hash": wrong_hash,
+                "outcome": "understood",
+            }],
+            "media_request": {
+                "request_id": "request-wrong",
+                "provider_model": "gemini-actual",
+                "inline_count_known": True,
+                "actual_inline_count": 1,
+                "submitted_parts": [{
+                    "source_part_id": part["source_part_id"],
+                    "content_hash": wrong_hash,
+                }],
+            },
+        })
+        row.refresh_from_db()
+
+        self.assertEqual(row.attachment_media[0]["inspection"]["state"], "uninspected")
+
+    def test_erasure_fence_rejects_late_inspection_persistence(self):
+        from management.services import instagram_bot
+
+        owned_hash = hashlib.sha256(b"owned").hexdigest()
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Фото",
+            source="webhook",
+            status=InstagramBotMessage.Status.PROCESSING,
+        )
+        row.attachment_media = instagram_bot._normalize_message_media([{
+            "url": "https://lookaside.example/erased.jpg",
+            "provenance": "live_webhook",
+            "status": "owned",
+            "content_hash": owned_hash,
+        }], message_scope=row.pk, identity_origin="ingress")
+        row.save(update_fields=["attachment_media"])
+        part = row.attachment_media[0]
+        self.client.privacy_erasure_started_at = timezone.now()
+        self.client.save(update_fields=["privacy_erasure_started_at"])
+
+        instagram_bot._persist_turn_intelligence(row, {
+            "schema_version": 1,
+            "image_observations": [{
+                "source_part_id": part["source_part_id"],
+                "content_hash": owned_hash,
+                "outcome": "understood",
+            }],
+            "media_request": {
+                "request_id": "request-erased",
+                "provider_model": "gemini-actual",
+                "inline_count_known": True,
+                "actual_inline_count": 1,
+                "submitted_parts": [{
+                    "source_part_id": part["source_part_id"],
+                    "content_hash": owned_hash,
+                }],
+            },
+        })
+        row.refresh_from_db()
+
+        self.assertEqual(row.turn_intelligence_artifact, {})
+        self.assertEqual(row.attachment_media[0]["inspection"]["state"], "uninspected")
+
+    def test_equal_url_parts_are_claimed_and_finalized_independently(self):
+        from management.services import instagram_bot
+
+        url = "https://lookaside.example/equal-source.jpg"
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Два фото",
+            source="webhook",
+            status=InstagramBotMessage.Status.PROCESSING,
+            media_capture_eligible=True,
+        )
+        row.attachment_media = instagram_bot._normalize_message_media([
+            {"url": url, "provenance": "live_webhook", "status": "pending"},
+            {"url": url, "provenance": "live_webhook", "status": "pending"},
+        ], message_scope=row.pk, identity_origin="ingress")
+        row.save(update_fields=["attachment_media"])
+        first_id, second_id = [
+            item["source_part_id"] for item in row.attachment_media
+        ]
+
+        first_token, _first, first_use = instagram_bot._claim_media_capture(
+            row.pk,
+            first_id,
+        )
+        instagram_bot._finish_media_capture(
+            row.pk,
+            first_id,
+            first_token,
+            {
+                "status": "owned",
+                "storage_name": "private/first.jpg",
+                "private_storage": True,
+                "mime": "image/jpeg",
+                "bytes": 5,
+                "content_hash": hashlib.sha256(b"first").hexdigest(),
+            },
+            use_token=first_use,
+        )
+        second_token, _second, second_use = instagram_bot._claim_media_capture(
+            row.pk,
+            second_id,
+        )
+        instagram_bot._finish_media_capture(
+            row.pk,
+            second_id,
+            second_token,
+            {
+                "status": "owned",
+                "storage_name": "private/second.jpg",
+                "private_storage": True,
+                "mime": "image/jpeg",
+                "bytes": 6,
+                "content_hash": hashlib.sha256(b"second").hexdigest(),
+            },
+            use_token=second_use,
+        )
+        row.refresh_from_db()
+
+        self.assertEqual(len(row.attachment_media), 2)
+        self.assertEqual(
+            [item["storage_name"] for item in row.attachment_media],
+            ["private/first.jpg", "private/second.jpg"],
+        )
+        self.assertEqual(
+            [item["source_part_id"] for item in row.attachment_media],
+            [first_id, second_id],
+        )
 
     @patch(
         "management.services.instagram_bot.download_image",

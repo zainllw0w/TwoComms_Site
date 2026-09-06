@@ -224,6 +224,7 @@ def _raw_media_by_mid(client) -> dict[str, list[dict]]:
     except Exception:
         return {}
     recovered: dict[str, list[dict]] = {}
+    selected_event_by_mid: dict[str, int] = {}
     rows = InstagramBotRawEvent.objects.filter(sender_id=client.igsid).order_by("-id")[:240]
     for event in rows:
         try:
@@ -238,7 +239,12 @@ def _raw_media_by_mid(client) -> dict[str, list[dict]]:
                 mid = str(message.get("mid") or "").strip()
                 if not mid:
                     continue
-                for attachment in message.get("attachments") or []:
+                selected_event = selected_event_by_mid.setdefault(mid, event.pk)
+                if selected_event != event.pk:
+                    continue
+                for original_index, attachment in enumerate(
+                    message.get("attachments") or []
+                ):
                     if not isinstance(attachment, dict):
                         continue
                     payload_data = attachment.get("payload")
@@ -255,15 +261,23 @@ def _raw_media_by_mid(client) -> dict[str, list[dict]]:
                         "raw_event_id": event.pk,
                         "provenance": _HISTORICAL_MEDIA_PROVENANCE,
                         "status": "metadata_only",
+                        "original_index": original_index,
                     }
                     event_at = message.get("_event_created_at")
                     if event_at is not None:
                         item["event_at"] = event_at.isoformat() if hasattr(event_at, "isoformat") else str(event_at)
                     existing = recovered.setdefault(mid, [])
-                    if not any(row.get("url") == item["url"] for row in existing):
-                        existing.append(item)
+                    existing.append(item)
         except Exception:
             continue
+    from management.services.ig_media_manifest import normalize_attachment_media
+
+    for mid, items in list(recovered.items()):
+        recovered[mid] = normalize_attachment_media(
+            items[:8],
+            message_scope=f"raw-message:{mid}",
+            identity_origin="ingress",
+        )
     # Keep media whose provider mid has no normalized row available for the
     # timestamp-based fallback in _augment_messages_with_raw_media.
     known_mids = set()
@@ -463,7 +477,17 @@ def _augment_messages_with_raw_media(client, messages) -> list[dict]:
             else:
                 attachment["provenance"] = _HISTORICAL_MEDIA_PROVENANCE
                 attachment["status"] = "metadata_only"
-            if not any(row.get("url") == attachment.get("url") for row in media):
+            source_part_id = str(attachment.get("source_part_id") or "")
+            if source_part_id:
+                if any(
+                    str(row.get("source_part_id") or "") == source_part_id
+                    for row in media
+                ):
+                    continue
+                media.append(attachment)
+            elif not any(row.get("url") == attachment.get("url") for row in media):
+                # Positional identity was never recorded for this historical
+                # row, so URL is only an honest legacy compatibility fallback.
                 media.append(attachment)
         # Keep the old attachments contract intact for callers that only know
         # how to consume a JSON list of URLs, while exposing structured media

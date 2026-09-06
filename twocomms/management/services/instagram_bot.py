@@ -61,6 +61,12 @@ from management.services.ig_delivery_receipts import (
     normalize_provider_message_id,
     normalize_provider_message_ids,
 )
+from management.services.ig_media_manifest import (
+    MediaManifestError,
+    map_image_observations,
+    media_coverage,
+    normalize_attachment_media,
+)
 
 GRAPH_VERSION = "v25.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
@@ -2530,9 +2536,15 @@ def _stage_permission_message(
                 status=InstagramBotMessage.Status.DONE,
                 source=source,
                 attachments=attachments,
-                attachment_media=_attachment_media_metadata(
-                    _attachment_urls(attachments),
-                    source=source,
+                attachment_media=_normalize_message_media(
+                    _attachment_media_metadata(
+                        _attachment_urls(attachments),
+                        source=source,
+                    ),
+                    message_scope=mid or synthetic_event_key,
+                    identity_origin=(
+                        "ingress" if source == "webhook" else "legacy_positional"
+                    ),
                 ),
                 media_capture_eligible=source == "webhook",
                 provider_created_at=provider_created_at,
@@ -7212,10 +7224,35 @@ def _validated_turn_intelligence(
         ):
             auto_product_id = candidates[0]["product_id"]
     media_binding = media_binding if isinstance(media_binding, dict) else {}
-    has_audio = any(
-        str(item.get("mime") or "").startswith("audio/")
+    binding_items = [
+        item
         for item in media_binding.get("items") or []
         if isinstance(item, dict)
+    ]
+    actual_inline_count = media_binding.get("actual_inline_count")
+    request_id = str(media_binding.get("request_id") or "")[:40]
+    provider_model = str(media_binding.get("provider_model") or "")[:80]
+    observations = []
+    if (
+        isinstance(actual_inline_count, int)
+        and request_id
+        and provider_model
+    ):
+        try:
+            observations = map_image_observations(
+                binding_items,
+                getattr(artifact, "image_observations", ()) or (),
+                image_count=len(binding_items),
+                actual_inline_count=actual_inline_count,
+                actual_content_hashes=list(
+                    media_binding.get("actual_content_hashes") or []
+                ),
+            )
+        except MediaManifestError:
+            observations = []
+    has_audio = any(
+        str(item.get("mime") or "").startswith("audio/")
+        for item in binding_items[: actual_inline_count or 0]
     )
     transcript = str(getattr(artifact, "transcript", "") or "")[:4000]
     intent = str(getattr(artifact, "intent", "") or "")[:64]
@@ -7234,6 +7271,9 @@ def _validated_turn_intelligence(
         else:
             return {}
     else:
+        # A transcript without proven inline audio could be OCR or generated
+        # text. It must never enter the durable audio transcript field.
+        transcript = ""
         audio_status = "not_applicable"
     return {
         "schema_version": 1,
@@ -7253,6 +7293,27 @@ def _validated_turn_intelligence(
         "media_content_hashes": list(media_binding.get("content_hashes") or []),
         "media_count": int(media_binding.get("count") or 0),
         "media_digest": str(media_binding.get("digest") or "")[:64],
+        "image_observations": observations,
+        "media_request": {
+            "request_id": request_id,
+            "provider_model": provider_model,
+            "inline_count_known": isinstance(actual_inline_count, int),
+            "actual_inline_count": (
+                actual_inline_count if isinstance(actual_inline_count, int) else None
+            ),
+            "prepared_inline_count": len(binding_items),
+            "submitted_parts": [
+                {
+                    "source_part_id": str(item.get("source_part_id") or ""),
+                    "source_message_scope": str(
+                        item.get("source_message_scope") or ""
+                    )[:24],
+                    "original_index": int(item.get("original_index") or 0),
+                    "content_hash": str(item.get("content_hash") or "")[:64],
+                }
+                for item in binding_items
+            ],
+        },
         "catalog_resolution": (
             "auto_select"
             if auto_product_id
@@ -7269,9 +7330,108 @@ def _validated_turn_intelligence(
 def _persist_turn_intelligence(row: InstagramBotMessage, artifact: dict) -> None:
     if not artifact or not getattr(row, "pk", None):
         return
-    if type(row).objects.filter(pk=row.pk, turn_intelligence_artifact={}).update(
-        turn_intelligence_artifact=artifact
-    ):
+    with transaction.atomic():
+        locked = type(row).objects.select_for_update().filter(pk=row.pk).first()
+        if locked is None or locked.turn_intelligence_artifact:
+            return
+        if (
+            locked.private_media_state in {"delete_pending", "deleting", "deleted"}
+            or (
+                locked.client_id
+                and IgClient.objects.filter(
+                    pk=locked.client_id,
+                    privacy_erasure_started_at__isnull=False,
+                ).exists()
+            )
+        ):
+            return
+        try:
+            media = _normalize_message_media(
+                locked.attachment_media or [],
+                message_scope=locked.pk,
+            )
+        except MediaManifestError:
+            media = [
+                dict(item)
+                for item in (locked.attachment_media or [])
+                if isinstance(item, dict)
+            ]
+        media_request = (
+            artifact.get("media_request")
+            if isinstance(artifact.get("media_request"), dict)
+            else {}
+        )
+        submitted = [
+            item
+            for item in media_request.get("submitted_parts") or []
+            if isinstance(item, dict)
+        ]
+        submitted_positions = {
+            (
+                str(item.get("source_part_id") or ""),
+                str(item.get("content_hash") or ""),
+            ): index
+            for index, item in enumerate(submitted)
+        }
+        observations = {
+            (
+                str(item.get("source_part_id") or ""),
+                str(item.get("content_hash") or ""),
+            ): item
+            for item in artifact.get("image_observations") or []
+            if isinstance(item, dict)
+        }
+        actual_inline_count = media_request.get("actual_inline_count")
+        inline_count_known = (
+            media_request.get("inline_count_known") is True
+            and isinstance(actual_inline_count, int)
+        )
+        request_id = str(media_request.get("request_id") or "")[:40]
+        provider_model = str(media_request.get("provider_model") or "")[:80]
+        for item in media:
+            key = (
+                str(item.get("source_part_id") or ""),
+                str(item.get("content_hash") or ""),
+            )
+            observation = observations.get(key)
+            if observation and request_id and provider_model and inline_count_known:
+                item["inspection"] = {
+                    "version": MEDIA_INSPECTION_VERSION,
+                    "state": "inspected",
+                    "source_part_id": key[0],
+                    "outcome": str(observation.get("outcome") or "")[:32],
+                    "evidence_code": str(
+                        observation.get("evidence_code") or ""
+                    )[:32],
+                    "type_code": str(observation.get("type_code") or "")[:32],
+                    "content_hash": key[1],
+                    "request_id": request_id,
+                    "provider_model": provider_model,
+                }
+                continue
+            position = submitted_positions.get(key)
+            if position is None:
+                continue
+            if not inline_count_known:
+                outcome = "provider_inline_count_unknown"
+            elif position >= actual_inline_count:
+                outcome = "provider_omitted"
+            else:
+                outcome = "observation_missing"
+            item["inspection"] = {
+                "version": MEDIA_INSPECTION_VERSION,
+                "state": "uninspected",
+                "outcome": outcome,
+            }
+        artifact = dict(artifact)
+        try:
+            artifact["media_coverage"] = media_coverage(media)
+        except MediaManifestError:
+            artifact["media_coverage"] = {}
+        locked.attachment_media = media
+        locked.turn_intelligence_artifact = artifact
+        locked.save(update_fields=["attachment_media", "turn_intelligence_artifact"])
+        row.attachment_media = media
         row.turn_intelligence_artifact = artifact
 
 
@@ -7351,7 +7511,14 @@ def gemini_generate(
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
     media_was_requested = bool(images)
-    images, omitted_media_count = _bounded_inline_media(images or [])
+    images, admitted_indexes, omitted_media_count = _bounded_inline_media_with_indexes(
+        images or []
+    )
+    if turn_media_binding is not None:
+        turn_media_binding = _select_turn_media_binding(
+            turn_media_binding,
+            admitted_indexes,
+        )
     if failure_context is not None:
         failure_context.clear()
         if omitted_media_count:
@@ -7455,6 +7622,9 @@ def gemini_generate(
                 separators=(",", ":"),
             )
         )
+    base_sys_text = sys_text
+    if images:
+        sys_text += "\n\n" + _provider_media_manifest_note(turn_media_binding)
 
     payload = {
         "contents": contents,
@@ -7486,6 +7656,22 @@ def gemini_generate(
     )
     if request_trimmed:
         images = images[: max(0, len(images) - request_trimmed)]
+        if turn_media_binding is not None:
+            turn_media_binding = {
+                **turn_media_binding,
+                "items": list(turn_media_binding.get("items") or [])[: len(images)],
+            }
+        if base_sys_text:
+            payload["system_instruction"] = {
+                "parts": [{
+                    "text": base_sys_text + (
+                        "\n\n" + _provider_media_manifest_note(turn_media_binding)
+                        if images
+                        else ""
+                    )
+                }]
+            }
+        serialized_request_bytes = _serialized_request_bytes(payload)
         if failure_context is not None:
             failure_context["inline_media_omitted"] = (
                 int(failure_context.get("inline_media_omitted") or 0)
@@ -7566,18 +7752,49 @@ def gemini_generate(
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {repr(exc)}")
         return None
     provider_usage = out.get("usage") if isinstance(out.get("usage"), dict) else {}
-    try:
-        provider_inline_count = int(
-            provider_usage.get("_request_inline_count", len(images))
-        )
-    except (TypeError, ValueError):
-        provider_inline_count = len(images)
-    provider_inline_count = max(0, min(provider_inline_count, len(images)))
-    if provider_inline_count != len(images):
+    provider_meta = out.get("meta") if isinstance(out.get("meta"), dict) else {}
+    provider_model = str(
+        out.get("model")
+        or provider_meta.get("used_model")
+    ).strip()[:80]
+    request_id = str(provider_meta.get("request_id") or "").strip()[:40]
+    if not request_id:
+        try:
+            from management.services.ig_turn_lineage import current_request_id
+
+            request_id = current_request_id()
+        except Exception:
+            request_id = ""
+    provider_inline_count = None
+    if "_request_inline_count" in provider_usage:
+        try:
+            candidate_inline_count = int(provider_usage["_request_inline_count"])
+        except (TypeError, ValueError):
+            candidate_inline_count = -1
+        if 0 <= candidate_inline_count <= len(images):
+            provider_inline_count = candidate_inline_count
+    actual_media_binding = dict(normalized_media_binding or {})
+    actual_media_binding.update({
+        "provider_model": provider_model,
+        "request_id": request_id,
+        "actual_inline_count": provider_inline_count,
+        "actual_content_hashes": (
+            list((normalized_media_binding or {}).get("content_hashes") or [])[
+                :provider_inline_count
+            ]
+            if isinstance(provider_inline_count, int)
+            else []
+        ),
+    })
+    if isinstance(provider_inline_count, int) and provider_inline_count < len(images):
+        omitted_by_provider = len(images) - provider_inline_count
         if failure_context is not None:
-            failure_context["kind"] = "provider_media_binding_mismatch"
-        log("error", "inline_media_binding", "provider inline count changed")
-        return None
+            failure_context["inline_media_omitted"] = (
+                int(failure_context.get("inline_media_omitted") or 0)
+                + omitted_by_provider
+            )
+    elif images and provider_inline_count is None:
+        log("warning", "inline_media_binding", "provider inline count unavailable")
     if failure_context is not None and provider_usage.get("_request_serialized_bytes"):
         failure_context["serialized_request_bytes"] = int(
             provider_usage["_request_serialized_bytes"]
@@ -7611,7 +7828,7 @@ def gemini_generate(
             intelligence = _validated_turn_intelligence(
                 text.turn_intelligence,
                 turn_candidate_set,
-                normalized_media_binding,
+                actual_media_binding,
             )
     else:
         # Rolling compatibility: old workers/tests may still return free text.
@@ -7630,9 +7847,10 @@ def gemini_generate(
             failure_context["kind"] = "invalid_response"
         log("warning", "gemini_intelligence_missing", "complex media artifact missing")
         return None
-    provider_model = str(out.get("model") or effective_model).strip()[:80]
     if failure_context is not None:
         failure_context["model"] = provider_model
+        failure_context["request_id"] = request_id
+        failure_context["provider_inline_count"] = provider_inline_count
         if intelligence:
             failure_context["turn_intelligence"] = intelligence
     try:
@@ -8829,7 +9047,9 @@ def _normalized_inline_mime(value: str) -> str:
     return _AUDIO_MIME_ALIASES.get(mime, mime)
 
 
-def _bounded_inline_media(media) -> tuple[list[tuple[str, bytes]], int]:
+def _bounded_inline_media_with_indexes(
+    media,
+) -> tuple[list[tuple[str, bytes]], list[int], int]:
     """Admit provider-supported media under one request-wide byte budget.
 
     Gemini's inline request limit includes prompt bytes and base64 expansion.
@@ -8838,9 +9058,10 @@ def _bounded_inline_media(media) -> tuple[list[tuple[str, bytes]], int]:
     The final provider entry point applies this even when ingress is bypassed.
     """
     accepted = []
+    accepted_indexes = []
     total = 0
     omitted = 0
-    for mime, raw in media or []:
+    for source_index, (mime, raw) in enumerate(media or []):
         mime = _normalized_inline_mime(mime)
         if mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES:
             omitted += 1
@@ -8860,7 +9081,13 @@ def _bounded_inline_media(media) -> tuple[list[tuple[str, bytes]], int]:
             omitted += 1
             continue
         accepted.append((mime, raw))
+        accepted_indexes.append(source_index)
         total += len(raw)
+    return accepted, accepted_indexes, omitted
+
+
+def _bounded_inline_media(media) -> tuple[list[tuple[str, bytes]], int]:
+    accepted, _accepted_indexes, omitted = _bounded_inline_media_with_indexes(media)
     return accepted, omitted
 
 
@@ -8894,15 +9121,57 @@ def _fit_inline_request_budget(payload: dict) -> tuple[dict, int, int]:
     return payload, trimmed, size
 
 
-def _source_media_binding(row, images: list[tuple[str, bytes]]) -> dict:
-    items = [
-        {
+def _source_media_binding(row, media_parts) -> dict:
+    """Bind local source-part identity to the exact bytes prepared for a turn."""
+    items = []
+    for position, raw_part in enumerate(media_parts or []):
+        if isinstance(raw_part, dict):
+            raw = raw_part.get("data")
+            mime = raw_part.get("mime")
+            source_part_id = str(raw_part.get("source_part_id") or "")
+            original_index = raw_part.get("original_index", position)
+            identity_origin = str(raw_part.get("identity_origin") or "legacy_positional")
+            source_message_scope = str(raw_part.get("source_message_scope") or "")
+        else:
+            try:
+                mime, raw = raw_part
+            except (TypeError, ValueError):
+                continue
+            synthetic = _normalize_message_media(
+                [{"status": MEDIA_STATUS_OWNED, "original_index": position}],
+                message_scope=getattr(row, "pk", None),
+            )[0]
+            source_part_id = synthetic["source_part_id"]
+            original_index = position
+            identity_origin = "legacy_positional"
+            source_message_scope = synthetic["source_message_scope"]
+        if not isinstance(raw, bytes) or not raw:
+            continue
+        items.append({
+            "source_part_id": source_part_id,
+            "source_message_scope": source_message_scope,
+            "original_index": int(original_index),
+            "identity_origin": identity_origin[:32],
             "content_hash": hashlib.sha256(raw).hexdigest(),
             "mime": str(mime)[:64],
             "bytes": len(raw),
+            "capture_state": "owned",
+        })
+    try:
+        bundle = media_coverage(_normalize_message_media(
+            getattr(row, "attachment_media", None) or [],
+            message_scope=getattr(row, "pk", None),
+        ))
+    except MediaManifestError:
+        bundle = {
+            "version": "ig-media-manifest-v1",
+            "total": len(items),
+            "capture_owned": len(items),
+            "inspected": 0,
+            "unreadable": 0,
+            "missing": 0,
+            "parts": [],
         }
-        for mime, raw in images
-    ]
     source_material = {
         "source_message_id": int(getattr(row, "pk", 0) or 0),
         "created_at": getattr(row, "created_at", None).isoformat()
@@ -8922,11 +9191,71 @@ def _source_media_binding(row, images: list[tuple[str, bytes]]) -> dict:
         ).encode("utf-8")
     ).hexdigest()
     return {
-        "version": "owned-media-v1",
+        "version": "owned-media-v2",
         "source_message_id": source_material["source_message_id"] or None,
         "source_message_revision": source_revision,
         "items": items,
+        "bundle": bundle,
     }
+
+
+def _select_turn_media_binding(supplied: dict | None, indexes: list[int]) -> dict:
+    supplied = supplied if isinstance(supplied, dict) else {}
+    source_items = (
+        supplied.get("items") if isinstance(supplied.get("items"), list) else []
+    )
+    selected = [
+        dict(source_items[index])
+        for index in indexes
+        if 0 <= index < len(source_items) and isinstance(source_items[index], dict)
+    ]
+    return {**supplied, "items": selected}
+
+
+def _provider_media_manifest_note(binding: dict | None) -> str:
+    """Render only provider-safe indexes and aggregate capture coverage."""
+    binding = binding if isinstance(binding, dict) else {}
+    items = binding.get("items") if isinstance(binding.get("items"), list) else []
+    bundle = binding.get("bundle") if isinstance(binding.get("bundle"), dict) else {}
+    inline = [
+        {
+            "source_image_index": index,
+            "original_index": int(item.get("original_index") or 0),
+        }
+        for index, item in enumerate(items)
+        if isinstance(item, dict)
+    ]
+    unavailable = []
+    omitted = []
+    attached_ids = {str(item.get("source_part_id") or "") for item in items if isinstance(item, dict)}
+    for part in bundle.get("parts") or []:
+        if not isinstance(part, dict):
+            continue
+        capture_state = str(part.get("capture_state") or "")[:32]
+        if capture_state != "owned":
+            unavailable.append({
+                "original_index": int(part.get("original_index") or 0),
+                "capture_state": capture_state or "unavailable",
+            })
+        elif str(part.get("source_part_id") or "") not in attached_ids:
+            omitted.append({
+                "original_index": int(part.get("original_index") or 0),
+                "reason": "not_attached",
+            })
+    safe_manifest = {
+        "total_parts": int(bundle.get("total") or len(items)),
+        "capture_owned": int(bundle.get("capture_owned") or len(items)),
+        "capture_missing": int(bundle.get("missing") or 0),
+        "inline_images": inline,
+        "unavailable_parts": unavailable[:8],
+        "omitted_parts": omitted[:8],
+    }
+    return (
+        "[CURRENT MEDIA COVERAGE]\n"
+        + json.dumps(safe_manifest, ensure_ascii=True, separators=(",", ":"))
+        + "\nUse only inline source_image_index values in image_observations. "
+        "Do not claim that unavailable or omitted parts were inspected."
+    )
 
 
 def _normalize_turn_media_binding(
@@ -8943,31 +9272,67 @@ def _normalize_turn_media_binding(
     ]
     supplied = supplied if isinstance(supplied, dict) else {}
     supplied_items = supplied.get("items")
-    if supplied_items is not None:
-        supplied_hashes = [
-            str(item.get("content_hash") or "")
-            for item in supplied_items
-            if isinstance(item, dict)
-        ]
-        actual_hashes = [item["content_hash"] for item in actual_items]
-        if supplied_hashes[: len(actual_hashes)] != actual_hashes:
+    if supplied_items is None:
+        legacy_parts = _normalize_message_media(
+            [
+                {
+                    "status": MEDIA_STATUS_OWNED,
+                    "original_index": index,
+                    **actual_item,
+                }
+                for index, actual_item in enumerate(actual_items)
+            ],
+            message_scope="legacy-inline-call",
+        )
+        supplied_items = legacy_parts
+    if not isinstance(supplied_items, list) or len(supplied_items) != len(actual_items):
+        return None
+    normalized_items = []
+    for supplied_item, actual_item in zip(supplied_items, actual_items, strict=True):
+        if not isinstance(supplied_item, dict):
             return None
+        try:
+            supplied_bytes = int(supplied_item.get("bytes") or 0)
+            original_index = int(supplied_item.get("original_index") or 0)
+        except (TypeError, ValueError):
+            return None
+        if (
+            str(supplied_item.get("content_hash") or "") != actual_item["content_hash"]
+            or str(supplied_item.get("mime") or "") != actual_item["mime"]
+            or supplied_bytes != actual_item["bytes"]
+        ):
+            return None
+        normalized_items.append({
+            **actual_item,
+            "source_part_id": str(supplied_item.get("source_part_id") or ""),
+            "source_message_scope": str(
+                supplied_item.get("source_message_scope") or ""
+            )[:24],
+            "original_index": original_index,
+            "identity_origin": str(
+                supplied_item.get("identity_origin") or "legacy_positional"
+            )[:32],
+            "capture_state": "owned",
+        })
     canonical = json.dumps(
-        actual_items,
+        normalized_items,
         ensure_ascii=True,
         sort_keys=True,
         separators=(",", ":"),
     )
     return {
-        "version": "owned-media-v1",
+        "version": "owned-media-v2",
         "source_message_id": supplied.get("source_message_id"),
         "source_message_revision": str(
             supplied.get("source_message_revision") or ""
         )[:64],
-        "items": actual_items,
-        "content_hashes": [item["content_hash"] for item in actual_items],
-        "count": len(actual_items),
+        "items": normalized_items,
+        "content_hashes": [item["content_hash"] for item in normalized_items],
+        "count": len(normalized_items),
         "digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+        "bundle": (
+            supplied.get("bundle") if isinstance(supplied.get("bundle"), dict) else {}
+        ),
     }
 
 
@@ -9011,6 +9376,100 @@ MEDIA_STATUS_UNAVAILABLE = "unavailable"
 MEDIA_CAPTURE_CLAIM_SECONDS = 60
 MEDIA_CAPTURE_MAX_ATTEMPTS = 2
 MEDIA_CAPTURE_RETRY_BASE_SECONDS = 30
+MEDIA_INSPECTION_VERSION = "ig-media-inspection-v1"
+
+
+def _media_message_scope(value) -> str:
+    """Return a stable local scope without exposing it to provider prompts."""
+    if hasattr(value, "pk"):
+        value = getattr(value, "pk", None)
+    text = str(value or "").strip()
+    return f"message:{text or 'legacy-unknown'}"
+
+
+def _explicit_media_states(parts: list[dict]) -> list[dict]:
+    """Keep capture and inspection state separate on every durable part."""
+    normalized = []
+    status_to_capture = {
+        MEDIA_STATUS_PENDING: "discovered",
+        MEDIA_STATUS_ACQUIRING: "fetching",
+        MEDIA_STATUS_OWNED: "owned",
+        MEDIA_STATUS_UNAVAILABLE: "failed",
+        MEDIA_STATUS_METADATA_ONLY: "metadata_only",
+        "expired": "expired",
+        "blocked": "blocked",
+        "delete_pending": "delete_pending",
+        "deleted": "deleted",
+    }
+    for raw in parts:
+        item = dict(raw)
+        capture_state = status_to_capture.get(
+            str(item.get("status") or "").casefold(),
+            str(item.get("capture_state") or "discovered")[:32],
+        )
+        item["capture_state"] = capture_state
+        inspection = item.get("inspection")
+        replace_default = (
+            not isinstance(inspection, dict)
+            or (
+                inspection.get("state") == "uninspected"
+                and inspection.get("outcome") in {
+                    "not_submitted", "capture_unavailable", "capture_pending",
+                }
+            )
+        )
+        if replace_default:
+            if capture_state == "owned":
+                outcome = "not_submitted"
+            elif capture_state in {
+                "failed", "expired", "blocked", "metadata_only",
+                "delete_pending", "deleted",
+            }:
+                outcome = "capture_unavailable"
+            else:
+                outcome = "capture_pending"
+            inspection = {
+                "version": MEDIA_INSPECTION_VERSION,
+                "state": "uninspected",
+                "outcome": outcome,
+            }
+        item["inspection"] = inspection
+        normalized.append(item)
+    return normalized
+
+
+def _normalize_message_media(
+    media: list[dict] | None,
+    *,
+    message_scope,
+    identity_origin: str = "legacy_positional",
+) -> list[dict]:
+    prepared = [dict(item) for item in (media or []) if isinstance(item, dict)]
+    origins = [
+        (
+            str(item.get("identity_origin") or "")
+            if str(item.get("identity_origin") or "") in {
+                "ingress", "legacy_positional"
+            }
+            else identity_origin
+        )
+        for item in prepared
+    ]
+    normalized = _explicit_media_states(normalize_attachment_media(
+        prepared,
+        message_scope=_media_message_scope(message_scope),
+        # Preserve valid ingress identities during repeated normalization;
+        # per-item legacy origins are restored immediately below.
+        identity_origin="ingress",
+    ))
+    for item, origin in zip(normalized, origins, strict=True):
+        item["identity_origin"] = origin
+    scope_token = hashlib.sha256(
+        _media_message_scope(message_scope).encode("utf-8")
+    ).hexdigest()[:24]
+    for item in normalized:
+        item["source_message_scope"] = scope_token
+    return normalized
 
 
 def _attachment_urls(attachments_json: str | None, *, limit: int = 8) -> list[str]:
@@ -9147,10 +9606,14 @@ def _provider_attachment_metadata(msg: dict) -> list[dict]:
                 "target_username": target_username,
                 "provider_native_mention": provider_native,
             }
-            if not any(existing.get("url") == item["url"] for existing in result):
-                result.append(item)
+            # Assign the source position before any later transport merge. Two
+            # provider parts may deliberately carry the same signed URL.
+            item["original_index"] = len(result)
+            result.append(item)
             if len(result) >= 8:
-                return result
+                break
+        if len(result) >= 8:
+            break
     reply_story = (msg.get("reply_to") or {}).get("story") or {}
     if isinstance(reply_story, dict) and reply_story.get("url"):
         story_id = str(reply_story.get("id") or reply_story.get("story_id") or "").strip()
@@ -9167,8 +9630,22 @@ def _provider_attachment_metadata(msg: dict) -> list[dict]:
             # not prove that the customer mentioned TwoComms in a provider
             # native event.  Keep it as context for review only.
             "provider_native_mention": False,
+            "original_index": len(result),
         })
-    return result[:8]
+    result = result[:8]
+    if not result:
+        return []
+    event_at = msg.get("_event_created_at")
+    event_scope = (
+        message_id
+        or (event_at.isoformat() if hasattr(event_at, "isoformat") else str(event_at or ""))
+        or "unidentified-live-event"
+    )
+    return normalize_attachment_media(
+        result,
+        message_scope=f"provider-event:{event_scope}",
+        identity_origin="ingress",
+    )
 
 
 def _stable_attachment_identity(
@@ -9336,45 +9813,123 @@ def _media_merge_rank(item: dict) -> int:
     return 0
 
 
-def _merge_attachment_media(existing: list[dict], incoming: list[dict]) -> list[dict]:
-    """Merge by URL without letting stale workers weaken owned/provenance state."""
-    merged = []
-    positions = {}
-    for raw in [*(existing or []), *(incoming or [])]:
+def _merge_attachment_media(
+    existing: list[dict],
+    incoming: list[dict],
+    *,
+    message_scope="legacy-unknown",
+) -> list[dict]:
+    """Merge one message's parts by immutable identity, never by signed URL."""
+    existing_normalized = _normalize_message_media(
+        [dict(item) for item in (existing or []) if isinstance(item, dict)],
+        message_scope=message_scope,
+    )
+    next_index = 1 + max(
+        (int(item.get("original_index") or 0) for item in existing_normalized),
+        default=-1,
+    )
+    prepared_incoming = []
+    for raw in incoming or []:
         if not isinstance(raw, dict):
             continue
         item = dict(raw)
         url = str(item.get("url") or "").strip()
+        if item.get("source_part_id"):
+            upgrade_matches = [
+                candidate
+                for candidate in existing_normalized
+                if candidate.get("identity_origin") == "legacy_positional"
+                and str(candidate.get("url") or "") == url
+            ]
+            if len(upgrade_matches) == 1:
+                # A delayed live webhook can upgrade one unambiguous
+                # historical positional row to the provider part identity.
+                upgrade_matches[0].update({
+                    "source_part_id": item["source_part_id"],
+                    "original_index": item.get(
+                        "original_index", upgrade_matches[0]["original_index"]
+                    ),
+                    "identity_origin": "ingress",
+                })
+        else:
+            legacy_matches = [
+                candidate
+                for candidate in existing_normalized
+                if str(candidate.get("url") or "") == url
+            ]
+            # Historical rows have no recoverable duplicate identity. Reuse a
+            # sole positional part for a transport refresh, but never collapse
+            # two ambiguous equal-URL parts.
+            if len(legacy_matches) == 1:
+                item["source_part_id"] = legacy_matches[0]["source_part_id"]
+                item["original_index"] = legacy_matches[0]["original_index"]
+                item["identity_origin"] = legacy_matches[0]["identity_origin"]
+            elif legacy_matches:
+                # A URL-only compatibility projection cannot identify which
+                # of several equal-URL source parts it refreshes.
+                continue
+            else:
+                item["original_index"] = next_index
+                next_index += 1
+        prepared_incoming.append(item)
+    incoming_normalized = _normalize_message_media(
+        prepared_incoming,
+        message_scope=message_scope,
+        identity_origin=(
+            "ingress"
+            if any(
+                item.get("provenance") == MEDIA_PROVENANCE_LIVE_WEBHOOK
+                for item in prepared_incoming
+            )
+            else "legacy_positional"
+        ),
+    )
+
+    merged: list[dict] = []
+    positions: dict[tuple[str, str], int] = {}
+    owned_fields = {
+        "status", "capture_state", "storage_name", "private_storage",
+        "local_url", "mime", "bytes", "content_hash", "delete_after",
+        "inspection", "capture_attempts", "capture_next_attempt_at",
+    }
+    for item in [*existing_normalized, *incoming_normalized]:
+        url = str(item.get("url") or "").strip()
         if not url.startswith(("https://", "http://")):
             continue
         item["url"] = url[:1200]
-        position = positions.get(item["url"])
+        identity = (
+            str(item.get("source_message_scope") or ""),
+            str(item.get("source_part_id") or ""),
+        )
+        position = positions.get(identity)
         if position is None:
-            positions[item["url"]] = len(merged)
+            positions[identity] = len(merged)
             merged.append(item)
             continue
         current = merged[position]
-        if _media_merge_rank(item) > _media_merge_rank(current):
-            merged[position] = item
-        elif _media_merge_rank(item) == _media_merge_rank(current):
+        current_rank = _media_merge_rank(current)
+        item_rank = _media_merge_rank(item)
+        if item_rank > current_rank:
             combined = {**current, **item}
-            # URL normalization/capture retries intentionally carry only
-            # transport metadata. They must never erase provider-authentic
-            # object/media identity or a verified story target captured at
-            # webhook ingress. Boolean provenance is monotonic as well.
-            for key in (
-                "media_type",
-                "provider_object_key",
-                "provider_media_id",
-                "provider_event_id",
-                "target_username",
-            ):
-                if current.get(key) and not item.get(key):
+        else:
+            combined = {**item, **current}
+            # A refreshed signed URL belongs to this same source part and may
+            # replace the stale transport source without weakening owned bytes.
+            combined["url"] = item["url"]
+        if current_rank >= 40 and item_rank < 40:
+            for key in owned_fields:
+                if key in current:
                     combined[key] = current[key]
-            if current.get("provider_native_mention"):
-                combined["provider_native_mention"] = True
-            merged[position] = combined
-    return merged
+        for key in (
+            "media_type", "provider_object_key", "provider_media_id",
+            "provider_event_id", "target_username",
+        ):
+            if current.get(key) and not combined.get(key):
+                combined[key] = current[key]
+        if current.get("provider_native_mention") or item.get("provider_native_mention"):
+            combined["provider_native_mention"] = True
+        merged[position] = combined
+    return _explicit_media_states(merged)
 
 
 def _raw_live_media_for_row(row: InstagramBotMessage) -> list[dict]:
@@ -9426,7 +9981,11 @@ def _persist_media_metadata(row: InstagramBotMessage, incoming: list[dict]) -> l
         return incoming
     with transaction.atomic():
         locked = InstagramBotMessage.objects.select_for_update().get(pk=row.pk)
-        merged = _merge_attachment_media(locked.attachment_media or [], incoming)
+        merged = _merge_attachment_media(
+            locked.attachment_media or [],
+            incoming,
+            message_scope=locked.pk,
+        )
         if merged != (locked.attachment_media or []):
             locked.attachment_media = merged
             locked.save(update_fields=["attachment_media"])
@@ -9452,7 +10011,10 @@ def _message_media_capture_owner_valid(locked: InstagramBotMessage) -> bool:
     ).exists()
 
 
-def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict, str] | None:
+def _claim_media_capture(
+    message_id: int,
+    source_part_id: str,
+) -> tuple[str, dict, str] | None:
     with transaction.atomic():
         locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
         if not locked.media_capture_eligible or not _message_media_capture_owner_valid(locked):
@@ -9464,9 +10026,19 @@ def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict, str] | N
             return None
         if locked.private_media_use_until and locked.private_media_use_until > now:
             return None
-        media = [dict(item) for item in (locked.attachment_media or [])]
+        media = _normalize_message_media(
+            locked.attachment_media or [],
+            message_scope=locked.pk,
+        )
+        matching_ids = {
+            str(item.get("source_part_id") or "")
+            for item in media
+            if str(item.get("url") or "") == source_part_id
+        }
+        if len(matching_ids) == 1:
+            source_part_id = matching_ids.pop()
         for item in media:
-            if str(item.get("url") or "") != url:
+            if str(item.get("source_part_id") or "") != source_part_id:
                 continue
             if item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK:
                 return None
@@ -9505,7 +10077,7 @@ def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict, str] | N
                 "capture_started_at": now.isoformat(),
                 "capture_attempts": attempts + 1,
             })
-            locked.attachment_media = media
+            locked.attachment_media = _explicit_media_states(media)
             locked.private_media_use_token = use_token
             locked.private_media_use_until = now + timedelta(seconds=300)
             locked.save(update_fields=[
@@ -9518,7 +10090,7 @@ def _claim_media_capture(message_id: int, url: str) -> tuple[str, dict, str] | N
 
 def _finish_media_capture(
     message_id: int,
-    url: str,
+    source_part_id: str,
     token: str,
     updates: dict,
     *,
@@ -9540,10 +10112,20 @@ def _finish_media_capture(
                 ).exists()
             )
         )
-        media = [dict(item) for item in (locked.attachment_media or [])]
+        media = _normalize_message_media(
+            locked.attachment_media or [],
+            message_scope=locked.pk,
+        )
+        matching_ids = {
+            str(item.get("source_part_id") or "")
+            for item in media
+            if str(item.get("url") or "") == source_part_id
+        }
+        if len(matching_ids) == 1:
+            source_part_id = matching_ids.pop()
         for item in media:
             if (
-                str(item.get("url") or "") == url
+                str(item.get("source_part_id") or "") == source_part_id
                 and item.get("capture_token") == token
             ):
                 item.update(updates)
@@ -9555,7 +10137,7 @@ def _finish_media_capture(
                 item.pop("capture_token", None)
                 item.pop("capture_started_at", None)
                 break
-        locked.attachment_media = media
+        locked.attachment_media = _explicit_media_states(media)
         update_fields = ["attachment_media"]
         delete_after_raw = str(updates.get("delete_after") or "").strip()
         if updates.get("status") == MEDIA_STATUS_OWNED and delete_after_raw:
@@ -9587,7 +10169,7 @@ def _finish_media_capture(
                 "private_media_use_token", "private_media_use_until",
             ])
         locked.save(update_fields=update_fields)
-        return media
+        return list(locked.attachment_media or [])
 
 
 def _capture_message_media(
@@ -9620,7 +10202,7 @@ def _capture_message_media(
     ]
     if not current and not getattr(row, "attachments", ""):
         candidates.extend(_raw_live_media_for_row(row))
-    current = _merge_attachment_media(current, candidates)
+    current = _merge_attachment_media(current, candidates, message_scope=row.pk)
     for item in current:
         if _media_is_historical(item) or (
             item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK
@@ -9659,7 +10241,8 @@ def _capture_message_media(
             continue
         if on_progress is not None and not on_progress():
             break
-        claimed = _claim_media_capture(row.pk, str(snapshot.get("url") or ""))
+        source_part_id = str(snapshot.get("source_part_id") or "")
+        claimed = _claim_media_capture(row.pk, source_part_id)
         if not claimed:
             continue
         token, item, use_token = claimed
@@ -9667,7 +10250,7 @@ def _capture_message_media(
         url = str(item.get("url") or "")
         downloaded = download_image(url)
         if not downloaded:
-            current = _finish_media_capture(row.pk, url, token, {
+            current = _finish_media_capture(row.pk, source_part_id, token, {
                 "status": MEDIA_STATUS_UNAVAILABLE,
                 "error_kind": "download_failed",
                 "capture_next_attempt_at": (
@@ -9695,7 +10278,7 @@ def _capture_message_media(
             if current_owner is None:
                 current = []
             else:
-                current = _finish_media_capture(row.pk, url, token, {
+                current = _finish_media_capture(row.pk, source_part_id, token, {
                     "status": MEDIA_STATUS_UNAVAILABLE,
                     "error_kind": "permission_changed",
                     "capture_next_attempt_at": "",
@@ -9736,7 +10319,7 @@ def _capture_message_media(
                 timezone.now()
                 + timedelta(seconds=_private_media_retention_seconds())
             )
-            current = _finish_media_capture(row.pk, url, token, {
+            current = _finish_media_capture(row.pk, source_part_id, token, {
                 "status": MEDIA_STATUS_OWNED,
                 "storage_name": storage_name,
                 "private_storage": True,
@@ -9763,7 +10346,7 @@ def _capture_message_media(
                     private_storage.delete(created_storage_name)
                 except Exception:
                     pass
-            current = _finish_media_capture(row.pk, url, token, {
+            current = _finish_media_capture(row.pk, source_part_id, token, {
                 "status": MEDIA_STATUS_UNAVAILABLE,
                 "error_kind": "storage_failed",
                 "capture_next_attempt_at": (
@@ -9896,25 +10479,37 @@ def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
         return None
 
 
-def _collect_media_images(
+def _collect_media_parts(
     media: list[dict] | None,
     limit: int = 3,
     *,
     message_id: int | None = None,
     lease_already_held: bool = False,
-) -> list[tuple[str, bytes]]:
-    """Load owned live bytes; historical URLs never cross a network boundary."""
-    images: list[tuple[str, bytes]] = []
+) -> list[dict]:
+    """Load ordered owned parts with local identity and their exact bytes."""
+    parts: list[dict] = []
     total_bytes = 0
     max_items = min(max(0, int(limit or 0)), INLINE_MEDIA_MAX_ITEMS)
     if not max_items:
-        return images
-    seen = set()
-    for item in media or []:
-        url = str(item.get("url") or "") if isinstance(item, dict) else ""
-        if not url or url in seen:
+        return parts
+    scope = message_id or next((
+        item.get("message_id") or item.get("source_message_id")
+        for item in (media or [])
+        if isinstance(item, dict)
+    ), None)
+    try:
+        normalized = _normalize_message_media(media or [], message_scope=scope)
+    except MediaManifestError:
+        return parts
+    seen: set[tuple[str, str]] = set()
+    for item in sorted(normalized, key=lambda value: int(value["original_index"])):
+        identity = (
+            str(item.get("source_message_scope") or ""),
+            str(item.get("source_part_id") or ""),
+        )
+        if identity in seen:
             continue
-        seen.add(url)
+        seen.add(identity)
         if (
             item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK
             or item.get("status") != MEDIA_STATUS_OWNED
@@ -9927,8 +10522,20 @@ def _collect_media_images(
         )
         if image:
             mime, raw = image
+            actual_hash = hashlib.sha256(raw).hexdigest()
+            stored_hash = str(item.get("content_hash") or "").strip().lower()
+            if stored_hash and stored_hash != actual_hash:
+                log("warning", "owned_media_hash", "owned media digest mismatch")
+                continue
             if total_bytes + len(raw) <= INLINE_MEDIA_RAW_BUDGET:
-                images.append((mime, raw))
+                part = dict(item)
+                part.update({
+                    "mime": mime,
+                    "bytes": len(raw),
+                    "content_hash": actual_hash,
+                    "data": raw,
+                })
+                parts.append(part)
                 total_bytes += len(raw)
             else:
                 log(
@@ -9936,9 +10543,28 @@ def _collect_media_images(
                     "inline_media_budget",
                     f"omitted owned media; admitted_bytes={total_bytes}",
                 )
-        if len(images) >= max_items:
+        if len(parts) >= max_items:
             break
-    return images
+    return parts
+
+
+def _collect_media_images(
+    media: list[dict] | None,
+    limit: int = 3,
+    *,
+    message_id: int | None = None,
+    lease_already_held: bool = False,
+) -> list[tuple[str, bytes]]:
+    """Compatibility projection for callers not yet consuming part identity."""
+    return [
+        (str(part["mime"]), part["data"])
+        for part in _collect_media_parts(
+            media,
+            limit=limit,
+            message_id=message_id,
+            lease_already_held=lease_already_held,
+        )
+    ]
 
 
 def _catalog_match_media(media: list[dict] | None) -> list[dict]:
@@ -9967,7 +10593,7 @@ def _media_context_hint(media: list[dict] | None) -> str | None:
         role = str(item.get("role") or "other")
         rows.append(
             f"- {labels.get(role, role)}; intent={item.get('intent') or 'unknown'}; "
-            f"source_message_id={item.get('message_id') or 'unknown'}; "
+            f"capture={item.get('capture_state') or item.get('status') or 'unknown'}; "
             f"catalog_match_allowed={'yes' if item.get('catalog_match_allowed') else 'no'}"
         )
     if not rows:
@@ -10349,6 +10975,7 @@ def _promote_manual_refresh_message(
     source: str,
     attachments: list[str],
     received_at: datetime | None,
+    attachment_metadata: list[dict] | None = None,
     reply_to_provider_message_id: str = "",
     quick_reply_payload: str = "",
     force_observed: bool = False,
@@ -10415,21 +11042,15 @@ def _promote_manual_refresh_message(
                 stored if isinstance(stored, list) else [],
                 source="manual_refresh",
             )
-        known_urls = {str(item.get("url") or "") for item in existing_media}
-        incoming_media = _attachment_media_metadata(attachments, source="webhook")
-        for item in incoming_media:
-            if item["url"] in known_urls:
-                for index, existing_item in enumerate(existing_media):
-                    if (
-                        existing_item.get("url") == item["url"]
-                        and existing_item.get("provenance") == MEDIA_PROVENANCE_HISTORICAL
-                    ):
-                        existing_media[index] = item
-                        break
-                continue
-            existing_media.append(item)
-            known_urls.add(item["url"])
-        existing_media = existing_media[:8]
+        incoming_media = list(attachment_metadata or ()) or _attachment_media_metadata(
+            attachments,
+            source="webhook",
+        )
+        existing_media = _merge_attachment_media(
+            existing_media,
+            incoming_media,
+            message_scope=existing.pk,
+        )[:8]
         if existing_media != (existing.attachment_media or []):
             existing.attachment_media = existing_media
             update_fields.append("attachment_media")
@@ -10555,9 +11176,12 @@ def _observe_not_allowed_inbound(
             # but is never a live-media ingestion source.  Provider attachment
             # metadata is deliberately not merged here because it carries
             # ``live_webhook`` provenance and can be picked up by capture jobs.
-            initial_media = _attachment_media_metadata(
-                attachments,
-                source="allowlist_restricted",
+            initial_media = _normalize_message_media(
+                _attachment_media_metadata(
+                    attachments,
+                    source="allowlist_restricted",
+                ),
+                message_scope=mid or synthetic_event_key,
             )
             try:
                 with transaction.atomic():
@@ -10775,6 +11399,7 @@ def enqueue_inbound(
                     text=text,
                     source=source,
                     attachments=attachments,
+                    attachment_metadata=attachment_metadata,
                     received_at=received_at,
                     reply_to_provider_message_id=reply_to_provider_message_id,
                     quick_reply_payload=quick_reply_payload,
@@ -10789,15 +11414,15 @@ def enqueue_inbound(
             else:
                 try:
                     with transaction.atomic():
-                        initial_media = _attachment_media_metadata(
-                            attachments,
-                            source=source,
+                        media_scope = mid or synthetic_event_key
+                        initial_media = _normalize_message_media(
+                            list(attachment_metadata or ())
+                            or _attachment_media_metadata(attachments, source=source),
+                            message_scope=media_scope,
+                            identity_origin=(
+                                "ingress" if source == "webhook" else "legacy_positional"
+                            ),
                         )
-                        if attachment_metadata:
-                            initial_media = _merge_attachment_media(
-                                initial_media,
-                                attachment_metadata,
-                            )
                         msg = InstagramBotMessage.objects.create(
                             sender_id=sender_id,
                             client=client,
@@ -10844,6 +11469,7 @@ def enqueue_inbound(
                         text=text,
                         source=source,
                         attachments=attachments,
+                        attachment_metadata=attachment_metadata,
                         received_at=received_at,
                         reply_to_provider_message_id=reply_to_provider_message_id,
                         quick_reply_payload=quick_reply_payload,
@@ -12351,8 +12977,12 @@ def _process_one_inside_reply_boundary(
             # cross exactly one provider boundary in this live turn.
             recovered_media = _recover_current_message_media(row)
             media = recovered_media or []
-            images = _collect_media_images(media, message_id=row.pk)
-            media_binding = _source_media_binding(row, images)
+            media_parts = _collect_media_parts(media, message_id=row.pk)
+            images = [
+                (str(part["mime"]), part["data"])
+                for part in media_parts
+            ]
+            media_binding = _source_media_binding(row, media_parts)
             if not _renew_client_automation_lease(row, lease_token):
                 clear_typing_indicator()
                 return False

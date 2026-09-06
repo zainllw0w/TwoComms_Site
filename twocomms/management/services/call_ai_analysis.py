@@ -2017,8 +2017,7 @@ def gemini_generate_json(system_instruction: str, user_text: str, *,
                 parts.append({
                     "text": (
                         f"INLINE_IMAGE index={image_index} "
-                        f"message_id={label.get('message_id', 'unknown')} "
-                        f"media_index={label.get('media_index', 'unknown')}"
+                        f"original_index={label.get('original_index', image_index)}"
                     )
                 })
             parts.append({

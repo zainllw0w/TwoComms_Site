@@ -54,6 +54,23 @@ HISTORICAL_ANALYSIS_TRIGGERS = frozenset({
 })
 REPLY_PROCESSING_GRACE_SECONDS = 300
 
+
+def _part_has_bound_inspection(media: dict) -> bool:
+    """Accept only a per-part inspection bound to its current digest."""
+    inspection = media.get("inspection") if isinstance(media, dict) else None
+    if not isinstance(inspection, dict) or inspection.get("state") != "inspected":
+        return False
+    return bool(
+        str(media.get("source_part_id") or "")
+        and str(inspection.get("source_part_id") or "")
+        == str(media.get("source_part_id") or "")
+        and str(media.get("content_hash") or "")
+        and str(inspection.get("content_hash") or "")
+        == str(media.get("content_hash") or "")
+        and str(inspection.get("request_id") or "")
+        and str(inspection.get("provider_model") or "")
+    )
+
 EXPLICIT_REPEAT_RE = re.compile(
     r"(?:\b(?:хочу|візьму|возьму|замов\w*|закаж\w*)\b.{0,50}\b(?:ще|еще)\b|"
     r"\b(?:ще|еще)\s+(?:одн\w*|так\w*)\b|"
@@ -903,7 +920,7 @@ def _conversation(
                 manager_media = role == "manager"
                 item["media"] = []
                 for media_index, media in enumerate(semantic_media[:8]):
-                    if media.get("url") and not intelligence:
+                    if media.get("url") and not _part_has_bound_inspection(media):
                         media_sources.append({
                             "url": str(media.get("url") or "")[:1200],
                             "message_id": row.pk,
@@ -913,6 +930,19 @@ def _conversation(
                             "storage_name": str(media.get("storage_name") or "")[:500],
                             "local_url": str(media.get("local_url") or "")[:1200],
                             "mime": str(media.get("mime") or "")[:64],
+                            "source_part_id": str(
+                                media.get("source_part_id") or ""
+                            )[:36],
+                            "source_message_scope": str(
+                                media.get("source_message_scope") or ""
+                            )[:24],
+                            "original_index": media.get("original_index", media_index),
+                            "content_hash": str(
+                                media.get("content_hash") or ""
+                            )[:64],
+                            "capture_state": str(
+                                media.get("capture_state") or ""
+                            )[:32],
                             "error_kind": str(media.get("error_kind") or "")[:64],
                         })
                     item["media"].append({
@@ -1318,29 +1348,35 @@ def _process_claim(
         if isinstance(source, dict) and source.get("url")
     ]
     try:
-        from management.services.instagram_bot import _collect_media_images
+        from management.services.instagram_bot import _collect_media_parts
 
-        seen_urls = set()
+        seen_parts = set()
         for source in media_sources:
             if not media_heartbeat():
                 return "superseded"
-            url = str(source.get("url") or "")
-            if not url or url in seen_urls:
+            identity = (
+                str(source.get("source_message_scope") or ""),
+                str(source.get("source_part_id") or "")
+                or f"legacy:{source.get('message_id')}:{source.get('original_index', source.get('media_index', 0))}",
+            )
+            if identity in seen_parts:
                 continue
-            seen_urls.add(url)
-            collected = _collect_media_images(
+            seen_parts.add(identity)
+            collected = _collect_media_parts(
                 [source],
                 limit=1,
                 message_id=source.get("message_id"),
             )
-            image = collected[0] if collected else None
-            if image:
+            part = collected[0] if collected else None
+            if part:
                 image_labels.append({
                     "inline_image_index": len(media_images),
-                    "message_id": source.get("message_id"),
-                    "media_index": source.get("media_index"),
+                    "source_part_id": part.get("source_part_id"),
+                    "source_message_scope": part.get("source_message_scope"),
+                    "original_index": part.get("original_index"),
+                    "content_hash": part.get("content_hash"),
                 })
-                media_images.append(image)
+                media_images.append((part["mime"], part["data"]))
             elif source.get("provenance") != "historical_import":
                 media_error_kind = str(
                     source.get("error_kind") or "media_unavailable"

@@ -15,6 +15,12 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from management.services.ig_media_manifest import (
+    IMAGE_EVIDENCE_CODES,
+    IMAGE_OBSERVATION_OUTCOMES,
+    IMAGE_TYPE_CODES,
+)
+
 
 CONTROL_KINDS = frozenset(
     {
@@ -198,6 +204,29 @@ STRUCTURED_RESPONSE_SCHEMA = {
                     "type": "string",
                     "enum": ["not_applicable", "transcribed", "unintelligible"],
                 },
+                "image_observations": {
+                    "type": "array",
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "source_image_index": {"type": "integer", "minimum": 0},
+                            "outcome": {
+                                "type": "string",
+                                "enum": sorted(IMAGE_OBSERVATION_OUTCOMES),
+                            },
+                            "evidence_code": {
+                                "type": "string",
+                                "enum": sorted(IMAGE_EVIDENCE_CODES),
+                            },
+                            "type_code": {
+                                "type": "string",
+                                "enum": sorted(IMAGE_TYPE_CODES),
+                            },
+                        },
+                        "required": ["source_image_index", "outcome"],
+                    },
+                },
                 "confidence": {"type": "number", "minimum": 0, "maximum": 1},
             },
             "required": ["catalog_candidates", "transcript", "intent", "confidence"],
@@ -235,12 +264,23 @@ class TurnCatalogCandidate:
 
 
 @dataclass(frozen=True)
+class TurnImageObservation:
+    """A provider image index, deliberately free of URLs, OCR, and raw IDs."""
+
+    source_image_index: int
+    outcome: str
+    evidence_code: str = ""
+    type_code: str = ""
+
+
+@dataclass(frozen=True)
 class TurnIntelligenceArtifact:
     catalog_candidates: tuple[TurnCatalogCandidate, ...] = ()
     transcript: str = ""
     intent: str = ""
     audio_status: str = ""
     confidence: float = 0.0
+    image_observations: tuple[TurnImageObservation, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -506,7 +546,9 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
     if (
         not isinstance(payload, dict)
         or not required.issubset(payload)
-        or not set(payload).issubset(required | {"audio_status"})
+        or not set(payload).issubset(
+            required | {"audio_status", "image_observations"}
+        )
     ):
         return None
     candidates = payload.get("catalog_candidates")
@@ -537,6 +579,38 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
             confidence=confidence,
             evidence=evidence,
         ))
+    observations = payload.get("image_observations", [])
+    if not isinstance(observations, list) or len(observations) > 8:
+        return None
+    parsed_observations = []
+    seen_image_indexes = set()
+    for raw in observations:
+        if not isinstance(raw, dict) or not set(raw).issubset({
+            "source_image_index", "outcome", "evidence_code", "type_code",
+        }) or not {"source_image_index", "outcome"}.issubset(raw):
+            return None
+        source_image_index = raw.get("source_image_index")
+        # Index zero is valid, but JSON strings, booleans, and floats are not.
+        if isinstance(source_image_index, bool) or not isinstance(source_image_index, int):
+            return None
+        outcome = str(raw.get("outcome") or "").strip().lower()
+        evidence_code = str(raw.get("evidence_code") or "").strip().lower()
+        type_code = str(raw.get("type_code") or "").strip().lower()
+        if (
+            source_image_index < 0
+            or source_image_index in seen_image_indexes
+            or outcome not in IMAGE_OBSERVATION_OUTCOMES
+            or evidence_code not in IMAGE_EVIDENCE_CODES
+            or type_code not in IMAGE_TYPE_CODES
+        ):
+            return None
+        seen_image_indexes.add(source_image_index)
+        parsed_observations.append(TurnImageObservation(
+            source_image_index=source_image_index,
+            outcome=outcome,
+            evidence_code=evidence_code,
+            type_code=type_code,
+        ))
     transcript = payload.get("transcript")
     intent = payload.get("intent")
     audio_status = str(payload.get("audio_status") or "").strip().casefold()
@@ -559,6 +633,7 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
         intent=intent.strip().lower(),
         audio_status=audio_status,
         confidence=confidence,
+        image_observations=tuple(parsed_observations),
     )
 
 
