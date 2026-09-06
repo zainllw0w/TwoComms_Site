@@ -698,91 +698,6 @@ SPAM_STRIKES_LIMIT = 3
 PHONE_RE = re.compile(r"(?:\+?38)?0\d{9}")
 
 
-# Скільки тримати паузу після останньої репліки менеджера. Порахований факт із
-# прода 02.08.2026: у `manager_takeover` перебувало **57 клієнтів із 289** (20%
-# бази), найстаріший — з 19 червня, і зняти це можна було лише руками через
-# адмінку. Тобто одна репліка менеджера півтора місяця тому назавжди виключала
-# автоматику для клієнта, і жодного сигналу про це не було.
-#
-# 12 годин обрані так: жива передача діалогу менеджеру триває хвилини-години,
-# і поки менеджер пише, кожна його репліка зсуває відлік. Якщо ж людина пішла
-# і не повернулась, до наступного дня бот має право відповісти сам — інакше
-# клієнт просто лишається без відповіді.
-MANAGER_TAKEOVER_IDLE_HOURS = 12
-
-
-def maybe_release_stale_takeover(client) -> bool:
-    """Зняти паузу, якщо менеджер давно не писав.
-
-    Ручне «повернути бота» лишається головним шляхом; це — страховка від
-    назавжди замовклого бота, у тому числі від хибного takeover.
-    """
-    if not client or not getattr(client, "pk", None):
-        return False
-    if not client.manager_takeover:
-        return False
-    if str(client.paused_reason or "") != "manager_takeover":
-        return False
-    last = client.last_manager_message_at or client.paused_at
-    if not last:
-        return False
-    idle_hours = (timezone.now() - last).total_seconds() / 3600.0
-    if idle_hours < MANAGER_TAKEOVER_IDLE_HOURS:
-        return False
-    # Явна відмова клієнта від автоматичних повідомлень сильніша за таймаут.
-    active_opt_out = bool(
-        client.opted_out_at
-        and (not client.opted_in_at or client.opted_in_at < client.opted_out_at)
-    )
-    if active_opt_out or client.is_blocked or client.hidden_at:
-        return False
-    from management.services.ig_reply_boundary import pause_reply_boundary
-
-    try:
-        with pause_reply_boundary():
-            with transaction.atomic():
-                fresh = IgClient.objects.select_for_update().filter(pk=client.pk).first()
-                if fresh is None or not fresh.manager_takeover:
-                    return False
-                if str(fresh.paused_reason or "") != "manager_takeover":
-                    return False
-                fresh_last = fresh.last_manager_message_at or fresh.paused_at
-                if fresh_last and (timezone.now() - fresh_last).total_seconds() / 3600.0 < MANAGER_TAKEOVER_IDLE_HOURS:
-                    return False
-                fresh.manager_takeover = False
-                fresh.bot_paused = False
-                fresh.paused_reason = ""
-                fresh.reply_permission_epoch = int(fresh.reply_permission_epoch or 0) + 1
-                fresh.save(update_fields=[
-                    "manager_takeover", "bot_paused", "paused_reason",
-                    "reply_permission_epoch", "updated_at",
-                ])
-    except Exception as exc:  # noqa: BLE001
-        log("warning", "takeover_release", repr(exc))
-        return False
-    client.manager_takeover = False
-    client.bot_paused = False
-    client.paused_reason = ""
-    log(
-        "info",
-        "takeover_released",
-        f"{client.igsid}: менеджер не писав {int(idle_hours)} год — бот повернувся",
-    )
-    notify_manager(
-        format_operator_alert(
-            "🤖 IG: бот відновив автоматичні відповіді",
-            event_type="takeover_released",
-            client_id=client.pk,
-            status="automation_resumed",
-            instruction_code="takeover_released",
-        ),
-        dedupe_key=f"takeover_released:{client.pk}:{int(idle_hours) // 24}",
-        event_type="takeover_released",
-        client=client,
-    )
-    return True
-
-
 def _client_blocked(client) -> bool:
     """Бот не відповідає, якщо клієнта поставлено на паузу або заблоковано."""
     active_opt_out = bool(
@@ -10813,13 +10728,6 @@ def enqueue_inbound(
             s.last_inbound_at = inbound_at
             log("info", "observed", _inbound_log_detail(source, sender_id, text, ""))
         return bool(message_created or not job_existed)
-    # Клієнт написав знову — саме момент перевірити, чи не висить пауза від
-    # менеджера, який давно пішов. Інакше повідомлення тихо стане `observed`,
-    # і людина вирішить, що її ігнорують.
-    try:
-        maybe_release_stale_takeover(client)
-    except Exception as exc:  # noqa: BLE001
-        log("warning", "takeover_release", repr(exc))
     try:
         with transaction.atomic():
             current_settings = InstagramBotSettings.objects.select_for_update().get(pk=s.pk)

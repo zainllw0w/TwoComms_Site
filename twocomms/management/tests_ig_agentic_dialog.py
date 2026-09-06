@@ -1416,7 +1416,7 @@ class OwnEchoRecognitionTests(TestCase):
 
 
 class StaleTakeoverReleaseTests(TestCase):
-    """Пауза від менеджера не має тривати вічно."""
+    """Elapsed time and new inbound never release manager ownership."""
 
     def setUp(self):
         self.client_row = _client("stale-takeover")
@@ -1433,41 +1433,55 @@ class StaleTakeoverReleaseTests(TestCase):
             "paused_at", "last_manager_message_at", "updated_at",
         ])
 
-    @patch("management.services.instagram_bot.notify_manager")
-    def test_long_silent_takeover_is_released(self, mock_notify):
-        from management.models import IgClient
+    def _enqueue_while_paused(self, mid):
+        from management.models import IgClient, InstagramBotMessage, InstagramBotSettings
         from management.services import instagram_bot as bot
 
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.is_enabled = True
+        settings_obj.allowed_senders = ""
+        settings_obj.save(update_fields=["is_enabled", "allowed_senders"])
+        epoch = self.client_row.reply_permission_epoch
+        self.assertTrue(
+            bot.enqueue_inbound(
+                settings_obj,
+                sender_id=self.client_row.igsid,
+                text="Підкажіть, будь ласка, ціну?",
+                mid=mid,
+            )
+        )
+        message = InstagramBotMessage.objects.get(mid=mid)
+        fresh = IgClient.objects.get(pk=self.client_row.pk)
+        self.assertEqual(message.status, InstagramBotMessage.Status.DONE)
+        self.assertTrue(fresh.manager_takeover)
+        self.assertTrue(fresh.bot_paused)
+        self.assertEqual(fresh.paused_reason, "manager_takeover")
+        self.assertEqual(fresh.reply_permission_epoch, epoch)
+
+    @patch("management.services.instagram_bot.notify_manager")
+    def test_long_silent_takeover_is_not_released(self, mock_notify):
         self._put_in_takeover(30)
 
-        self.assertTrue(bot.maybe_release_stale_takeover(self.client_row))
-        fresh = IgClient.objects.get(pk=self.client_row.pk)
-        self.assertFalse(fresh.manager_takeover)
-        self.assertFalse(fresh.bot_paused)
-        mock_notify.assert_called_once()
+        self._enqueue_while_paused("manual-only-takeover-30h")
+
+        mock_notify.assert_not_called()
 
     @patch("management.services.instagram_bot.notify_manager")
     def test_active_manager_conversation_is_not_interrupted(self, mock_notify):
-        from management.models import IgClient
-        from management.services import instagram_bot as bot
-
         self._put_in_takeover(2)
 
-        self.assertFalse(bot.maybe_release_stale_takeover(self.client_row))
-        self.assertTrue(IgClient.objects.get(pk=self.client_row.pk).manager_takeover)
+        self._enqueue_while_paused("manual-only-takeover-2h")
+
         mock_notify.assert_not_called()
 
     @patch("management.services.instagram_bot.notify_manager")
     def test_opted_out_client_is_never_auto_resumed(self, mock_notify):
-        from management.models import IgClient
-        from management.services import instagram_bot as bot
-
         self._put_in_takeover(48)
         self.client_row.opted_out_at = timezone.now() - timezone.timedelta(hours=40)
         self.client_row.save(update_fields=["opted_out_at", "updated_at"])
 
-        self.assertFalse(bot.maybe_release_stale_takeover(self.client_row))
-        self.assertTrue(IgClient.objects.get(pk=self.client_row.pk).manager_takeover)
+        self._enqueue_while_paused("manual-only-takeover-optout")
+
         mock_notify.assert_not_called()
 
 

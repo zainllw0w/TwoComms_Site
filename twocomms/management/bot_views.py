@@ -6060,72 +6060,46 @@ def bot_client_pause_api(request, client_id):
 @login_required(login_url="management_login")
 @require_POST
 def bot_client_resume_api(request, client_id):
-    """Повернути бота клієнту (зняти паузу/перехоплення)."""
+    """Explicitly return one eligible client from manager ownership to the bot."""
     blocked = _require_bot_write_json(request)
     if blocked:
         return blocked
-    from django.utils import timezone
-
-    from .models import IgClient, IgPermissionTransitionJob
-    from .services.ig_permission_transitions import (
-        active_permission_transition_exists,
-        supersede_permission_transitions,
+    from .services.ig_manual_resume import (
+        ManualResumeRejected,
+        resume_client_automation,
     )
-    from .services.ig_reply_boundary import pause_reply_boundary
 
-    with pause_reply_boundary():
-        with transaction.atomic():
-            c = IgClient.objects.select_for_update().filter(id=client_id).first()
-            if not c:
-                return JsonResponse({"success": False, "error": "Клієнта не знайдено."}, status=404)
-            active_opt_out = bool(
-                c.opted_out_at
-                and (not c.opted_in_at or c.opted_in_at < c.opted_out_at)
+    try:
+        result = resume_client_automation(client_id, actor=request.user)
+    except ManualResumeRejected as exc:
+        return JsonResponse({
+            "success": False,
+            "error": exc.message,
+            "code": exc.code,
+            "requires_verified_reconsent": exc.code == "active_opt_out",
+        }, status=exc.status)
+    return JsonResponse({
+        "success": True,
+        "bot_paused": False,
+        "changed": result.changed,
+        "permission_epoch": result.permission_epoch,
+        "successor_created": result.successor_created,
+        "successor_turn_id": result.successor_turn_id,
+        "successor_source_message_id": result.successor_source_message_id,
+        "unresolved_turn_id": result.unresolved_turn_id,
+        "unresolved_source_message_id": result.unresolved_source_message_id,
+        "successor_reason": result.successor_reason,
+        "message": (
+            (
+                "Клієнта повернуто боту. Останній нерозв’язаний запит "
+                "залишено в історії без автоматичного повтору."
+                if result.successor_reason == "successor_revision_unavailable"
+                else "Клієнта повернуто боту; повторної відповіді не створено."
             )
-            active_opt_out = bool(
-                active_opt_out
-                or active_permission_transition_exists(
-                    client_id=c.pk,
-                    kinds=[IgPermissionTransitionJob.Kind.OPT_OUT],
-                )
-            )
-            if active_opt_out and request.POST.get("confirm_opt_in") not in {"1", "true"}:
-                return JsonResponse({
-                    "success": False,
-                    "error": (
-                        "Клієнт відмовився від автоматичних повідомлень. "
-                        "Потрібне окреме підтвердження ручної згоди."
-                    ),
-                    "requires_opt_in_confirmation": True,
-                }, status=409)
-            c.bot_paused = False
-            c.manager_takeover = False
-            supersede_permission_transitions(
-                client_id=c.pk,
-                kinds=[
-                    IgPermissionTransitionJob.Kind.OPT_OUT,
-                    IgPermissionTransitionJob.Kind.MANAGER_TAKEOVER,
-                    IgPermissionTransitionJob.Kind.CLIENT_PAUSE,
-                ],
-            )
-            c.reply_permission_epoch = int(c.reply_permission_epoch or 0) + 1
-            c.paused_reason = ""
-            update_fields = [
-                "bot_paused", "manager_takeover", "reply_permission_epoch",
-                "paused_reason", "updated_at",
-            ]
-            if active_opt_out:
-                c.opted_in_at = timezone.now()
-                c.opted_in_by = request.user
-                update_fields.extend(["opted_in_at", "opted_in_by"])
-            c.save(update_fields=update_fields)
-            if active_opt_out:
-                bot.log(
-                    "warning",
-                    "manual_opt_in",
-                    f"client={c.pk}; user={request.user.pk}; explicit consent confirmed",
-                )
-    return JsonResponse({"success": True, "bot_paused": False})
+            if result.changed
+            else "Бот уже веде цього клієнта."
+        ),
+    })
 
 
 @login_required(login_url="management_login")

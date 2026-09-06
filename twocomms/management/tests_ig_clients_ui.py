@@ -558,7 +558,8 @@ class ClientWorkspaceTemplateContractTests(SimpleTestCase):
             ".bot-action-state-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));",
             ".bot-client-action.pause{background:#4a3512;",
             ".bot-client-action.lost{background:#2c1519;",
-            "c.bot_paused?'▶ Відновити':'⏸ Зупинити'",
+            "c.bot_paused?'▶ Вернути боту':'⏸ Відповідати самому'",
+            "«Вернути боту» не поновлює згоду",
             "c.hidden?'↩ Повернути до активних':'Приховати'",
             "node('button','bot-client-action lost','Позначити як втрачено')",
             "node('button','bot-client-action reset','Скинути')",
@@ -3331,7 +3332,7 @@ class ClientPauseResumeApiTests(TestCase):
         self.assertFalse(self.c.bot_paused)
         self.assertFalse(self.c.manager_takeover)
 
-    def test_opt_out_requires_explicit_manual_consent_and_audits_opt_in(self):
+    def test_opt_out_cannot_be_overridden_by_resume_boolean(self):
         self.c.bot_paused = True
         self.c.paused_reason = "opt_out"
         self.c.opted_out_at = timezone.now()
@@ -3344,23 +3345,22 @@ class ClientPauseResumeApiTests(TestCase):
         refused = self.client.post(url)
 
         self.assertEqual(refused.status_code, 409)
-        self.assertTrue(refused.json()["requires_opt_in_confirmation"])
+        self.assertTrue(refused.json()["requires_verified_reconsent"])
         self.c.refresh_from_db()
         self.assertTrue(self.c.bot_paused)
         self.assertIsNone(self.c.opted_in_at)
 
-        accepted = self.client.post(url, {"confirm_opt_in": "1"})
+        still_refused = self.client.post(url, {"confirm_opt_in": "1"})
 
-        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(still_refused.status_code, 409)
+        self.assertEqual(still_refused.json()["code"], "active_opt_out")
         self.c.refresh_from_db()
-        self.assertFalse(self.c.bot_paused)
-        self.assertEqual(self.c.opted_in_by_id, self.admin.id)
-        self.assertGreaterEqual(self.c.opted_in_at, self.c.opted_out_at)
-        self.assertTrue(
-            InstagramBotLog.objects.filter(event="manual_opt_in", detail__contains=f"user={self.admin.id}").exists()
-        )
+        self.assertTrue(self.c.bot_paused)
+        self.assertIsNone(self.c.opted_in_by_id)
+        self.assertIsNone(self.c.opted_in_at)
+        self.assertFalse(InstagramBotLog.objects.filter(event="manual_opt_in").exists())
 
-    def test_pending_opt_out_requires_consent_and_is_superseded_by_opt_in(self):
+    def test_pending_opt_out_transition_blocks_resume_boolean(self):
         settings = InstagramBotSettings.load()
         message = InstagramBotMessage.objects.create(
             sender_id=self.c.igsid,
@@ -3384,16 +3384,16 @@ class ClientPauseResumeApiTests(TestCase):
         refused = self.client.post(url)
 
         self.assertEqual(refused.status_code, 409)
-        self.assertTrue(refused.json()["requires_opt_in_confirmation"])
+        self.assertTrue(refused.json()["requires_verified_reconsent"])
 
-        accepted = self.client.post(url, {"confirm_opt_in": "1"})
+        still_refused = self.client.post(url, {"confirm_opt_in": "1"})
 
-        self.assertEqual(accepted.status_code, 200)
+        self.assertEqual(still_refused.status_code, 409)
         job.refresh_from_db()
         self.c.refresh_from_db()
-        self.assertEqual(job.status, IgPermissionTransitionJob.Status.SUPERSEDED)
-        self.assertEqual(self.c.opted_in_by_id, self.admin.id)
-        self.assertIsNotNone(self.c.opted_in_at)
+        self.assertEqual(job.status, IgPermissionTransitionJob.Status.PENDING)
+        self.assertIsNone(self.c.opted_in_by_id)
+        self.assertIsNone(self.c.opted_in_at)
 
 
 @MGMT

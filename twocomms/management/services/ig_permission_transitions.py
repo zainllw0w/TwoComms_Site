@@ -10,7 +10,9 @@ from django.db.models import Q
 from django.utils import timezone
 
 from management.models import (
+    IgAiReplyRecoveryJob,
     IgClient,
+    IgCommerceTurnDecision,
     IgFollowUpTask,
     IgPermissionTransitionJob,
     InstagramBotMessage,
@@ -295,23 +297,36 @@ def _locked_ids(rows, *, nowait: bool) -> list[int]:
     )
 
 
-def _cancel_client_automation(
+def cancel_client_unstarted_automation(
     client: IgClient,
     *,
     reason: str,
     now,
     nowait: bool,
-) -> None:
+) -> dict[str, int]:
+    """Cancel only automation that has not crossed an execution/send boundary.
+
+    Manager work and anything that crossed the provider-send boundary, was
+    partially delivered, or has an ambiguous result remains durable for
+    reconciliation.  Unsent processing claims are cancelled after the caller
+    has acquired the reply boundary.  Analytical and entitlement records are
+    outside this send-cancellation scope.
+    """
+    cancelled = {
+        "followups": 0,
+        "inbound_rows": 0,
+        "recovery_jobs": 0,
+        "commerce_decisions": 0,
+    }
     followups = IgFollowUpTask.objects.filter(
         client_id=client.pk,
         status=IgFollowUpTask.Status.PENDING,
-    ).exclude(
-        kind=IgFollowUpTask.Kind.MANAGER_TASK,
-        reason="followup_delivery_review",
-    )
+    ).exclude(kind=IgFollowUpTask.Kind.MANAGER_TASK)
     followup_ids = _locked_ids(followups, nowait=nowait)
     if followup_ids:
-        IgFollowUpTask.objects.filter(pk__in=followup_ids).update(
+        cancelled["followups"] = IgFollowUpTask.objects.filter(
+            pk__in=followup_ids
+        ).update(
             status=IgFollowUpTask.Status.CANCELLED,
             skip_reason=reason[:255],
             updated_at=now,
@@ -319,31 +334,112 @@ def _cancel_client_automation(
     messages = InstagramBotMessage.objects.filter(
         client_id=client.pk,
         role=InstagramBotMessage.Role.USER,
-        status__in=[
+        status__in=(
             InstagramBotMessage.Status.PENDING,
             InstagramBotMessage.Status.PROCESSING,
-        ],
-    ).exclude(send_state="sending")
+        ),
+    ).exclude(send_state__in=("sending", "unknown", "ambiguous", "sent"))
     message_ids = _locked_ids(messages, nowait=nowait)
     if message_ids:
-        InstagramBotMessage.objects.filter(pk__in=message_ids).update(
+        cancelled["inbound_rows"] = InstagramBotMessage.objects.filter(
+            pk__in=message_ids
+        ).update(
             status=InstagramBotMessage.Status.DONE,
             processed_at=now,
             processing_started_at=None,
+        )
+
+    recoveries = IgAiReplyRecoveryJob.objects.filter(
+        client_id=client.pk,
+        status__in=(
+            IgAiReplyRecoveryJob.Status.PENDING,
+            IgAiReplyRecoveryJob.Status.PROCESSING,
+        ),
+        sending_started_at__isnull=True,
+    ).exclude(
+        reply_message__send_state__in=("sending", "unknown", "ambiguous", "sent")
+    )
+    recovery_ids = _locked_ids(recoveries, nowait=nowait)
+    if recovery_ids:
+        cancelled["recovery_jobs"] = IgAiReplyRecoveryJob.objects.filter(
+            pk__in=recovery_ids,
+            status__in=(
+                IgAiReplyRecoveryJob.Status.PENDING,
+                IgAiReplyRecoveryJob.Status.PROCESSING,
+            ),
+            sending_started_at__isnull=True,
+        ).update(
+            status=IgAiReplyRecoveryJob.Status.CANCELLED,
+            active_cursor_key=None,
+            next_attempt_at=None,
+            lease_token="",
+            lease_until=None,
+            completed_at=now,
+            last_error=reason[:1000],
+            updated_at=now,
+        )
+
+    client_message_ids = InstagramBotMessage.objects.filter(
+        client_id=client.pk
+    ).values("pk")
+    commerce = IgCommerceTurnDecision.objects.filter(
+        source_message_id__in=client_message_ids,
+        delivery_state=IgCommerceTurnDecision.DeliveryState.PENDING,
+        attempts=0,
+        delivery_started_at__isnull=True,
+    )
+    commerce_ids = _locked_ids(commerce, nowait=nowait)
+    if commerce_ids:
+        cancelled["commerce_decisions"] = IgCommerceTurnDecision.objects.filter(
+            pk__in=commerce_ids,
+            delivery_state=IgCommerceTurnDecision.DeliveryState.PENDING,
+            attempts=0,
+            delivery_started_at__isnull=True,
+        ).update(
+            delivery_state=IgCommerceTurnDecision.DeliveryState.NOT_REQUIRED,
+            delivery_error=reason[:1000],
+            updated_at=now,
         )
     if client.next_followup_at is not None:
         client.next_followup_at = None
         client.save(update_fields=["next_followup_at", "updated_at"])
     # Незавершений епізод деградації теж є автоматизацією: після takeover або
     # opt-out він не має права ані надіслати holding, ані відновити відповідь.
-    try:
-        from management.services.ig_provider_incidents import (
-            cancel_episodes_for_client,
-        )
+    protected_recovery_exists = IgAiReplyRecoveryJob.objects.filter(
+        client_id=client.pk,
+    ).filter(
+        Q(status__in=(
+            IgAiReplyRecoveryJob.Status.SENDING,
+            IgAiReplyRecoveryJob.Status.AMBIGUOUS,
+        ))
+        | Q(sending_started_at__isnull=False)
+        | Q(reply_message__send_state__in=("sending", "unknown", "ambiguous", "sent"))
+    ).exists()
+    if not protected_recovery_exists:
+        try:
+            from management.services.ig_provider_incidents import (
+                cancel_episodes_for_client,
+            )
 
-        cancel_episodes_for_client(client.pk, reason=reason)
-    except Exception:
-        logger.debug("degradation episode cancellation unavailable", exc_info=True)
+            cancel_episodes_for_client(client.pk, reason=reason)
+        except Exception:
+            logger.debug("degradation episode cancellation unavailable", exc_info=True)
+    return cancelled
+
+
+def _cancel_client_automation(
+    client: IgClient,
+    *,
+    reason: str,
+    now,
+    nowait: bool,
+) -> None:
+    cancel_client_unstarted_automation(
+        client,
+        reason=reason,
+        now=now,
+        nowait=nowait,
+    )
 
 
 def _cancel_global_automation(*, now, nowait: bool) -> None:
