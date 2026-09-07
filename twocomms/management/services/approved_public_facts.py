@@ -13,7 +13,7 @@ import json
 from management.services.ig_core_policy import ORDINARY_DISPATCH_WINDOW_DAYS
 
 
-APPROVED_PUBLIC_FACTS_VERSION = "2026-09-07.b02.8"
+APPROVED_PUBLIC_FACTS_VERSION = "2026-09-07.b02.8.1"
 SUPPORTED_PUBLIC_FACT_LANGUAGES = ("uk", "ru", "en")
 
 
@@ -91,6 +91,20 @@ _FACTS: dict[str, tuple[ApprovedPublicFact, ...]] = {
             "ordinary_dispatch_after_confirmed_payment",
         ),
         ApprovedPublicFact(
+            "service_request",
+            "Для сервісного звернення повідомте номер замовлення, коротко опишіть "
+            "ситуацію та бажаний результат. За потреби додайте фото. Команда "
+            "перевірить деталі й погодить подальші кроки, строки та умови пересилання.",
+            "service_intake_without_automatic_remedy_or_deadline",
+        ),
+        ApprovedPublicFact(
+            "delivery_delay",
+            "Якщо відправлення затримується, зверніться до команди з номером "
+            "замовлення або ТТН. Перевіримо доступний статус і уточнимо подальші дії; "
+            "точний строк залежить від перевізника та конкретної ситуації.",
+            "delivery_issue_status_and_team_review",
+        ),
+        ApprovedPublicFact(
             "service_boundary",
             "Для каталожних товарів після отримання діє орієнтир 14 днів для "
             "звичайного обміну або повернення за застосовними умовами та після розгляду "
@@ -145,6 +159,20 @@ _FACTS: dict[str, tuple[ApprovedPublicFact, ...]] = {
             "подтверждения оплаты. Это не гарантия и не срок перевозки: доставка "
             "после отправки зависит от Новой Почты и маршрута.",
             "ordinary_dispatch_after_confirmed_payment",
+        ),
+        ApprovedPublicFact(
+            "service_request",
+            "Для сервисного обращения сообщите номер заказа, кратко опишите "
+            "ситуацию и желаемый результат. При необходимости добавьте фото. Команда "
+            "проверит детали и согласует дальнейшие шаги, сроки и условия пересылки.",
+            "service_intake_without_automatic_remedy_or_deadline",
+        ),
+        ApprovedPublicFact(
+            "delivery_delay",
+            "Если отправление задерживается, обратитесь к команде с номером "
+            "заказа или ТТН. Проверим доступный статус и уточним дальнейшие действия; "
+            "точный срок зависит от перевозчика и конкретной ситуации.",
+            "delivery_issue_status_and_team_review",
         ),
         ApprovedPublicFact(
             "service_boundary",
@@ -202,6 +230,20 @@ _FACTS: dict[str, tuple[ApprovedPublicFact, ...]] = {
             "payment is confirmed. This is not a guarantee or a transit time: "
             "delivery after dispatch depends on Nova Poshta and the route.",
             "ordinary_dispatch_after_confirmed_payment",
+        ),
+        ApprovedPublicFact(
+            "service_request",
+            "For a service request, share your order number, briefly describe "
+            "the situation and your preferred outcome, and add a photo if helpful. "
+            "The team will review the details and agree on next steps, timing and shipping terms.",
+            "service_intake_without_automatic_remedy_or_deadline",
+        ),
+        ApprovedPublicFact(
+            "delivery_delay",
+            "If a shipment is delayed, contact the team with your order or tracking "
+            "number. We will check the available status and clarify next steps; "
+            "exact timing depends on the carrier and the situation.",
+            "delivery_issue_status_and_team_review",
         ),
         ApprovedPublicFact(
             "service_boundary",
@@ -284,3 +326,11 @@ def approved_provider_fact_definitions(language: str = "uk") -> tuple[tuple[str,
         (f"approved_public:{language}:{fact.key}", fact.body, priority)
         for priority, fact in enumerate(facts)
     )
+
+
+def approved_provider_fact_text(key: str, language: str = "uk") -> str:
+    """Return one reviewed provider fact without exposing archive Markdown."""
+    for fact in approved_public_facts(language):
+        if fact.key == key:
+            return fact.body
+    raise KeyError(f"unknown approved public fact key: {key}")

@@ -251,6 +251,12 @@
             <a href="{{ direct_url }}" target="_blank" rel="noopener noreferrer">{{ copy.change_order }}</a>
           </aside>
 
+          <details class="ig-direct-help" data-approved-policy-copy>
+            <summary>{{ copy.delivery }} · {{ copy.returns }}</summary>
+            <p>{{ approved_policy.dispatch }}</p>
+            <p>{{ approved_policy.service_boundary }}</p>
+          </details>
+
           <div class="ig-payment-rail" data-payment-rail>
             <div class="ig-payment-rail__amount" data-payment-amount>
               <span>{% if proposal.is_prepayment %}{{ copy.charge_now }}{% else %}{{ copy.total }}{% endif %}</span>

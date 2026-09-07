@@ -17,6 +17,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from management.models import IgCheckoutAccessToken, IgCheckoutProposal
+from storefront.services.approved_policy_copy import approved_policy_copy
 
 
 GRANT_SALT = "twocomms.instagram-checkout.grant.v1"
@@ -728,6 +729,7 @@ def _item_context(item):
 def _proposal_context(proposal, *, request, grant_id="", form_error="", form_error_field="", form_values=None):
     language = _checkout_language(request, proposal)
     copy = dict(CHECKOUT_COPY[language])
+    approved_policy = approved_policy_copy(language)
     if proposal.assisted_checkout_v2:
         copy["fixed_price_title"] = copy["fixed_price_title_v2"]
         copy["price_dialog_body"] = copy["price_dialog_body_v2"]
@@ -825,6 +827,9 @@ def _proposal_context(proposal, *, request, grant_id="", form_error="", form_err
         })
     return {
         "copy": copy,
+        "approved_policy": approved_policy["text"],
+        # Kept for server-side review/parity checks; never rendered to buyers.
+        "approved_policy_manifest": approved_policy["metadata"],
         "html_lang": language,
         "language_options": language_options,
         "checkout_state": state,

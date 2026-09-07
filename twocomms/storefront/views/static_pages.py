@@ -67,6 +67,7 @@ from storefront.services.marketplace_feeds import (
 from storefront.services.feed_registry import get_system_feed
 from storefront.services.size_guides import build_public_size_guide_blocks
 from storefront.services.fact_registry import free_shipping_threshold
+from storefront.services.approved_policy_copy import apply_support_policy_copy
 from storefront.services.public_products import public_products_queryset
 from storefront.support_content import (
     FOOTER_CONTENT,
@@ -1170,6 +1171,9 @@ def _build_page_context(request, page_key):
     # Phase 17d.7 — translate top-level meta + hero fields per active language.
     from ..support_translations import apply_language_overrides
     page = apply_language_overrides(
+        page, page_key, getattr(request, "LANGUAGE_CODE", "uk") or "uk"
+    )
+    page = apply_support_policy_copy(
         page, page_key, getattr(request, "LANGUAGE_CODE", "uk") or "uk"
     )
     page["key"] = page_key
