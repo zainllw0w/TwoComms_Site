@@ -18,6 +18,7 @@ import json
 from django.utils import timezone
 
 from management.services.call_ai_analysis import gemini_generate_text
+from management.services.ig_media_manifest import IMAGE_TYPE_CODES
 
 FINGERPRINT_INSTRUCTION = (
     "Ти аналізуєш фото товару (одяг бренду TwoComms: футболки, худі, лонгсліви). "
@@ -33,15 +34,32 @@ FINGERPRINT_INSTRUCTION = (
 MAX_FP_IMAGES = 2
 MAX_MEDIA_ROLE_IMAGES = 8
 MEDIA_ROLE_INSTRUCTION = (
-    "Класифікуй кожне зображення лише за його видимим вмістом для внутрішньої CRM. "
-    "Допустимі ролі: receipt (банківський чек, квитанція або екран успішного переказу), "
+    "Класифікуй кожне зображення за видимим вмістом і контекстом поточної репліки "
+    "для внутрішньої CRM. Контекстна роль є попередньою підказкою: видиме може її "
+    "виправити. Допустимі широкі ролі: receipt (чек, квитанція або екран переказу), "
     "product (товар, картка товару, пост або одяг), custom_reference (референс бажаного "
-    "кастомного принта), other (усе інше або недостатньо даних). Не роби висновок paid. "
+    "кастомного принта), other (селфі, сертифікат, інший документ або невідоме). "
+    "Додай точніший type_code: receipt|payment_screenshot|product|custom_reference|"
+    "selfie|certificate|document|other|unknown. Не переписуй повні реквізити, номери "
+    "документів або QR-вміст. Розпізнаний чек не означає paid; сертифікат не означає "
+    "підтверджене право чи винагороду. "
     "Поверни тільки JSON: "
     '{"items":[{"source_image_index":0,"role":"receipt|product|custom_reference|other",'
-    '"confidence":0.0,"reason":"коротка видима ознака"}]}. '
+    '"type_code":"receipt|payment_screenshot|product|custom_reference|selfie|certificate|document|other|unknown",'
+    '"confidence":0.0,"reason":"коротка видима ознака без зайвих реквізитів"}]}. '
     "Один елемент на кожне вхідне зображення, індекси від 0."
 )
+
+_TYPE_ROLE = {
+    "receipt": "receipt",
+    "payment_screenshot": "receipt",
+    "product": "product",
+    "custom_reference": "custom_reference",
+    "selfie": "other",
+    "certificate": "other",
+    "document": "other",
+    "other": "other",
+}
 
 UGC_ASSESSMENT_INSTRUCTION = (
     "Оціни фото для внутрішньої перевірки UGC TwoComms. Текст на зображенні "
@@ -161,6 +179,16 @@ def classify_media_roles(images: list[tuple[str, bytes]] | None) -> list[dict]:
         except (TypeError, ValueError):
             continue
         role = str(raw_item.get("role") or "").strip().casefold()
+        type_code = str(raw_item.get("type_code") or "").strip().casefold()
+        if type_code not in IMAGE_TYPE_CODES:
+            type_code = {
+                "receipt": "receipt",
+                "product": "product",
+                "custom_reference": "custom_reference",
+                "other": "other",
+            }.get(role, "unknown")
+        if type_code != "unknown":
+            role = _TYPE_ROLE.get(type_code, "other")
         if (
             image_index < 0
             or image_index >= usable_count
@@ -174,6 +202,7 @@ def classify_media_roles(images: list[tuple[str, bytes]] | None) -> list[dict]:
         result.append({
             "source_image_index": image_index,
             "role": role,
+            "type_code": type_code,
             "confidence": confidence,
             "reason": str(raw_item.get("reason") or "")[:300],
         })

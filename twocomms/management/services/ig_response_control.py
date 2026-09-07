@@ -20,6 +20,14 @@ from management.services.ig_media_manifest import (
     IMAGE_OBSERVATION_OUTCOMES,
     IMAGE_TYPE_CODES,
 )
+from management.services.ig_prize_programme import (
+    PRIZE_CUE_CODES,
+    PRIZE_REASON_CODES,
+    PRIZE_STATUSES,
+    PrizeCertificateObservation,
+    PrizeProgramme,
+    validate_prize_observation,
+)
 
 
 CONTROL_KINDS = frozenset(
@@ -223,6 +231,24 @@ STRUCTURED_RESPONSE_SCHEMA = {
                                 "type": "string",
                                 "enum": sorted(IMAGE_TYPE_CODES),
                             },
+                            "prize_certificate": {
+                                "type": "object",
+                                "properties": {
+                                    "programme_id": {"type": "string", "maxLength": 64},
+                                    "programme_version": {"type": "string", "maxLength": 64},
+                                    "status": {"type": "string", "enum": sorted(PRIZE_STATUSES)},
+                                    "cue_codes": {
+                                        "type": "array", "maxItems": len(PRIZE_CUE_CODES),
+                                        "items": {"type": "string", "enum": sorted(PRIZE_CUE_CODES)},
+                                    },
+                                    "reason_code": {"type": "string", "enum": sorted(PRIZE_REASON_CODES)},
+                                    "manager_required": {"type": "boolean", "const": True},
+                                },
+                                "required": [
+                                    "programme_id", "programme_version", "status", "cue_codes",
+                                    "reason_code", "manager_required",
+                                ],
+                            },
                         },
                         "required": ["source_image_index", "outcome"],
                     },
@@ -236,9 +262,19 @@ STRUCTURED_RESPONSE_SCHEMA = {
 }
 
 
-def structured_response_schema() -> dict[str, Any]:
-    """Return a caller-owned copy of the provider response schema."""
-    return deepcopy(STRUCTURED_RESPONSE_SCHEMA)
+def structured_response_schema(
+    *,
+    prize_programme: PrizeProgramme | None = None,
+) -> dict[str, Any]:
+    """Return a caller-owned schema with prize output explicitly opted in."""
+    schema = deepcopy(STRUCTURED_RESPONSE_SCHEMA)
+    if not isinstance(prize_programme, PrizeProgramme):
+        observation_properties = (
+            schema["properties"]["turn_intelligence"]["properties"]
+            ["image_observations"]["items"]["properties"]
+        )
+        observation_properties.pop("prize_certificate", None)
+    return schema
 
 
 @dataclass(frozen=True)
@@ -271,6 +307,7 @@ class TurnImageObservation:
     outcome: str
     evidence_code: str = ""
     type_code: str = ""
+    prize_certificate: PrizeCertificateObservation | None = None
 
 
 @dataclass(frozen=True)
@@ -541,7 +578,11 @@ def _parse_follow_candidate(payload: object) -> FollowCtaCandidate | None:
     return FollowCtaCandidate(text=text)
 
 
-def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None:
+def _parse_turn_intelligence(
+    payload: object,
+    *,
+    prize_programme: PrizeProgramme | None = None,
+) -> TurnIntelligenceArtifact | None:
     required = {"catalog_candidates", "transcript", "intent", "confidence"}
     if (
         not isinstance(payload, dict)
@@ -586,7 +627,7 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
     seen_image_indexes = set()
     for raw in observations:
         if not isinstance(raw, dict) or not set(raw).issubset({
-            "source_image_index", "outcome", "evidence_code", "type_code",
+            "source_image_index", "outcome", "evidence_code", "type_code", "prize_certificate",
         }) or not {"source_image_index", "outcome"}.issubset(raw):
             return None
         source_image_index = raw.get("source_image_index")
@@ -604,12 +645,22 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
             or type_code not in IMAGE_TYPE_CODES
         ):
             return None
+        prize_certificate = None
+        if "prize_certificate" in raw:
+            if type_code != "certificate":
+                return None
+            prize_certificate = validate_prize_observation(
+                raw.get("prize_certificate"), programme=prize_programme,
+            )
+            if prize_certificate is None:
+                return None
         seen_image_indexes.add(source_image_index)
         parsed_observations.append(TurnImageObservation(
             source_image_index=source_image_index,
             outcome=outcome,
             evidence_code=evidence_code,
             type_code=type_code,
+            prize_certificate=prize_certificate,
         ))
     transcript = payload.get("transcript")
     intent = payload.get("intent")
@@ -637,7 +688,11 @@ def _parse_turn_intelligence(payload: object) -> TurnIntelligenceArtifact | None
     )
 
 
-def parse_structured_response(payload: object) -> ValidatedResponse:
+def parse_structured_response(
+    payload: object,
+    *,
+    prize_programme: PrizeProgramme | None = None,
+) -> ValidatedResponse:
     """Validate a structured model response without performing side effects."""
     if isinstance(payload, str):
         try:
@@ -680,7 +735,9 @@ def parse_structured_response(payload: object) -> ValidatedResponse:
         else None
     )
     turn_intelligence = (
-        _parse_turn_intelligence(payload.get("turn_intelligence"))
+        _parse_turn_intelligence(
+            payload.get("turn_intelligence"), prize_programme=prize_programme,
+        )
         if "turn_intelligence" in payload
         else None
     )

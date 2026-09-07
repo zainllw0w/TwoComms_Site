@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -294,6 +295,132 @@ class CommerceProjectionTests(CommerceStateFixture, TestCase):
 
 
 class CommerceWorkerIntegrationTests(CommerceStateFixture, TestCase):
+    def test_live_media_commerce_owner_preserves_unknown_delivery(self):
+        from management.services.ig_commerce_replies import build_durable_reply_payload
+
+        source = self.message("live-media-unknown")
+        decision = apply_turn(
+            self.client,
+            source,
+            self.select(self.classic),
+            reply_builder=build_durable_reply_payload,
+        )
+        decision.delivery_state = IgCommerceTurnDecision.DeliveryState.NOT_REQUIRED
+        decision.reconciliation_result = {
+            "delivery_owner": instagram_bot.LIVE_MEDIA_COMMERCE_OWNER,
+            "source_message_id": source.pk,
+        }
+        decision.save(update_fields=[
+            "delivery_state", "reconciliation_result", "updated_at",
+        ])
+
+        instagram_bot._finalize_live_media_commerce_delivery(
+            decision,
+            state="unknown",
+            error="provider_message_id_missing",
+        )
+
+        decision.refresh_from_db()
+        self.assertEqual(
+            decision.delivery_state,
+            IgCommerceTurnDecision.DeliveryState.UNKNOWN,
+        )
+        self.assertEqual(
+            decision.reconciliation_status,
+            IgCommerceTurnDecision.ReconciliationStatus.REQUIRED,
+        )
+        self.assertEqual(decision.delivery_error, "provider_message_id_missing")
+
+    def test_image_and_durable_commerce_fact_share_one_live_answer(self):
+        self.client.profile_fetched_at = timezone.now()
+        self.client.save(update_fields=["profile_fetched_at", "updated_at"])
+        settings = InstagramBotSettings.load()
+        settings.is_enabled = True
+        settings.ai_enabled = True
+        settings.allowed_senders = ""
+        settings.save(update_fields=["is_enabled", "ai_enabled", "allowed_senders"])
+        raw = b"commerce-image"
+        url = "https://lookaside.example/commerce-image.jpg"
+        row = InstagramBotMessage.objects.create(
+            sender_id=self.client.igsid,
+            client=self.client,
+            role=InstagramBotMessage.Role.USER,
+            text=f"https://twocomms.shop/product/{self.classic.slug}/",
+            mid="commerce-worker-image-reference",
+            status=InstagramBotMessage.Status.PROCESSING,
+            processing_started_at=timezone.now(),
+            source="webhook",
+            media_capture_eligible=True,
+            attachment_media=[{
+                "url": url,
+                "type": "image",
+                "provenance": "live_webhook",
+                "status": "owned",
+                "storage_name": "private/commerce.jpg",
+                "mime": "image/jpeg",
+            }],
+        )
+        part = {
+            "source_part_id": "mp1_" + "c" * 32,
+            "source_message_scope": "scope",
+            "original_index": 0,
+            "identity_origin": "ingress",
+            "provenance": "live_webhook",
+            "status": "owned",
+            "capture_state": "owned",
+            "mime": "image/jpeg",
+            "bytes": len(raw),
+            "content_hash": hashlib.sha256(raw).hexdigest(),
+            "data": raw,
+        }
+        from management.services.instagram_bot import ProviderDeliveryReceipt
+
+        with patch(
+            "management.services.bot_sales_classifier.ensure_rule_classification",
+            return_value=None,
+        ), patch(
+            "management.services.instagram_bot._capture_message_media"
+        ), patch(
+            "management.services.instagram_bot._collect_media_parts",
+            return_value=[part],
+        ), patch(
+            "management.services.instagram_bot._rate_exceeded", return_value=False
+        ), patch(
+            "management.services.instagram_bot._repeated_question", return_value=0
+        ), patch(
+            "management.services.instagram_bot.send_sender_action"
+        ), patch(
+            "management.services.instagram_bot.gemini_generate",
+            return_value=(
+                "Бачу фото. Зафіксувала цей варіант; підкажіть розмір, колір і кількість."
+            ),
+        ) as generate, patch(
+            "management.services.instagram_bot.send_text",
+            return_value=ProviderDeliveryReceipt(
+                True,
+                "",
+                "",
+                "provider-commerce-image",
+            ),
+        ) as send_text:
+            self.assertTrue(instagram_bot._process_one(settings, row))
+
+        generate.assert_called_once()
+        send_text.assert_called_once()
+        self.assertEqual(len(generate.call_args.kwargs["images"]), 1)
+        self.assertIn(
+            "Зафіксувала цей варіант",
+            generate.call_args.kwargs["turn_note"],
+        )
+        decision = IgCommerceTurnDecision.objects.get(source_message=row)
+        self.assertEqual(decision.delivery_state, IgCommerceTurnDecision.DeliveryState.SENT)
+        self.assertEqual(decision.provider_message_ids, ["provider-commerce-image"])
+        self.assertEqual(decision.attempts, 0)
+        self.assertEqual(
+            decision.reconciliation_result["delivery_owner"],
+            instagram_bot.LIVE_MEDIA_COMMERCE_OWNER,
+        )
+
     def test_worker_persists_exact_product_reference_before_gemini(self):
         self.client.current_product = self.reality
         self.client.current_size = "L"

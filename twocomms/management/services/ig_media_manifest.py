@@ -20,7 +20,8 @@ IMAGE_EVIDENCE_CODES = frozenset({
     "visual_content", "text_visible", "text_unreadable", "insufficient_detail",
 })
 IMAGE_TYPE_CODES = frozenset({
-    "product", "custom_reference", "receipt", "document", "other", "unknown",
+    "product", "custom_reference", "receipt", "payment_screenshot", "selfie",
+    "certificate", "document", "other", "unknown",
 })
 _TERMINAL_MISSING_CAPTURE_STATES = frozenset({
     "failed", "expired", "blocked", "metadata_only", "delete_pending", "deleted",
@@ -223,6 +224,7 @@ def map_image_observations(
     image_count: int,
     actual_inline_count: int,
     actual_content_hashes: Sequence[object] | None = None,
+    prize_programme=None,
 ) -> list[dict]:
     """Validate model image indexes and map them to redacted local evidence.
 
@@ -247,6 +249,7 @@ def map_image_observations(
                 "outcome": getattr(raw, "outcome", None),
                 "evidence_code": getattr(raw, "evidence_code", ""),
                 "type_code": getattr(raw, "type_code", ""),
+                "prize_certificate": getattr(raw, "prize_certificate", None),
             }
         index = _nonnegative_int(value.get("source_image_index"))
         if index < len(parts) and str(parts[index].get("mime") or "").startswith("audio/"):
@@ -262,6 +265,17 @@ def map_image_observations(
             or type_code not in IMAGE_TYPE_CODES
         ):
             raise MediaManifestError("invalid_image_observation")
+        prize_certificate = value.get("prize_certificate")
+        if prize_certificate is not None:
+            if type_code != "certificate":
+                raise MediaManifestError("prize_requires_certificate")
+            from management.services.ig_prize_programme import validate_prize_observation
+
+            prize_certificate = validate_prize_observation(
+                prize_certificate, programme=prize_programme,
+            )
+            if prize_certificate is None:
+                raise MediaManifestError("invalid_prize_observation")
         seen_indexes.add(index)
         part = dict(by_index[index])
         part.update({
@@ -269,5 +283,7 @@ def map_image_observations(
             "evidence_code": evidence_code,
             "type_code": type_code,
         })
+        if prize_certificate is not None:
+            part["prize_certificate"] = prize_certificate.public_value()
         result.append(part)
     return result

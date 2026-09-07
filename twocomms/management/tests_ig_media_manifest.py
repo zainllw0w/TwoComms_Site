@@ -448,6 +448,160 @@ class MediaBundleIntegrationTests(SimpleTestCase):
         self.assertEqual(intelligence["transcript"], "")
         self.assertFalse(intelligence["media_request"]["inline_count_known"])
 
+    @patch("management.services.instagram_bot.assemble_system_instruction", return_value="system")
+    @patch("management.services.instagram_bot.select_chat_reasoning_task", return_value="media_analysis")
+    @patch("management.services.call_ai_analysis.gemini_generate_text")
+    def test_four_small_contextual_images_share_one_exact_live_request(
+        self, generate, _reasoning, _assemble
+    ):
+        raw_values = (b"receipt", b"selfie", b"certificate", b"product")
+        type_codes = ("receipt", "selfie", "certificate", "product")
+        media = instagram_bot._normalize_message_media([
+            {
+                "provenance": "live_webhook",
+                "status": "owned",
+                "original_index": index + 3,
+            }
+            for index in range(4)
+        ], message_scope=55, identity_origin="ingress")
+        parts = []
+        provisional = []
+        for index, (item, raw) in enumerate(zip(media, raw_values, strict=True)):
+            part = {
+                **item,
+                "mime": "image/jpeg",
+                "bytes": len(raw),
+                "content_hash": hashlib.sha256(raw).hexdigest(),
+                "data": raw,
+            }
+            parts.append(part)
+            provisional.append({
+                "source_part_id": part["source_part_id"],
+                "original_index": part["original_index"],
+                "role": "receipt" if index == 0 else "product" if index == 3 else "other",
+                "intent": "payment_evidence" if index == 0 else "interest",
+            })
+        binding = instagram_bot._source_media_binding(
+            SimpleNamespace(
+                pk=55,
+                created_at=None,
+                provider_created_at=None,
+                attachment_media=media,
+            ),
+            parts,
+        )
+        generate.return_value = {
+            "parsed": {
+                "reply_text": "Бачу всі чотири зображення та врахувала їхній контекст.",
+                "controls": [],
+                "turn_intelligence": {
+                    "catalog_candidates": [],
+                    "transcript": "",
+                    "intent": "media_review",
+                    "confidence": 0.8,
+                    "image_observations": [
+                        {
+                            "source_image_index": index,
+                            "outcome": "understood",
+                            "evidence_code": "visual_content",
+                            "type_code": type_code,
+                        }
+                        for index, type_code in enumerate(type_codes)
+                    ],
+                },
+            },
+            "usage": {"_request_inline_count": 4},
+            "model": "gemini-actual",
+            "meta": {"request_id": "request-55"},
+        }
+        failure = {}
+
+        result = instagram_bot.gemini_generate(
+            InstagramBotSettings(),
+            [{"role": "user", "text": "Чек, селфі, сертифікат і товар."}],
+            images=[(part["mime"], part["data"]) for part in parts],
+            failure_context=failure,
+            routing_decision=self._routing(),
+            turn_candidate_set={
+                "version": "test",
+                "complete": True,
+                "overflow": False,
+                "candidates": [],
+                "digest": instagram_bot._turn_candidate_digest([]),
+            },
+            turn_media_binding=binding,
+            turn_media_context=provisional,
+        )
+
+        self.assertTrue(result.valid)
+        self.assertEqual(len(failure["turn_intelligence"]["image_observations"]), 4)
+        payload = generate.call_args.args[0]
+        inline = [
+            part
+            for content in payload["contents"]
+            for part in content["parts"]
+            if "inline_data" in part
+        ]
+        self.assertEqual(len(inline), 4)
+        system_text = payload["system_instruction"]["parts"][0]["text"]
+        for index in range(4):
+            self.assertIn(f'"source_image_index":{index}', system_text)
+        self.assertIn("not verified payment", system_text)
+        self.assertIn("not verified entitlement", system_text)
+        self.assertNotIn("source_part_id", system_text)
+        self.assertNotIn(parts[0]["content_hash"], system_text)
+
+    def test_actual_inline_image_requires_one_bound_observation(self):
+        raw = b"image"
+        part = instagram_bot._normalize_message_media([{
+            "provenance": "live_webhook",
+            "status": "owned",
+            "mime": "image/jpeg",
+            "content_hash": hashlib.sha256(raw).hexdigest(),
+        }], message_scope=56, identity_origin="ingress")[0]
+        parsed = parse_structured_response({
+            "reply_text": "Бачу вкладення.",
+            "controls": [],
+            "turn_intelligence": {
+                "catalog_candidates": [],
+                "transcript": "",
+                "intent": "media_review",
+                "confidence": 0.7,
+                "image_observations": [],
+            },
+        })
+        binding = {
+            "version": "owned-media-v2",
+            "source_message_id": 56,
+            "source_message_revision": "revision",
+            "items": [{
+                **part,
+                "bytes": len(raw),
+            }],
+            "content_hashes": [part["content_hash"]],
+            "count": 1,
+            "digest": "digest",
+            "provider_model": "gemini-actual",
+            "request_id": "request-56",
+            "actual_inline_count": 1,
+            "actual_content_hashes": [part["content_hash"]],
+        }
+
+        self.assertEqual(
+            instagram_bot._validated_turn_intelligence(
+                parsed.turn_intelligence,
+                {
+                    "version": "test",
+                    "complete": True,
+                    "overflow": False,
+                    "candidates": [],
+                    "digest": instagram_bot._turn_candidate_digest([]),
+                },
+                binding,
+            ),
+            {},
+        )
+
     def test_rejects_free_text_evidence_code(self):
         result = parse_structured_response({
             "reply_text": "Перевіряю.",

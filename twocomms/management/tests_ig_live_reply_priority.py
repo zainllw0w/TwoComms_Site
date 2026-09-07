@@ -1,3 +1,4 @@
+import hashlib
 from contextlib import nullcontext
 from datetime import timedelta
 from decimal import Decimal
@@ -2333,24 +2334,28 @@ class QuietDegradationTests(TestCase):
     # поэтому подготовленное `attachment_media` не должно перезаписываться.
     @patch("management.services.bot_followups.schedule_after_bot_reply")
     @patch("management.services.instagram_bot._capture_message_media")
+    @patch("management.services.instagram_bot._collect_media_parts")
     @patch("management.services.instagram_bot.send_sender_action")
     @patch("management.services.instagram_bot.gemini_generate")
     @patch("management.services.instagram_bot.send_text", return_value=(True, "", ""))
-    def test_story_repost_gets_thanks_not_an_apology(
-        self, send_text, generate, _sender_action, _capture, schedule_followup
+    def test_owned_story_repost_uses_one_live_generation_then_safe_ack(
+        self,
+        send_text,
+        generate,
+        _sender_action,
+        collect_parts,
+        _capture,
+        schedule_followup,
     ):
-        """Зафиксированный случай: репост истории с отметкой бренда."""
-        def typed_provider_outage(*_args, **kwargs):
-            kwargs["failure_context"]["kind"] = "provider_outage"
-            return None
-
-        generate.side_effect = typed_provider_outage
-        self._pending(
+        """Owned native UGC shares the live contextual vision request."""
+        generate.return_value = "Дякую за відмітку — бачу ваше фото у футболці."
+        source = self._pending(
             # Текст-заполнитель из production-строки 2793: пустым он не был, и
             # именно поэтому обошёл прежний gate «вложение без текста».
             "(зображення)",
             "story-repost",
             media=[{
+                "url": "https://lookaside.example/story-quiet.jpg",
                 "media_type": "story_mention",
                 "provenance": "live_webhook",
                 "provider_native_mention": True,
@@ -2361,10 +2366,29 @@ class QuietDegradationTests(TestCase):
                 "provider_media_id": "quiet-media-1",
             }],
         )
+        collect_parts.return_value = [{
+            "source_part_id": "mp1_" + "a" * 32,
+            "source_message_scope": "scope",
+            "original_index": 0,
+            "identity_origin": "ingress",
+            "provenance": "live_webhook",
+            "status": "owned",
+            "capture_state": "owned",
+            "mime": "image/jpeg",
+            "bytes": 9,
+            "content_hash": hashlib.sha256(b"ugc-image").hexdigest(),
+            "data": b"ugc-image",
+        }]
 
         instagram_bot.process_pending(self.settings, max_items=1)
 
-        generate.assert_not_called()
+        generate.assert_called_once()
+        self.assertEqual(len(generate.call_args.kwargs["images"]), 1)
+        self.assertEqual(len(generate.call_args.kwargs["turn_media_context"]), 1)
+        ugc_note = generate.call_args.kwargs["turn_note"]
+        self.assertIn("видимому зображенню", ugc_note)
+        self.assertNotIn("не пояснюй товар", ugc_note)
+        self.assertIn("не обіцяй винагороду", ugc_note)
         schedule_followup.assert_not_called()
         self.assertTrue(send_text.called, "за отметку надо поблагодарить")
         reply = send_text.call_args.args[2].casefold()
@@ -2374,9 +2398,13 @@ class QuietDegradationTests(TestCase):
             any(anchor in reply for anchor in ("дяку", "спасиб", "thank")),
             reply,
         )
-        source = InstagramBotMessage.objects.get(mid="quiet-story-repost")
-        self.assertEqual(source.gemini_task_class, "no_model")
-        self.assertEqual(source.gemini_routing_model_chain, [])
+        source.refresh_from_db()
+        self.assertEqual(source.gemini_task_class, "complex_live")
+        self.assertTrue(source.gemini_routing_model_chain)
+        from management.ig_bot_models import IgUgcReward
+
+        self.assertFalse(IgUgcReward.objects.filter(client=self.client).exists())
+        self.assertFalse(IgPaymentProjection.objects.filter(client=self.client).exists())
 
     @patch("management.services.instagram_bot._capture_message_media")
     @patch("management.services.instagram_bot.send_sender_action")
@@ -2421,6 +2449,65 @@ class QuietDegradationTests(TestCase):
         self.assertEqual(assessment.decision, "pending")
         source.refresh_from_db()
         self.assertEqual(source.gemini_task_class, "no_model")
+
+    @patch("management.services.instagram_bot._repeated_question", return_value=4)
+    @patch("management.services.ig_payment_review._raw_media_by_mid")
+    @patch("management.services.instagram_bot._capture_message_media")
+    @patch("management.services.instagram_bot._collect_media_parts")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch(
+        "management.services.instagram_bot.gemini_generate",
+        return_value="Бачу зображення та враховую його контекст.",
+    )
+    @patch("management.services.instagram_bot.send_text")
+    def test_raw_only_media_defeats_reaction_and_repeat_shortcuts(
+        self,
+        send_text,
+        generate,
+        _sender_action,
+        collect_parts,
+        _capture,
+        raw_media,
+        _repeated,
+    ):
+        send_text.return_value = instagram_bot.ProviderDeliveryReceipt(
+            True,
+            "",
+            "",
+            "raw-only-context-reply",
+        )
+        source = self._pending("👍", "raw-only-context")
+        source.media_capture_eligible = True
+        source.save(update_fields=["media_capture_eligible"])
+        raw_media.return_value = {
+            source.mid: [{
+                "url": "https://lookaside.example/raw-only.jpg",
+                "type": "image",
+                "provenance": "historical_import",
+                "status": "metadata_only",
+                "original_index": 0,
+            }],
+        }
+        collect_parts.return_value = [{
+            "source_part_id": "mp1_" + "b" * 32,
+            "source_message_scope": "scope",
+            "original_index": 0,
+            "identity_origin": "ingress",
+            "provenance": "live_webhook",
+            "status": "owned",
+            "capture_state": "owned",
+            "mime": "image/jpeg",
+            "bytes": 8,
+            "content_hash": hashlib.sha256(b"raw-only").hexdigest(),
+            "data": b"raw-only",
+        }]
+
+        instagram_bot.process_pending(self.settings, max_items=1)
+
+        generate.assert_called_once()
+        self.assertEqual(len(generate.call_args.kwargs["images"]), 1)
+        source.refresh_from_db()
+        self.assertNotEqual(source.gemini_task_class, "no_model")
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")

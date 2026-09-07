@@ -7265,7 +7265,24 @@ def _validated_turn_intelligence(
                     media_binding.get("actual_content_hashes") or []
                 ),
             )
+            expected_image_indexes = {
+                index
+                for index, item in enumerate(binding_items[:actual_inline_count])
+                if str(item.get("mime") or "").startswith("image/")
+            }
+            observed_image_indexes = {
+                int(item.get("source_image_index"))
+                for item in observations
+                if isinstance(item, dict)
+            }
+            if expected_image_indexes != observed_image_indexes:
+                return {}
         except MediaManifestError:
+            if any(
+                str(item.get("mime") or "").startswith("image/")
+                for item in binding_items[:actual_inline_count]
+            ):
+                return {}
             observations = []
     has_audio = any(
         str(item.get("mime") or "").startswith("audio/")
@@ -7524,6 +7541,7 @@ def gemini_generate(
     routing_decision=None,
     turn_candidate_set: dict | None = None,
     turn_media_binding: dict | None = None,
+    turn_media_context: list[dict] | None = None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -7562,7 +7580,7 @@ def gemini_generate(
         if last.get("role") != "user":
             last = {"role": "user", "parts": [{"text": ""}]}
             contents.append(last)
-        for mime, raw in images[:3]:
+        for mime, raw in images[:8]:
             try:
                 last["parts"].append(
                     {"inline_data": {"mime_type": mime, "data": base64.b64encode(raw).decode()}}
@@ -7655,7 +7673,10 @@ def gemini_generate(
         )
     base_sys_text = sys_text
     if images:
-        sys_text += "\n\n" + _provider_media_manifest_note(turn_media_binding)
+        sys_text += "\n\n" + _provider_media_request_note(
+            turn_media_binding,
+            turn_media_context,
+        )
 
     payload = {
         "contents": contents,
@@ -7696,7 +7717,10 @@ def gemini_generate(
             payload["system_instruction"] = {
                 "parts": [{
                     "text": base_sys_text + (
-                        "\n\n" + _provider_media_manifest_note(turn_media_binding)
+                        "\n\n" + _provider_media_request_note(
+                            turn_media_binding,
+                            turn_media_context,
+                        )
                         if images
                         else ""
                     )
@@ -8595,6 +8619,129 @@ def _durable_commerce_text(decision) -> str:
     return texts[0].strip()
 
 
+LIVE_MEDIA_COMMERCE_OWNER = "live_media_turn_v1"
+
+
+def _claim_durable_commerce_for_live_media(
+    s: InstagramBotSettings,
+    row: InstagramBotMessage,
+    decision,
+    *,
+    lease_token: str,
+    permission,
+):
+    """Transfer a pending deterministic reply to this guarded live media turn."""
+    if not _renew_client_automation_lease(row, lease_token):
+        return None
+    from management.ig_bot_models import IgCommerceTurnDecision
+    from management.services.ig_reply_boundary import customer_send_boundary
+
+    with customer_send_boundary(s.pk, row.client_id, permission) as allowed:
+        if not allowed:
+            return None
+        with transaction.atomic():
+            source = InstagramBotMessage.objects.select_for_update().get(pk=row.pk)
+            if (
+                source.status != InstagramBotMessage.Status.PROCESSING
+                or source.processing_started_at != row.processing_started_at
+            ):
+                return None
+            locked = IgCommerceTurnDecision.objects.select_for_update().get(
+                pk=decision.pk,
+                source_message_id=row.pk,
+            )
+            ownership = (
+                locked.reconciliation_result
+                if isinstance(locked.reconciliation_result, dict)
+                else {}
+            )
+            if (
+                locked.delivery_state == locked.DeliveryState.NOT_REQUIRED
+                and ownership.get("delivery_owner") == LIVE_MEDIA_COMMERCE_OWNER
+            ):
+                locked._live_media_delivery_claimed = True
+                return locked
+            if (
+                not locked.delivery_required
+                or locked.delivery_state != locked.DeliveryState.PENDING
+            ):
+                return None
+            if not _durable_commerce_text(locked):
+                return None
+            ownership = {
+                **ownership,
+                "delivery_owner": LIVE_MEDIA_COMMERCE_OWNER,
+                "source_message_id": row.pk,
+            }
+            locked.delivery_state = locked.DeliveryState.NOT_REQUIRED
+            locked.reconciliation_status = locked.ReconciliationStatus.NOT_REQUIRED
+            locked.reconciliation_result = ownership
+            locked.delivery_error = ""
+            locked.save(update_fields=[
+                "delivery_state",
+                "reconciliation_status",
+                "reconciliation_result",
+                "delivery_error",
+                "updated_at",
+            ])
+            locked._live_media_delivery_claimed = True
+            return locked
+
+
+def _finalize_live_media_commerce_delivery(
+    decision,
+    *,
+    state: str,
+    provider_message_ids: list[str] | tuple[str, ...] = (),
+    error: str = "",
+) -> None:
+    """Record the combined answer's actual receipt or terminal ambiguity."""
+    if decision is None:
+        return
+    from management.ig_bot_models import IgCommerceTurnDecision
+
+    normalized_ids = list(normalize_provider_message_ids(provider_message_ids))
+    with transaction.atomic():
+        locked = IgCommerceTurnDecision.objects.select_for_update().filter(
+            pk=decision.pk,
+        ).first()
+        if locked is None:
+            return
+        ownership = (
+            locked.reconciliation_result
+            if isinstance(locked.reconciliation_result, dict)
+            else {}
+        )
+        if ownership.get("delivery_owner") != LIVE_MEDIA_COMMERCE_OWNER:
+            return
+        if state == locked.DeliveryState.SENT and normalized_ids:
+            locked.delivery_state = locked.DeliveryState.SENT
+            locked.text_receipts = [
+                {"index": index, "provider_message_id": provider_id}
+                for index, provider_id in enumerate(normalized_ids)
+            ]
+            locked.provider_message_ids = normalized_ids
+            locked.delivery_error = ""
+            locked.delivered_at = timezone.now()
+            locked.reconciliation_status = locked.ReconciliationStatus.NOT_REQUIRED
+        elif state == locked.DeliveryState.UNKNOWN:
+            locked.delivery_state = locked.DeliveryState.UNKNOWN
+            locked.delivery_error = str(error or "delivery_unknown")[:1000]
+            locked.delivered_at = None
+            locked.reconciliation_status = locked.ReconciliationStatus.REQUIRED
+        else:
+            return
+        locked.save(update_fields=[
+            "delivery_state",
+            "text_receipts",
+            "provider_message_ids",
+            "delivery_error",
+            "delivered_at",
+            "reconciliation_status",
+            "updated_at",
+        ])
+
+
 def _mark_durable_commerce_unknown(row: InstagramBotMessage, decision) -> bool:
     """Close this inbound turn after a non-replayable commerce boundary."""
     processed_at = timezone.now()
@@ -9079,7 +9226,7 @@ INLINE_MEDIA_RAW_BUDGET = 12 * 1024 * 1024
 # Leave deterministic headroom for the final model-specific thinking controls;
 # the dispatch layer then exact-serializes and fails closed at 20,000,000.
 INLINE_REQUEST_MAX_BYTES = 19_990_000
-INLINE_MEDIA_MAX_ITEMS = 3
+INLINE_MEDIA_MAX_ITEMS = 8
 INLINE_IMAGE_MAX_BYTES = 6 * 1024 * 1024
 INLINE_AUDIO_MAX_BYTES = 10 * 1024 * 1024
 SUPPORTED_INLINE_IMAGE_MIMES = frozenset({
@@ -9312,6 +9459,27 @@ def _provider_media_manifest_note(binding: dict | None) -> str:
         + json.dumps(safe_manifest, ensure_ascii=True, separators=(",", ":"))
         + "\nUse only inline source_image_index values in image_observations. "
         "Do not claim that unavailable or omitted parts were inspected."
+    )
+
+
+def _provider_media_request_note(
+    binding: dict | None,
+    provisional_media: list[dict] | None,
+) -> str:
+    from management.services.ig_image_context import build_contextual_image_note
+
+    binding = binding if isinstance(binding, dict) else {}
+    contextual = build_contextual_image_note(
+        binding.get("items") if isinstance(binding.get("items"), list) else [],
+        provisional_media,
+    )
+    return "\n\n".join(
+        part
+        for part in (
+            _provider_media_manifest_note(binding),
+            contextual,
+        )
+        if part
     )
 
 
@@ -10787,7 +10955,7 @@ def _maybe_purge_expired_private_media() -> None:
 
 def _collect_images(
     attachments_json: str | None,
-    limit: int = 3,
+    limit: int = 8,
     *,
     provenance: str = MEDIA_PROVENANCE_LIVE_WEBHOOK,
 ) -> list[tuple[str, bytes]]:
@@ -10882,7 +11050,7 @@ def _recover_current_message_media(row, limit: int = 8) -> list[dict] | None:
 
 def _collect_media_parts(
     media: list[dict] | None,
-    limit: int = 3,
+    limit: int = 8,
     *,
     message_id: int | None = None,
     lease_already_held: bool = False,
@@ -10951,7 +11119,7 @@ def _collect_media_parts(
 
 def _collect_media_images(
     media: list[dict] | None,
-    limit: int = 3,
+    limit: int = 8,
     *,
     message_id: int | None = None,
     lease_already_held: bool = False,
@@ -12626,7 +12794,17 @@ def _early_reply_suppression_reason(row: InstagramBotMessage) -> str:
     from management.services import bot_sales_classifier
 
     text = row.text or ""
-    if not row.attachments and bot_sales_classifier.is_reaction_only(text):
+    media_present = bool(
+        str(getattr(row, "attachments", "") or "").strip()
+        or any(
+            isinstance(item, dict) and item.get("url")
+            for item in (getattr(row, "attachment_media", None) or [])
+        )
+    )
+    reaction_text = bot_sales_classifier.is_reaction_only(text)
+    if reaction_text and not media_present:
+        media_present = bool(_raw_live_media_for_row(row))
+    if not media_present and reaction_text:
         return "reaction_only"
     if bot_sales_classifier.is_explicit_opt_out(text):
         return "opt_out"
@@ -12642,6 +12820,8 @@ def _early_reply_suppression_reason(row: InstagramBotMessage) -> str:
         .values_list("interaction_type", flat=True)
         .first()
     )
+    if interaction_type == "reaction_only" and not media_present:
+        media_present = bool(_raw_live_media_for_row(row))
     if interaction_type in {
         "reaction_only",
         "explicit_no_buy",
@@ -12649,6 +12829,8 @@ def _early_reply_suppression_reason(row: InstagramBotMessage) -> str:
         "spam_abuse",
         "no_reply",
     }:
+        if interaction_type == "reaction_only" and media_present:
+            return ""
         return str(interaction_type)
     return ""
 
@@ -13029,6 +13211,12 @@ def _process_one_inside_reply_boundary(
     routing_decision = None
     media_fail_safe = False
     ad_resolution = None
+    turn_media: list[dict] = []
+    turn_media_parts: list[dict] = []
+    turn_images: list[tuple[str, bytes]] = []
+    turn_media_binding: dict = {}
+    live_commerce_decision = None
+    live_commerce_fallback = ""
 
     if row.client_id:
         # Логічний хід: усі вхідні, що прийшли поки бот ще не відповів, належать
@@ -13171,6 +13359,13 @@ def _process_one_inside_reply_boundary(
             row.refresh_from_db(fields=["attachment_media"])
         except Exception as exc:
             log("warning", "message_media_capture", repr(exc))
+    turn_media = _recover_current_message_media(row) or []
+    turn_media_parts = _collect_media_parts(turn_media, message_id=row.pk)
+    turn_images = [
+        (str(part["mime"]), part["data"])
+        for part in turn_media_parts
+    ]
+    turn_media_binding = _source_media_binding(row, turn_media_parts)
     if row.client_id:
         try:
             from management.services.ig_ugc_assessment import (
@@ -13183,7 +13378,7 @@ def _process_one_inside_reply_boundary(
                 ugc_assessment = ensure_pending_ugc_assessment(row)
         except Exception as exc:
             log("warning", "ugc_ingress_assessment", repr(exc))
-    if ugc_turn:
+    if ugc_turn and not turn_media_parts:
         # Provider-native UGC has a deterministic social receipt.  The durable
         # pending assessment is drained separately on the dedicated 3.6
         # analysis lane; live chat must not spend a second Gemini request or
@@ -13203,11 +13398,8 @@ def _process_one_inside_reply_boundary(
         )
         log("info", "ugc_deterministic_reply", f"{row.sender_id}: no chat Gemini")
     elif not str(getattr(row, "quick_reply_payload", "") or "").strip():
-        gate_media = _recover_current_message_media(row)
-        gate_images = _collect_media_images(
-            gate_media or [],
-            message_id=row.pk,
-        )
+        gate_media = turn_media
+        gate_images = turn_images
         if (
             _turn_requires_owned_media(row)
             and not gate_images
@@ -13246,32 +13438,67 @@ def _process_one_inside_reply_boundary(
             try:
                 commerce_request, commerce_decision = _persist_commerce_turn(
                     row,
-                    media_evidence=_recover_current_message_media(row),
+                    media_evidence=turn_media,
                 )
             except DatabaseError:
                 raise
             except Exception as exc:
                 log("warning", "commerce_turn_reduce", repr(exc))
         if commerce_decision is not None and commerce_decision.delivery_required:
+            commerce_delivery_marker = (
+                commerce_decision.reconciliation_result
+                if isinstance(commerce_decision.reconciliation_result, dict)
+                else {}
+            )
+            live_media_already_owns = bool(
+                commerce_decision.delivery_state
+                == commerce_decision.DeliveryState.NOT_REQUIRED
+                and commerce_delivery_marker.get("delivery_owner")
+                == LIVE_MEDIA_COMMERCE_OWNER
+            )
+            if turn_media_parts or live_media_already_owns:
+                live_commerce_decision = _claim_durable_commerce_for_live_media(
+                    s,
+                    row,
+                    commerce_decision,
+                    lease_token=lease_token,
+                    permission=permission,
+                )
+                if live_commerce_decision is not None:
+                    live_commerce_fallback = _durable_commerce_text(
+                        live_commerce_decision
+                    )
+                    if not s.ai_enabled:
+                        reply = live_commerce_fallback
+                else:
+                    clear_typing_indicator()
+                    return _deliver_durable_commerce_reply(
+                        s,
+                        row,
+                        commerce_decision,
+                        lease_token=lease_token,
+                        permission=permission,
+                    )
+            else:
             # The reducer has already persisted this exact reply payload. Deliver it
             # before classification or follow-up scheduling can create side effects
             # for the same safe informational turn.
-            from management.services.gemini_routing import persist_decision
+                from management.services.gemini_routing import persist_decision
 
-            routing_decision = live_routing_decision(
-                s,
-                commerce_request=commerce_request,
-                deterministic_action="authoritative_reply",
-            )
-            persist_decision(row, routing_decision)
-            clear_typing_indicator()
-            return _deliver_durable_commerce_reply(
-                s,
-                row,
-                commerce_decision,
-                lease_token=lease_token,
-                permission=permission,
-            )
+                routing_decision = live_routing_decision(
+                    s,
+                    commerce_request=commerce_request,
+                    deterministic_action="authoritative_reply",
+                )
+                persist_decision(row, routing_decision)
+                clear_typing_indicator()
+                return _deliver_durable_commerce_reply(
+                    s,
+                    row,
+                    commerce_decision,
+                    lease_token=lease_token,
+                    permission=permission,
+                )
         try:
             if ugc_turn or media_fail_safe:
                 raise StopIteration
@@ -13280,7 +13507,7 @@ def _process_one_inside_reply_boundary(
             classified = bot_sales_classifier.ensure_rule_classification(
                 row.client,
                 row,
-                media_context=_recover_current_message_media(row),
+                media_context=turn_media,
             )
             if classified is not None:
                 interaction_type = classified.get("interaction_type")
@@ -13295,12 +13522,10 @@ def _process_one_inside_reply_boundary(
                         row.client,
                         reason=terminal_followup_reasons[interaction_type],
                     )
-                if interaction_type in {
-                    "reaction_only",
-                    "explicit_no_buy",
-                    "opt_out",
-                    "spam_abuse",
-                }:
+                terminal_classification = interaction_type in {
+                    "explicit_no_buy", "opt_out", "spam_abuse",
+                } or (interaction_type == "reaction_only" and not turn_media)
+                if terminal_classification:
                     _persist_no_model_route(row, action=interaction_type)
                     clear_typing_indicator()
                     processed_at = timezone.now()
@@ -13328,7 +13553,7 @@ def _process_one_inside_reply_boundary(
             raise
         except Exception as exc:
             log("warning", "deferred_classification", repr(exc))
-    if not row.attachments:
+    if not turn_media:
         try:
             from management.services.bot_sales_classifier import is_reaction_only
 
@@ -13401,7 +13626,7 @@ def _process_one_inside_reply_boundary(
                 pass
         # Анти-абуз: однакове питання багато разів — не жжемо токени Gemini.
         rep = _repeated_question(row.sender_id, row.text)
-        if rep > 3 and not row.attachments:
+        if rep > 3 and not turn_media:
             reply = "Я вже відповів(-ла) на це трохи вище 🙂 Якщо потрібно щось інше — уточніть, будь ласка."
             from management.services.gemini_routing import persist_decision
 
@@ -13418,18 +13643,12 @@ def _process_one_inside_reply_boundary(
             history = _build_history(row.sender_id)
             if not history:
                 history = [{"role": "user", "text": row.text}]
-            # Recover raw ig_post/story media as well as normalized attachments.
-            # This keeps active and paused/manager-led conversations on the
-            # same evidence path; receipts are passed to Gemini for context but
-            # cross exactly one provider boundary in this live turn.
-            recovered_media = _recover_current_message_media(row)
-            media = recovered_media or []
-            media_parts = _collect_media_parts(media, message_id=row.pk)
-            images = [
-                (str(part["mime"]), part["data"])
-                for part in media_parts
-            ]
-            media_binding = _source_media_binding(row, media_parts)
+            # The current message's owned bytes were collected once immediately
+            # after capture. Every downstream decision reuses this exact order.
+            media = turn_media
+            media_parts = turn_media_parts
+            images = turn_images
+            media_binding = turn_media_binding
             if not _renew_client_automation_lease(row, lease_token):
                 clear_typing_indicator()
                 return False
@@ -13494,13 +13713,26 @@ def _process_one_inside_reply_boundary(
                 row.text,
             )
             turn_notes = "\n".join(
-                note for note in (deterministic_turn_note, customer_turn_context) if note
+                note
+                for note in (
+                    deterministic_turn_note,
+                    (
+                        "[AUTHORITATIVE COMMERCE FACTS — include in this same reply]\n"
+                        + live_commerce_fallback
+                        if live_commerce_fallback
+                        else ""
+                    ),
+                    customer_turn_context,
+                )
+                if note
             )
             if ugc_turn:
                 turn_notes = (
                     f"{turn_notes}\n[UGC MODE] Це provider-native відмітка/репост. "
-                    "Подякуй природно; не продавай, не пояснюй товар, не формуй paylink, "
-                    "не проси підписку і не обіцяй знижку до завершення перевірки доказу."
+                    "Подякуй природно й коротко відповідай по видимому зображенню та "
+                    "контексту репліки. Не починай продаж без запиту, не формуй paylink, "
+                    "не проси підписку й не обіцяй винагороду або знижку до окремої "
+                    "перевірки права."
                 ).strip()
             if row.client_id and not ugc_turn:
                 try:
@@ -13650,7 +13882,11 @@ def _process_one_inside_reply_boundary(
                         failure_context=gemini_failure,
                         routing_decision=routing_decision,
                         turn_media_binding=media_binding,
+                        turn_media_context=media,
                     )
+                    if reply is None and live_commerce_fallback:
+                        reply = live_commerce_fallback
+                        used_ai_failure_fallback = True
                 _persist_turn_intelligence(
                     row,
                     gemini_failure.get("turn_intelligence") or {},
@@ -14595,6 +14831,12 @@ def _process_one_inside_reply_boundary(
             row.processed_at = cancelled_at
         return _skip_observed_row(row, reason="permission_epoch_changed")
     if not ok:
+        if kind == "unknown" and live_commerce_decision is not None:
+            _finalize_live_media_commerce_delivery(
+                live_commerce_decision,
+                state="unknown",
+                error=hint or "delivery_unknown",
+            )
         if needs_manager:
             # The customer holding reply may itself be retryable/unknown. The
             # unsafe commercial claim still needs a durable human handoff now;
@@ -14725,6 +14967,15 @@ def _process_one_inside_reply_boundary(
         reply = hint
 
     # успіх: фіксуємо відповідь у локальній історії
+    if live_commerce_decision is not None:
+        _finalize_live_media_commerce_delivery(
+            live_commerce_decision,
+            state="sent",
+            provider_message_ids=(
+                provider_message_ids
+                or ([provider_message_id] if provider_message_id else [])
+            ),
+        )
     processed_at = timezone.now()
     claimed = _own_processing_claim(row).update(
         status=InstagramBotMessage.Status.DONE,
