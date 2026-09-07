@@ -161,19 +161,26 @@ class RevisionErasureTests(TransactionTestCase):
 
     def test_recovered_claim_cannot_erase_recreated_same_igsid(self):
         from management.services.ig_data_deletion import fulfill_deletion_request
-        from management.services.ig_webhook_inbox import _namespace
+        from management.services.ig_webhook_inbox import (
+            _namespace, accept_webhook, drain_webhook_inbox,
+        )
 
         old = IgClient.objects.create(igsid="erase-recreated", username="erase_recreated")
-        namespace, owner = _namespace(InstagramBotSettings.load())
-        old_inbox = IgWebhookInboxEvent.objects.create(
-            namespace=namespace,
-            owner_id=owner,
-            customer_igsid=old.igsid,
-            event_key="erase-old-inbox",
-            decision=IgWebhookInboxEvent.Decision.ACCEPTED,
-            payload={"private": "old accepted receipt"},
-            payload_digest="d" * 64,
-        )
+        settings_obj = InstagramBotSettings.load()
+        settings_obj.page_id = "erase-owner"
+        settings_obj.save(update_fields=["page_id"])
+        namespace, owner = _namespace(settings_obj)
+        replay_payload = {
+            "object": "instagram",
+            "entry": [{"id": owner, "messaging": [{
+                "sender": {"id": old.igsid},
+                "recipient": {"id": owner},
+                "message": {"mid": "erase-old-mid", "text": "old private receipt"},
+            }]}],
+        }
+        import json
+        self.assertEqual(accept_webhook(json.dumps(replay_payload).encode(), settings_obj).accepted, 1)
+        old_inbox = IgWebhookInboxEvent.objects.get(namespace=namespace)
         request = BotDataDeletionRequest.objects.create(
             confirmation_code="ERASERECREATE",
             source=BotDataDeletionRequest.Source.MANUAL_FORM,
@@ -188,6 +195,22 @@ class RevisionErasureTests(TransactionTestCase):
             fulfill_deletion_request(request, actor_label="manager:test")
 
         recreated = IgClient.objects.create(igsid="erase-recreated", username="new_account")
+        BotDataDeletionRequest.objects.filter(pk=request.pk).update(
+            erasure_lease_until=timezone.now() - timedelta(seconds=1)
+        )
+        fulfill_deletion_request(request, actor_label="manager:recovery")
+
+        self.assertTrue(IgClient.objects.filter(pk=recreated.pk).exists())
+        old_inbox.refresh_from_db()
+        self.assertEqual(old_inbox.decision, IgWebhookInboxEvent.Decision.REJECTED)
+        self.assertEqual(old_inbox.reason, "privacy_erased")
+        self.assertEqual(old_inbox.customer_igsid, "")
+        self.assertEqual(old_inbox.payload, {})
+        self.assertIsNotNone(old_inbox.processed_at)
+        replay = accept_webhook(json.dumps(replay_payload).encode(), settings_obj)
+        self.assertEqual(replay.duplicates, 1)
+        self.assertEqual(drain_webhook_inbox(settings_obj, limit=1), 0)
+        self.assertFalse(InstagramBotMessage.objects.filter(mid="erase-old-mid").exists())
         new_inbox = IgWebhookInboxEvent.objects.create(
             namespace=namespace,
             owner_id=owner,
@@ -197,13 +220,6 @@ class RevisionErasureTests(TransactionTestCase):
             payload={"private": "new accepted receipt"},
             payload_digest="e" * 64,
         )
-        BotDataDeletionRequest.objects.filter(pk=request.pk).update(
-            erasure_lease_until=timezone.now() - timedelta(seconds=1)
-        )
-        fulfill_deletion_request(request, actor_label="manager:recovery")
-
-        self.assertTrue(IgClient.objects.filter(pk=recreated.pk).exists())
-        self.assertFalse(IgWebhookInboxEvent.objects.filter(pk=old_inbox.pk).exists())
         self.assertTrue(IgWebhookInboxEvent.objects.filter(pk=new_inbox.pk).exists())
         request.refresh_from_db()
         self.assertEqual(request.status, BotDataDeletionRequest.Status.COMPLETED)

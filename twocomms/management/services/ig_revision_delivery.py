@@ -25,6 +25,7 @@ _FINAL_CAS_STOP_CODES = frozenset({
     "settings_permission_changed",
     "permission_transition_pending", "sender_not_allowed",
     "revision_deadline_exhausted",
+    "reply_window_closed", "reply_window_unavailable",
 })
 
 

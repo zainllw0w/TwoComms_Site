@@ -175,6 +175,23 @@ def _run_checker(
         return False
 
 
+def _normal_reply_window_deadline(revision):
+    from management.services.ig_ai_reply_recovery import RESPONSE_WINDOW
+    from management.services.ig_turn_revisions import MAX_SOURCES
+
+    timestamps = list(revision.sources.filter(
+        role=InstagramBotMessage.Role.USER,
+        message__role=InstagramBotMessage.Role.USER,
+        message__client_id=revision.client_id,
+    ).values_list("provider_created_at", "message__created_at")[:MAX_SOURCES + 1])
+    if not timestamps or len(timestamps) > MAX_SOURCES or len(timestamps) != revision.source_count:
+        return None
+    anchors = [provider_at or received_at for provider_at, received_at in timestamps]
+    if any(value is None for value in anchors):
+        return None
+    return max(anchors) + RESPONSE_WINDOW
+
+
 def _cas_readiness(
     revision,
     *,
@@ -206,6 +223,11 @@ def _cas_readiness(
         _append(reasons, "revision_snapshot_invalid")
     if revision.overall_deadline <= now:
         _append(reasons, "revision_deadline_exhausted")
+    window_deadline = _normal_reply_window_deadline(revision)
+    if window_deadline is None:
+        _append(reasons, "reply_window_unavailable")
+    elif window_deadline <= now:
+        _append(reasons, "reply_window_closed")
     if client is None:
         _append(reasons, "client_missing")
     else:

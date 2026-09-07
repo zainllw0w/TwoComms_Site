@@ -539,3 +539,13 @@ class RevisionOutboxTests(TestCase):
         )
         self.assertEqual(result.reason, "revision_deadline_exhausted")
         self.assertIsNone(result.effect.provider_started_at)
+
+    def test_old_user_event_does_not_get_new_window_from_manager_activity(self):
+        self.source.provider_created_at = timezone.now() - timedelta(hours=24)
+        self.source.save(update_fields=["provider_created_at"])
+        self.client_row.last_message_at = timezone.now()
+        self.client_row.save(update_fields=["last_message_at"])
+        self.revision, self.revision_token = self._claim_revision()
+        result = self._plan([{"group": "substantive_text", "kind": "text", "payload": self._payload("answer")}])
+        self.assertIn("reply_window_closed", result.reasons)
+        self.assertFalse(self.revision.delivery_effects.exists())

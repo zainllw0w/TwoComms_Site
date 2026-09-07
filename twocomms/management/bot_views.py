@@ -370,9 +370,21 @@ def _delete_direct_bot_records(
         if mids:
             InstagramBotProcessedMessage.objects.filter(mid__in=mids).delete()
         if frozen_targets:
-            # Only receipts proven to belong to the current verified namespace
-            # at claim time are removed.  Later/new or foreign receipts survive.
-            IgWebhookInboxEvent.objects.filter(pk__in=frozen_inbox_ids).delete()
+            # Keep the namespace/event-key/digest uniqueness tombstone.  Meta
+            # may replay the same old event after erasure; deleting its receipt
+            # would let a fresh inbox row materialize the erased conversation.
+            # The customer identity and raw payload are removed, while later
+            # or foreign receipts remain outside this exact frozen ID set.
+            IgWebhookInboxEvent.objects.filter(pk__in=frozen_inbox_ids).update(
+                owner_id="",
+                customer_igsid="",
+                decision=IgWebhookInboxEvent.Decision.REJECTED,
+                reason="privacy_erased",
+                payload={},
+                processed_at=timezone.now(),
+                next_attempt_at=None,
+                last_error="",
+            )
         client_ids = [client.pk for client in clients]
         if client_ids:
             # Analysis/memory tables use DO_NOTHING relations and append-only
