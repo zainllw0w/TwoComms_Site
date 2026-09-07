@@ -2513,6 +2513,24 @@ def _final_provider_body(payload: dict) -> tuple[bytes, int, int]:
     return body, _inline_part_count(payload), 0
 
 
+def _final_inline_content_hashes(body: bytes) -> list[str]:
+    """Observe inline bytes in the exact serialized request passed to HTTP."""
+    import base64
+    import hashlib
+
+    try:
+        payload = json.loads(body)
+        return [
+            hashlib.sha256(base64.b64decode(part["inline_data"]["data"], validate=True)).hexdigest()
+            for content in payload.get("contents") or []
+            if isinstance(content, dict)
+            for part in content.get("parts") or []
+            if isinstance(part, dict) and "inline_data" in part
+        ]
+    except (TypeError, ValueError, KeyError) as exc:
+        raise _GeminiFatal("final provider inline body is invalid") from exc
+
+
 def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True,
                       timeout: tuple | None = None, attempt_boundary=None,
                       dispatch_budget=None,
@@ -2544,6 +2562,9 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
         raise error
     try:
         body, request_inline_count, request_trimmed_inline = _final_provider_body(payload)
+        request_inline_content_hashes = _final_inline_content_hashes(body)
+        if len(request_inline_content_hashes) != request_inline_count:
+            raise _GeminiFatal("final provider inline count is invalid")
     except _GeminiFatal as error:
         if attempt_boundary is not None:
             attempt_boundary.cancelled_pre_dispatch(error)
@@ -2718,6 +2739,7 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
     usage = dict(raw_usage)
     usage["_finish_reason"] = str(cand.get("finishReason") or "")[:32]
     usage["_request_inline_count"] = request_inline_count
+    usage["_request_inline_content_hashes"] = request_inline_content_hashes
     usage["_request_trimmed_inline"] = request_trimmed_inline
     usage["_request_serialized_bytes"] = len(body)
     if attempt_boundary is not None and not defer_attempt_success:

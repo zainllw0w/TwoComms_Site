@@ -10,9 +10,10 @@ from management.services.ig_response_control import parse_structured_response
 
 
 class ProviderResponseGuard:
-    def __init__(self, *, context_factory, image_mimes=(), require_intelligence=False, programme=None):
+    def __init__(self, *, context_factory, image_mimes=(), expected_content_hashes=None, require_intelligence=False, programme=None):
         self.context_factory = context_factory
         self.image_mimes = tuple(image_mimes)
+        self.expected_content_hashes = tuple(expected_content_hashes) if expected_content_hashes is not None else None
         self.require_intelligence = bool(require_intelligence)
         self.programme = programme
         self.source = None
@@ -40,6 +41,12 @@ class ProviderResponseGuard:
             actual = (usage or {}).get("_request_inline_count")
             if isinstance(actual, bool) or not isinstance(actual, int) or not 0 <= actual <= len(self.image_mimes):
                 return self._decision(False, ("unknown_inline_coverage",))
+            if self.expected_content_hashes is not None:
+                hashes = (usage or {}).get("_request_inline_content_hashes")
+                if not isinstance(hashes, list):
+                    return self._decision(False, ("unknown_inline_hashes",))
+                if len(hashes) != actual or hashes != list(self.expected_content_hashes[:actual]):
+                    return self._decision(False, ("actual_media_binding_mismatch",))
             expected = {
                 index for index, mime in enumerate(self.image_mimes[:actual])
                 if mime.startswith("image/")
@@ -63,7 +70,7 @@ class ProviderResponseGuard:
     def repair(payload, parsed, reasons):
         # A second generation cannot repair missing DB authority or transport
         # metadata. Leave those for the deterministic recovery path.
-        if set(reasons) & {"authority_unavailable", "unknown_inline_coverage"}:
+        if set(reasons) & {"authority_unavailable", "unknown_inline_coverage", "unknown_inline_hashes", "actual_media_binding_mismatch"}:
             return None
         result = deepcopy(payload)
         try:

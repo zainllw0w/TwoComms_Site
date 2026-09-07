@@ -54,7 +54,7 @@ class PrizeLiveIntegrationTests(TestCase):
                     "confidence": 0.8, "image_observations": [observation],
                 },
             },
-            "usage": {"_request_inline_count": 1}, "model": "actual-vision-model",
+            "usage": {"_request_inline_count": 1, "_request_inline_content_hashes": [hashlib.sha256(self.raw).hexdigest()]}, "model": "actual-vision-model",
             "meta": {"request_id": "prize-live-request"},
         }
         routing = RoutingDecision(

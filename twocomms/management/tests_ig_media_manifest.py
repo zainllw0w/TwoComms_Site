@@ -363,7 +363,8 @@ class MediaBundleIntegrationTests(SimpleTestCase):
                     }],
                 },
             },
-            "usage": {"_request_inline_count": 1, "_request_trimmed_inline": 1},
+            "usage": {"_request_inline_count": 1, "_request_trimmed_inline": 1,
+                      "_request_inline_content_hashes": [hashlib.sha256(b"first").hexdigest()]},
             "meta": {"used_model": "gemini-actual", "request_id": "request-53"},
         }
         failure = {}
@@ -462,11 +463,9 @@ class MediaBundleIntegrationTests(SimpleTestCase):
             turn_media_binding=binding,
         )
 
-        self.assertTrue(result.valid)
-        intelligence = failure["turn_intelligence"]
-        self.assertEqual(intelligence["image_observations"], [])
-        self.assertEqual(intelligence["transcript"], "")
-        self.assertFalse(intelligence["media_request"]["inline_count_known"])
+        self.assertIsNone(result)
+        self.assertEqual(failure["kind"], "invalid_actual_media_binding")
+        self.assertNotIn("turn_intelligence", failure)
 
     @patch("management.services.instagram_bot.assemble_system_instruction", return_value="system")
     @patch("management.services.instagram_bot.select_chat_reasoning_task", return_value="media_analysis")
@@ -530,7 +529,8 @@ class MediaBundleIntegrationTests(SimpleTestCase):
                     ],
                 },
             },
-            "usage": {"_request_inline_count": 4},
+            "usage": {"_request_inline_count": 4,
+                      "_request_inline_content_hashes": [hashlib.sha256(part["data"]).hexdigest() for part in parts]},
             "model": "gemini-actual",
             "meta": {"request_id": "request-55"},
         }

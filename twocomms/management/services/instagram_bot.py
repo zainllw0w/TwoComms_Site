@@ -7674,6 +7674,8 @@ def gemini_generate(
     turn_candidate_set: dict | None = None,
     turn_media_binding: dict | None = None,
     turn_media_context: list[dict] | None = None,
+    generation_boundary=None,
+    deadline_at=None,
 ) -> str | None:
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
@@ -7942,11 +7944,30 @@ def gemini_generate(
             reply_text,
         ),
         image_mimes=tuple(mime for mime, _raw in images),
+        expected_content_hashes=tuple(hashlib.sha256(raw).hexdigest() for _mime, raw in images),
         require_intelligence=(
             routing_decision.task_class == TaskClass.COMPLEX_LIVE
         ),
         programme=prize_programme,
     )
+
+    def validate_attempt(parsed, *, usage=None):
+        decision = response_guard.validate(parsed, usage=usage)
+        if not decision.valid or generation_boundary is None:
+            return decision
+        # Revision freshness participates in the provider's winner election;
+        # it is not a second generation after the shared dispatch budget ends.
+        return generation_boundary.validate(
+            response_guard.response,
+            policy_manifest=policy_metadata,
+        )
+
+    def repair_attempt(payload, parsed, reasons):
+        if generation_boundary is None:
+            return response_guard.repair(payload, parsed, reasons)
+        return generation_boundary.repair(
+            payload, parsed, reasons, base_repair=response_guard.repair,
+        )
 
     # Діалог із клієнтом — найвищий пріоритет (роль 'chat'): пул ключів
     # GEMINI_API/2 → позичання GEMINI_API5/6; selected chat model is primary,
@@ -7978,6 +7999,16 @@ def gemini_generate(
         f"mode={routing_decision.routing_mode.value}; task={reasoning_task}; "
         f"кастом-ключ: {'так' if manual_key else 'ні'})")
     _t0 = _time.monotonic()
+    generation_deadline_seconds = routing_decision.deadline_ms / 1000
+    if deadline_at is not None:
+        generation_deadline_seconds = min(
+            generation_deadline_seconds,
+            (deadline_at - timezone.now()).total_seconds(),
+        )
+        if generation_deadline_seconds <= 0:
+            if failure_context is not None:
+                failure_context["kind"] = "revision_deadline_exhausted"
+            return None
     try:
         out = gemini_generate_text(
             payload,
@@ -7987,10 +8018,16 @@ def gemini_generate(
             model_chain_override=list(routing_decision.model_chain),
             reasoning_task=reasoning_task,
             parse=True,
-            deadline_seconds=routing_decision.deadline_ms / 1000,
+            deadline_seconds=generation_deadline_seconds,
             routing_decision=routing_decision,
-            result_validator=response_guard.validate,
-            repair_payload_factory=response_guard.repair,
+            result_validator=(
+                validate_attempt if generation_boundary is not None
+                else response_guard.validate
+            ),
+            repair_payload_factory=(
+                repair_attempt if generation_boundary is not None
+                else response_guard.repair
+            ),
             max_actual_dispatches=2,
             request_policy_manifest=policy_metadata,
         )
@@ -8050,18 +8087,26 @@ def gemini_generate(
             candidate_inline_count = -1
         if 0 <= candidate_inline_count <= len(images):
             provider_inline_count = candidate_inline_count
+    observed_hashes = provider_usage.get("_request_inline_content_hashes")
+    if not images and observed_hashes is None:
+        observed_hashes = []
+    expected_hashes = list((normalized_media_binding or {}).get("content_hashes") or [])
+    if images and (
+        not isinstance(observed_hashes, list)
+        or not isinstance(provider_inline_count, int)
+        or len(observed_hashes) != provider_inline_count
+        or observed_hashes != expected_hashes[:provider_inline_count]
+    ):
+        if failure_context is not None:
+            failure_context["kind"] = "invalid_actual_media_binding"
+        log("error", "inline_media_binding", "actual request hash evidence missing or mismatched")
+        return None
     actual_media_binding = dict(normalized_media_binding or {})
     actual_media_binding.update({
         "provider_model": provider_model,
         "request_id": request_id,
         "actual_inline_count": provider_inline_count,
-        "actual_content_hashes": (
-            list((normalized_media_binding or {}).get("content_hashes") or [])[
-                :provider_inline_count
-            ]
-            if isinstance(provider_inline_count, int)
-            else []
-        ),
+        "actual_content_hashes": list(observed_hashes or []),
     })
     if isinstance(provider_inline_count, int) and provider_inline_count < len(images):
         omitted_by_provider = len(images) - provider_inline_count
@@ -8156,6 +8201,10 @@ def gemini_generate(
         failure_context["model"] = provider_model
         failure_context["request_id"] = request_id
         failure_context["provider_inline_count"] = provider_inline_count
+        if generation_boundary is not None:
+            # Ephemeral exact admission evidence for the revision proposal.
+            # Neither bytes nor provider URLs are added to persistent rows.
+            failure_context["request_media_binding"] = actual_media_binding
         if intelligence:
             if request_permission_epoch is not None:
                 intelligence["request_permission_epoch"] = request_permission_epoch
@@ -9844,6 +9893,7 @@ def _fetch_inline_media(
     url: str,
     *,
     profile: str = "provider",
+    deadline_seconds: float | None = None,
 ):
     """Fetch once and retain the typed policy outcome for capture recovery."""
     from management.services import ig_media_url_policy
@@ -9852,11 +9902,21 @@ def _fetch_inline_media(
         ig_media_url_policy.SUPPORTED_INLINE_IMAGE_MIMES
         | ig_media_url_policy.SUPPORTED_INLINE_AUDIO_MIMES
     )
+    fetch_limits = {}
+    if deadline_seconds is not None:
+        if deadline_seconds <= 0:
+            return ig_media_url_policy.FetchOutcome(
+                success=False, reason=ig_media_url_policy.REASON_DEADLINE,
+            )
+        fetch_limits["deadline_seconds"] = min(
+            deadline_seconds, ig_media_url_policy.DEFAULT_DEADLINE_SECONDS,
+        )
     outcome = ig_media_url_policy.fetch_media(
         url,
         profile=profile,
         allowed_mime_types=allowed_mimes,
         max_bytes=INLINE_AUDIO_MAX_BYTES,
+        **fetch_limits,
     )
     if not outcome.success:
         return outcome
@@ -9887,9 +9947,11 @@ def download_image(
     *,
     profile: str = "provider",
     failure_context: dict | None = None,
+    deadline_seconds: float | None = None,
 ) -> tuple[str, bytes] | None:
     """Compatibility projection for non-capture media callers."""
-    outcome = _fetch_inline_media(url, profile=profile)
+    limits = {"deadline_seconds": deadline_seconds} if deadline_seconds is not None else {}
+    outcome = _fetch_inline_media(url, profile=profile, **limits)
     if failure_context is not None:
         failure_context.clear()
         failure_context["outcome"] = outcome
@@ -11016,6 +11078,7 @@ def _capture_message_media(
     limit: int = 8,
     *,
     on_progress=None,
+    deadline_at=None,
 ) -> list[dict]:
     """Own bounded live bytes once while preserving every durable metadata row."""
     source = str(getattr(row, "source", "") or "")
@@ -11072,6 +11135,8 @@ def _capture_message_media(
 
     attempts_used = 0
     for snapshot in list(current):
+        if deadline_at is not None and timezone.now() >= deadline_at:
+            break
         if attempts_used >= max(0, int(limit or 0)):
             break
         if not _media_part_capture_pending(snapshot):
@@ -11098,7 +11163,10 @@ def _capture_message_media(
             item = refetch_item
         url = str(item.get("url") or "")
         fetch_context: dict = {}
-        downloaded = download_image(url, failure_context=fetch_context)
+        limits = {}
+        if deadline_at is not None:
+            limits["deadline_seconds"] = max(0.0, (deadline_at - timezone.now()).total_seconds())
+        downloaded = download_image(url, failure_context=fetch_context, **limits)
         fetch_outcome = fetch_context.get("outcome")
         if not downloaded:
             if fetch_outcome is None:

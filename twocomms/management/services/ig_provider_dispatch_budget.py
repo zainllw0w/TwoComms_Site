@@ -61,6 +61,14 @@ def sanitized_validation_usage(usage) -> dict:
     sanitized["_finish_reason"] = str(
         source.get("_finish_reason") or ""
     )[:32]
+    if "_request_inline_content_hashes" in source:
+        hashes = source["_request_inline_content_hashes"]
+        sanitized["_request_inline_content_hashes"] = (
+            list(hashes)
+            if isinstance(hashes, list) and len(hashes) <= 8
+            and all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) for value in hashes)
+            else None
+        )
     return sanitized
 
 
