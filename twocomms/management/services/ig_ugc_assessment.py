@@ -891,6 +891,30 @@ def queue_ugc_manager_review(assessment) -> bool:
     )
 
 
+def pending_ugc_review_notifications():
+    """The exact indexed anti-join, with explicit MariaDB expression collation."""
+    from django.db import connections
+    from django.db.models import CharField, Exists, OuterRef, Value
+    from django.db.models.functions import Cast, Collate, Concat
+    from management.models import IgBotNotification, IgUgcEvidenceAssessment
+
+    rows = IgUgcEvidenceAssessment.objects.filter(
+        decision=IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
+    )
+    key = Concat(
+        Value("ugc_review:"), Cast("pk", output_field=CharField()),
+        Value(":"), Cast("generation", output_field=CharField()),
+        output_field=CharField(),
+    )
+    if connections[rows.db].vendor == "mysql":
+        key = Collate(key, "utf8mb4_unicode_ci")
+    return rows.annotate(_expected_notification_key=key).annotate(
+        _notification_exists=Exists(IgBotNotification.objects.filter(
+            dedupe_key=OuterRef("_expected_notification_key"),
+        )),
+    ).filter(_notification_exists=False).order_by("updated_at", "id")
+
+
 def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
     """Retry event-scoped UGC capture and resume its existing vision path.
 
@@ -915,6 +939,7 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
         "terminalized": 0,
         "skipped": 0,
         "failed": 0,
+        "collation_deferred": 0,
     }
     if bounded == 0:
         return counts
@@ -922,32 +947,28 @@ def reconcile_pending_ugc_media(*, limit: int = 20, now=None) -> dict[str, int]:
     # A transition to NEEDS_MANAGER_REVIEW and notification creation are
     # separate durable boundaries. If the outbox insert failed, the assessment
     # must remain selectable until its unique dedupe row exists.
-    from django.db.models import CharField, Exists, OuterRef, Value
-    from django.db.models.functions import Cast, Concat
-    from management.models import IgBotNotification
+    from django.core.cache import cache
+    from django.db import DatabaseError
 
-    review_rows = list(
-        IgUgcEvidenceAssessment.objects.filter(
-            decision=IgUgcEvidenceAssessment.Decision.NEEDS_MANAGER_REVIEW,
-        )
-        .annotate(
-            _expected_notification_key=Concat(
-                Value("ugc_review:"),
-                Cast("pk", output_field=CharField()),
-                Value(":"),
-                Cast("generation", output_field=CharField()),
+    # A SQL-shape fault is not a connection outage: isolate this selector and
+    # leave unrelated follow/payment work running. Never reconnect-and-retry it.
+    cooldown_key = "ig:ugc_review_selector:collation:v1"
+    if cache.get(cooldown_key):
+        counts["collation_deferred"] = 1
+        return counts
+    try:
+        review_rows = list(pending_ugc_review_notifications()[:bounded])
+    except DatabaseError as exc:
+        if not exc.args or exc.args[0] != 1267:
+            raise
+        if cache.add(cooldown_key, True, timeout=900):
+            import logging
+
+            logging.getLogger(__name__).error(
+                "UGC review selector SQL 1267; lane deferred for 900 seconds",
             )
-        )
-        .annotate(
-            _notification_exists=Exists(
-                IgBotNotification.objects.filter(
-                    dedupe_key=OuterRef("_expected_notification_key")
-                )
-            )
-        )
-        .filter(_notification_exists=False)
-        .order_by("updated_at", "id")[:bounded]
-    )
+        counts["collation_deferred"] = 1
+        return counts
     for review in review_rows:
         if counts["selected"] >= bounded:
             break
