@@ -687,7 +687,7 @@ class NullAttemptBoundary:
     def succeeded(self, _usage=None) -> None:
         return None
 
-    def failed(self, _error) -> None:
+    def failed(self, _error, *, usage=None, failure_kind: str = "") -> None:
         return None
 
     def manual_result(self, **_kwargs) -> None:
@@ -1042,9 +1042,15 @@ class AttemptBoundary:
         except Exception:
             return None
 
-    def failed(self, error) -> None:
+    def failed(self, error, *, usage=None, failure_kind: str = "") -> None:
         try:
-            self.observer._finish(self, succeeded=False, error=error)
+            self.observer._finish(
+                self,
+                succeeded=False,
+                error=error,
+                usage=usage or {},
+                failure_kind=failure_kind,
+            )
         except Exception:
             return None
 
@@ -2422,6 +2428,8 @@ def classify_failure(error, *, http_code=None, failure_kind="") -> dict:
             code = 404 if kind == "model_not_found" else 403
         elif name == "_GeminiEmpty":
             kind = "empty"
+        elif name == "_GeminiResultInvalid":
+            kind = "invalid_response"
         elif name == "_GeminiAdmissionRejected":
             kind = "stale_provider_boundary"
         elif name == "_GeminiFatal":

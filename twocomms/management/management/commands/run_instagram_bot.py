@@ -1211,6 +1211,20 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
 
     Порядок до ЭА.15 сохранён в `_run_legacy_work_cycle` и включается флагом.
     """
+    # Ingress is part of the customer lane, including while replies are
+    # disabled: echoes and opt-outs must still acquire their permission fence.
+    if (
+        bool(getattr(settings, "IG_WEBHOOK_INBOX_ENABLED", True))
+        and bot._provider_account_id(settings_obj)
+    ):
+        from management.services.ig_webhook_inbox import drain_webhook_inbox
+
+        try:
+            drain_webhook_inbox(settings_obj, limit=25)
+        except Exception as exc:
+            if cache.add("ig_inbox_drain_error_notice", True, timeout=60):
+                bot.log("error", "webhook_inbox_drain", type(exc).__name__)
+            return bool(settings_obj.is_enabled), last_poll
     if not _service_task_isolation_enabled():
         return _run_legacy_work_cycle(settings_obj, last_poll)
     _SERVICE_LANES.begin_cycle()

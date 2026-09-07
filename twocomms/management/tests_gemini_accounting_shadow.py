@@ -1830,6 +1830,63 @@ class GeminiShadowRuntimeTests(TestCase):
         self.assertNotIn("shadow-key", encoded)
 
     @override_settings(**SHADOW)
+    @patch.dict(os.environ, {**KEY_ENV, "GEMINI_API6": ""}, clear=False)
+    @patch("management.services.call_ai_analysis.requests.post")
+    def test_semantic_repair_reuses_candidate_and_accounts_failed_usage(self, post):
+        from management.services.ig_provider_dispatch_budget import ValidationDecision
+
+        def response(text, *, prompt_tokens, candidate_tokens):
+            return _Response(payload={
+                "candidates": [{
+                    "finishReason": "STOP",
+                    "content": {"parts": [{"text": text}]},
+                }],
+                "usageMetadata": {
+                    "promptTokenCount": prompt_tokens,
+                    "candidatesTokenCount": candidate_tokens,
+                    "totalTokenCount": prompt_tokens + candidate_tokens,
+                },
+            })
+
+        post.side_effect = [
+            response("invalid", prompt_tokens=17, candidate_tokens=5),
+            response("valid", prompt_tokens=19, candidate_tokens=4),
+        ]
+
+        result = ai.gemini_generate_text(
+            {"contents": [{"role": "user", "parts": [{"text": "hello"}]}]},
+            role="chat",
+            model_chain_override=["gemini-3.5-flash-lite"],
+            result_validator=lambda parsed, *, usage: ValidationDecision(
+                valid=parsed == "valid",
+                reason_codes=() if parsed == "valid" else ("unverified_price",),
+            ),
+            repair_payload_factory=lambda payload, _parsed, _reasons: payload,
+            max_actual_dispatches=2,
+        )
+
+        graph = GeminiRequest.objects.get(request_id=result["meta"]["request_id"])
+        attempts = list(
+            GeminiRequestAttempt.objects.filter(
+                request_graph=graph,
+                provider_started_at__isnull=False,
+            ).order_by("attempt_index")
+        )
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(attempts[0].candidate_index, attempts[1].candidate_index)
+        self.assertLess(attempts[0].attempt_index, attempts[1].attempt_index)
+        self.assertEqual(attempts[0].fsm_state, GeminiRequestAttempt.FsmState.FAILED)
+        self.assertEqual(attempts[0].failure_kind, "invalid_response")
+        self.assertEqual(attempts[0].prompt_tokens, 17)
+        self.assertEqual(attempts[0].candidates_tokens, 5)
+        self.assertEqual(attempts[0].total_tokens, 22)
+        self.assertFalse(attempts[0].winner_claimed)
+        self.assertEqual(attempts[1].fsm_state, GeminiRequestAttempt.FsmState.SUCCEEDED)
+        self.assertEqual(graph.winner_attempt_id, attempts[1].pk)
+        self.assertEqual(result["parsed"], "valid")
+
+    @override_settings(**SHADOW)
     @patch.dict(
         os.environ,
         {

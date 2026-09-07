@@ -52,6 +52,7 @@ CONTROL_KINDS = frozenset(
         "objhandle",
     }
 )
+PROVIDER_CONTROL_KINDS = CONTROL_KINDS - {"price"}
 _KIND_ALIASES = {"opt": "option", "variant": "color_variant_id"}
 _REPEATED_KINDS = frozenset({"item", "option"})
 _BOOLEAN_KINDS = frozenset({"manager", "spam", "order", "catalog_link"})
@@ -144,9 +145,10 @@ _FIT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]{0,49}$")
 _OPTION_RE = re.compile(r"^[a-z][a-z0-9_-]{0,48}=[^=;\[\]\r\n]{1,80}$", re.I)
 _OBJHANDLE_RE = re.compile(r"^[a-z][a-z0-9_]{0,47}:[a-z][a-z0-9_]{0,47}$")
 
-# Gemini's structured-output schema is deliberately broader than the
-# application validator: ``value`` has different types for different kinds,
-# and the validator below remains the authorization boundary.
+# The provider schema excludes legacy negotiated ``price`` while retaining its
+# parser compatibility for trusted historical inputs. ``value`` remains broad
+# because different approved kinds use different JSON types; the validator
+# below is still the authorization boundary.
 STRUCTURED_RESPONSE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -163,7 +165,7 @@ STRUCTURED_RESPONSE_SCHEMA = {
                 "properties": {
                     "kind": {
                         "type": "string",
-                        "enum": sorted(CONTROL_KINDS),
+                        "enum": sorted(PROVIDER_CONTROL_KINDS),
                     },
                     "value": {
                         "anyOf": [
@@ -286,9 +288,14 @@ def structured_response_instruction() -> str:
         "reply_text is a non-empty customer reply of at most 4000 characters. "
         "controls is required and is an array of at most 32 objects; every object "
         "has exactly kind and value. Allowed kind values: "
-        + ", ".join(sorted(CONTROL_KINDS))
+        + ", ".join(sorted(PROVIDER_CONTROL_KINDS))
         + ". Boolean controls use JSON true; other values use the exact bounded "
         "string, number, integer, or integer-array form requested by the prompt. "
+        "Never emit the legacy price control. For an exact current catalog quote, "
+        "use price_quoted and include product plus every known size, fit, "
+        "color_variant_id, and option value that determines that configuration. "
+        "A price from an existing published offer remains server-owned; do not "
+        "restate it as price. "
         "follow_cta is optional; when included it has exactly include:boolean and "
         f"text:string ({_FOLLOW_MIN_LENGTH}-{_FOLLOW_MAX_LENGTH} characters). "
         "turn_intelligence is optional unless this turn explicitly requires it. "
@@ -828,6 +835,7 @@ parse_legacy_tags = parse_legacy_response
 
 __all__ = [
     "CONTROL_KINDS",
+    "PROVIDER_CONTROL_KINDS",
     "FollowCtaCandidate",
     "ResponseControl",
     "STRUCTURED_RESPONSE_SCHEMA",

@@ -184,6 +184,14 @@ class _GeminiAdmissionRejected(Exception):
     """Canonical source/lane ownership changed before provider dispatch."""
 
 
+class _GeminiDispatchBudgetExhausted(Exception):
+    """Validated live request has no remaining actual provider dispatch."""
+
+
+class _GeminiResultInvalid(Exception):
+    """Provider returned a parsed result rejected by application validation."""
+
+
 class _GeminiEmpty(Exception):
     """Порожня відповідь (finishReason=STOP/MAX_TOKENS без тексту) — проблема цього
     конкретного запиту (мало вихідних токенів через thinking), НЕ перевантаження
@@ -1247,7 +1255,10 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                         model_chain_override: list[str] | tuple[str, ...] | None = None,
                         reasoning_task: str = "customer_chat",
                         deadline_seconds: float | None = None,
-                        routing_decision=None) -> dict:
+                        routing_decision=None,
+                        result_validator=None,
+                        repair_payload_factory=None,
+                        max_actual_dispatches: int | None = None) -> dict:
     """Run one live reply through a deadline-aware, quality-first pool.
 
     The generic runner is intentionally not reused here: its three rounds and
@@ -1257,6 +1268,21 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     policy = reasoning_policy(reasoning_task)
     working_payload = copy.deepcopy(payload)
     working_payload["_reasoning_task"] = policy["task"]
+    dispatch_budget = None
+    if result_validator is not None:
+        from management.services.ig_provider_dispatch_budget import (
+            ProviderDispatchBudget,
+        )
+
+        dispatch_budget = ProviderDispatchBudget(
+            max_dispatches=(
+                2 if max_actual_dispatches is None else max_actual_dispatches
+            )
+        )
+    elif repair_payload_factory is not None or max_actual_dispatches is not None:
+        raise ValueError(
+            "repair and actual-dispatch limits require a result validator"
+        )
     manual_key = str(manual_key or "").strip() or None
     if manual_key and not gemini_keys.manual_key_allowed("chat", manual_key):
         manual_key = None
@@ -1277,6 +1303,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
     if not models:
         raise CallAIAnalysisError("Не налаштована модель Gemini для live chat.")
     attempts: list[str] = []
+    last_actual_failure_kind = ""
     request_id = uuid.uuid4().hex
     # Ланцюг «вхідне → спроби → holding → recovery → receipt» відновлюється по
     # цьому id: рядок відповіді зберігає його, а кожна спроба — власний lane та
@@ -1422,6 +1449,16 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
 
     def _call(key_name: str, key_value: str, model: str, *, preserve_fallback: bool,
               candidate_index: int = 0):
+        nonlocal last_actual_failure_kind, working_payload
+        if dispatch_budget is not None and dispatch_budget.remaining_dispatches <= 0:
+            _audit_remaining("provider_dispatch_budget")
+            if accounting_observer is not None:
+                accounting_observer.resolve_failure("provider_dispatch_budget")
+            error = CallAIAnalysisError(
+                "Gemini validated reply exhausted its provider dispatch budget."
+            )
+            error.failure_kind = last_actual_failure_kind or "provider_dispatch_budget"
+            raise error
         if gemini_keys.model_circuit_open(model):
             attempts.append(f"{key_name}/{model}: model_circuit_open")
             _emit(f"{key_name}/{model}: model circuit open")
@@ -1528,6 +1565,9 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             call_kwargs = {"parse": parse, "timeout": timeout}
             if attempt_boundary is not None:
                 call_kwargs["attempt_boundary"] = attempt_boundary
+            if dispatch_budget is not None:
+                call_kwargs["dispatch_budget"] = dispatch_budget
+                call_kwargs["defer_attempt_success"] = True
             parsed, usage = _gemini_call_once(
                 model, request_payload, key_value, **call_kwargs
             )
@@ -1549,8 +1589,30 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             raise CallAIAnalysisError(
                 "Gemini provider dispatch rejected: stale request ownership."
             ) from exc
+        except _GeminiDispatchBudgetExhausted as exc:
+            if legacy_quota_reserved:
+                gemini_quota.cancel_reservation(
+                    key_name,
+                    model,
+                    dispatch_at=quota_dispatch_at,
+                )
+            if candidate_index:
+                dispatched_candidate_indexes.discard(candidate_index)
+            _audit_skip(
+                key_name, model, "provider_dispatch_budget", candidate_index
+            )
+            _audit_remaining("provider_dispatch_budget")
+            if accounting_observer is not None:
+                accounting_observer.resolve_failure("provider_dispatch_budget")
+            _release()
+            error = CallAIAnalysisError(
+                "Gemini validated reply exhausted its provider dispatch budget."
+            )
+            error.failure_kind = last_actual_failure_kind or "provider_dispatch_budget"
+            raise error from exc
         except _GeminiTransient as exc:
             kind, transient_http_code = _transient_failure_details(exc)
+            last_actual_failure_kind = kind
             attempts.append(f"{key_name}/{model}: {kind}: {exc}")
             if key_name in gemini_keys.ALL_KEYS:
                 gemini_keys.record_key_failure(
@@ -1569,12 +1631,14 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             _release()
             return None, "transient"
         except _GeminiEmpty as exc:
+            last_actual_failure_kind = "empty"
             attempts.append(f"{key_name}/{model}: empty: {exc}")
             _audit("failed", failure_kind="empty", decision="retry_or_degrade")
             _emit(f"{key_name}/{model}: empty response")
             _release()
             return None, "empty"
         except _Gemini429 as exc:
+            last_actual_failure_kind = "quota_429"
             if key_name in gemini_keys.ALL_KEYS and gemini_keys.is_key_level_429(model, False):
                 scope, seconds = _quota_scope_and_retry(exc)
                 gemini_keys.mark_429(
@@ -1601,6 +1665,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         except _GeminiModelUnavailable as exc:
             attempts.append(f"{key_name}/{model}: model_unavailable: {exc}")
             kind = "model_not_found" if "404" in str(exc) else "permission_denied"
+            last_actual_failure_kind = kind
             if key_name in gemini_keys.ALL_KEYS:
                 if kind == "permission_denied":
                     gemini_keys.quarantine_key(
@@ -1654,6 +1719,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             from management.services import gemini_payload_contract
 
             kind = "invalid_key" if _chat_key_failure(exc) else "invalid_payload"
+            last_actual_failure_kind = kind
             http_match = _HTTP_CODE_RE.search(str(exc))
             provider_http_code = int(http_match.group(1)) if http_match else (
                 401 if kind == "invalid_key" else 400
@@ -1704,6 +1770,92 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             if accounting_observer is not None:
                 accounting_observer.resolve_failure("fatal_payload")
             raise CallAIAnalysisError(f"Помилка запиту до Gemini: {exc}") from exc
+
+        if result_validator is not None:
+            from management.services.ig_provider_dispatch_budget import (
+                ValidationDecision,
+                normalize_validation_decision,
+                sanitized_validation_usage,
+            )
+
+            try:
+                validation = normalize_validation_decision(
+                    result_validator(
+                        parsed,
+                        usage=sanitized_validation_usage(usage),
+                    )
+                )
+            except Exception:
+                logger.warning("Gemini result validator failed closed")
+                validation = ValidationDecision(
+                    valid=False,
+                    reason_codes=("validator_error",),
+                )
+            if not validation.valid:
+                last_actual_failure_kind = "invalid_response"
+                error = _GeminiResultInvalid(
+                    ",".join(validation.reason_codes)
+                )
+                if attempt_boundary is not None:
+                    attempt_boundary.failed(
+                        error,
+                        usage=usage,
+                        failure_kind="invalid_response",
+                    )
+                _release()
+                repaired_payload = None
+                repair_ready = bool(
+                    repair_payload_factory is not None
+                    and dispatch_budget is not None
+                    and dispatch_budget.consume_repair()
+                )
+                if repair_ready:
+                    repair_source = copy.deepcopy(working_payload)
+                    repair_source.pop("_reasoning_task", None)
+                    try:
+                        repaired_payload = repair_payload_factory(
+                            repair_source,
+                            parsed,
+                            validation.reason_codes,
+                        )
+                    except Exception:
+                        logger.warning("Gemini repair payload factory failed closed")
+                _audit(
+                    "failed",
+                    failure_kind="invalid_response",
+                    provider_reason="result_validation_failed",
+                    decision=(
+                        "repair_result"
+                        if isinstance(repaired_payload, dict)
+                        else "stop_result"
+                    ),
+                    error_detail=",".join(validation.reason_codes)[:120],
+                )
+                attempts.append(f"{key_name}/{model}: invalid_response")
+                _emit(f"{key_name}/{model}: result validation failed")
+                if isinstance(repaired_payload, dict):
+                    working_payload = copy.deepcopy(repaired_payload)
+                    working_payload["_reasoning_task"] = policy["task"]
+                    # A failed attempt does not consume its immutable candidate.
+                    # Reuse that exact candidate under the observer's next unique
+                    # attempt index so repair does not depend on a spare API key.
+                    return _call(
+                        key_name,
+                        key_value,
+                        model,
+                        preserve_fallback=preserve_fallback,
+                        candidate_index=candidate_index,
+                    )
+                _audit_remaining("result_validation_failed")
+                if accounting_observer is not None:
+                    accounting_observer.resolve_failure(
+                        "result_validation_failed"
+                    )
+                raise CallAIAnalysisError(
+                    "Gemini reply failed deterministic result validation."
+                )
+            if attempt_boundary is not None:
+                attempt_boundary.succeeded(usage)
 
         if key_name in gemini_keys.ALL_KEYS:
             gemini_keys.record_key_success(
@@ -1904,6 +2056,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         ENABLE_LEGACY_CHAT_HEDGE
         and primary == "gemini-3.5-flash-lite"
         and not accounting_shadow_active
+        and dispatch_budget is None
     )
     quota_pressure = gemini_keys.model_quota_pressure("chat", primary)
     if quota_pressure or not hedging_affordable:
@@ -1993,6 +2146,12 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
 
     if accounting_observer is not None:
         accounting_observer.resolve_failure("exhausted")
+    if dispatch_budget is not None:
+        error = CallAIAnalysisError(
+            "Усі Gemini-кандидати для validated live chat недоступні."
+        )
+        error.failure_kind = last_actual_failure_kind or "provider_dispatch_budget"
+        raise error
     raise CallAIAnalysisError(
         "Усі Gemini-кандидати для live chat недоступні. Спроби: "
         + "; ".join(attempts)
@@ -2098,7 +2257,10 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
                          reasoning_task: str | None = None,
                          parse: bool = False,
                          deadline_seconds: float | None = None,
-                         routing_decision=None) -> dict:
+                         routing_decision=None,
+                         result_validator=None,
+                         repair_payload_factory=None,
+                         max_actual_dispatches: int | None = None) -> dict:
     """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
     моделей. У result['parsed'] — сирий текст відповіді моделі.
     log_cb (опц.) отримує короткі рядки про кожну спробу (для консолі бота)."""
@@ -2113,7 +2275,16 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
             reasoning_task=reasoning_task or "customer_chat",
             deadline_seconds=deadline_seconds,
             routing_decision=routing_decision,
+            result_validator=result_validator,
+            repair_payload_factory=repair_payload_factory,
+            max_actual_dispatches=max_actual_dispatches,
         )
+    if (
+        result_validator is not None
+        or repair_payload_factory is not None
+        or max_actual_dispatches is not None
+    ):
+        raise ValueError("result validation is supported only for live chat")
     bounded_management = role == "management"
     return _run_with_pool(
         role,
@@ -2323,7 +2494,9 @@ def _final_provider_body(payload: dict) -> tuple[bytes, int, int]:
 
 
 def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True,
-                      timeout: tuple | None = None, attempt_boundary=None) -> tuple:
+                      timeout: tuple | None = None, attempt_boundary=None,
+                      dispatch_budget=None,
+                      defer_attempt_success: bool = False) -> tuple:
     """Один виклик generateContent. Повертає (parsed_json|text, usage) або кидає
     типізовану помилку (_GeminiTransient / _Gemini429 / _GeminiModelUnavailable / _GeminiFatal).
     parse=False → повертає сирий текст замість JSON (для діалогового бота)."""
@@ -2366,6 +2539,13 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
             )
             attempt_boundary.cancelled_pre_dispatch(error)
             raise error
+    if dispatch_budget is not None and not dispatch_budget.consume_dispatch():
+        error = _GeminiDispatchBudgetExhausted(
+            "actual provider dispatch budget exhausted"
+        )
+        if attempt_boundary is not None:
+            attempt_boundary.cancelled_pre_dispatch(error)
+        raise error
     try:
         resp = requests.post(
             url,
@@ -2517,7 +2697,7 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
     usage["_request_inline_count"] = request_inline_count
     usage["_request_trimmed_inline"] = request_trimmed_inline
     usage["_request_serialized_bytes"] = len(body)
-    if attempt_boundary is not None:
+    if attempt_boundary is not None and not defer_attempt_success:
         attempt_boundary.succeeded(usage)
     return parsed, usage
 

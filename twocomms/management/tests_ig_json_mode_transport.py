@@ -4,6 +4,7 @@ from management.services import gemini_payload_contract as contract
 from management.services.ig_response_control import (
     parse_structured_response,
     structured_response_instruction,
+    structured_response_schema,
 )
 
 
@@ -73,6 +74,13 @@ class JsonModeTransportTests(TestCase):
         self.assertIn("source_image_index", instruction)
         self.assertIn("evidence_code", instruction)
         self.assertIn("type_code", instruction)
+        self.assertIn("Never emit the legacy price control", instruction)
+        self.assertIn("price_quoted", instruction)
+        self.assertNotIn(
+            "price",
+            structured_response_schema()["properties"]["controls"]["items"]
+            ["properties"]["kind"]["enum"],
+        )
 
     def test_strict_application_parser_remains_the_authority(self):
         invalid = parse_structured_response({

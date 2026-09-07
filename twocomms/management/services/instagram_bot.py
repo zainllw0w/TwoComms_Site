@@ -1652,7 +1652,7 @@ PAYMENT_PROTOCOL_NOTE = (
     "customer-facing текст без службових маркерів. controls — масив "
     "об'єктів kind/value; додавай лише точні пропозиції з поточного контексту. "
     "Дозволені kind: manager, spam, stage, paylink, payment, product, item, option, "
-    "qty, size, fit, color_variant_id, price, price_quoted, order, show_products, "
+    "qty, size, fit, color_variant_id, price_quoted, order, show_products, "
     "catalog_link, objhandle. Не додавай невідомі kind, неповні значення або суперечливі "
     "singleton controls. Система повторно перевіряє кожну пропозицію.\n"
     "ОПЛАТА. paylink=full або prepay — лише після однозначного вибору товару та "
@@ -2524,6 +2524,7 @@ def _stage_permission_message(
     reply_to_provider_message_id: str = "",
     quick_reply_payload: str = "",
     allow_media_capture: bool = True,
+    provider_namespace: str = "",
 ) -> tuple[InstagramBotMessage | None, bool]:
     """Persist a permission-changing message without locking its client FK."""
     existing = None
@@ -2534,7 +2535,10 @@ def _stage_permission_message(
             synthetic_event_key=synthetic_event_key
         ).first()
     if existing is not None:
-        if existing.sender_id != sender_id or existing.role != role:
+        if (
+            existing.sender_id != sender_id or existing.role != role
+            or (provider_namespace and existing.provider_namespace != provider_namespace)
+        ):
             return None, False
         return existing, False
     try:
@@ -2545,6 +2549,7 @@ def _stage_permission_message(
                 role=role,
                 text=text,
                 mid=mid or None,
+                provider_namespace=provider_namespace,
                 synthetic_event_key=synthetic_event_key or None,
                 status=InstagramBotMessage.Status.DONE,
                 source=source,
@@ -2579,6 +2584,7 @@ def _stage_permission_message(
             existing is None
             or existing.sender_id != sender_id
             or existing.role != role
+            or (provider_namespace and existing.provider_namespace != provider_namespace)
         ):
             return None, False
         return existing, False
@@ -2593,6 +2599,7 @@ def _handle_echo(
     mid: str = "",
     received_at=None,
     persistence_only: bool = False,
+    provider_namespace: str = "",
 ) -> None:
     """Echo-подія (повідомлення, надіслане сторінкою). Якщо це НЕ власне відлуння
     бота — значить відповів живий менеджер → ставимо бота на паузу для клієнта."""
@@ -2645,6 +2652,7 @@ def _handle_echo(
             text=text or "(зображення менеджера)",
             mid=mid,
             source="echo",
+            provider_namespace=provider_namespace,
             attachments=(
                 json.dumps(
                     [item.get("url") for item in (attachments or []) if item.get("url")],
@@ -2851,6 +2859,11 @@ def _provider_account_id(s: InstagramBotSettings) -> str:
     if provider_transport(s) == INSTAGRAM_LOGIN_TRANSPORT:
         return str(getattr(s, "ig_user_id", "") or "").strip()
     return str(getattr(s, "page_id", "") or "").strip()
+
+
+def ingress_provider_namespace(s: InstagramBotSettings) -> str:
+    owner = _provider_account_id(s)
+    return f"{provider_transport(s)}:{owner}" if owner else ""
 
 
 def resolve_gemini_key(s: InstagramBotSettings) -> str:
@@ -7564,6 +7577,17 @@ def _gemini_failure_kind(exc: Exception) -> str:
     distinguish a provider outage from safety, empty-output, or payload errors
     without persisting raw provider text.
     """
+    explicit = str(getattr(exc, "failure_kind", "") or "").casefold()
+    if explicit == "invalid_response":
+        return "invalid_response"
+    if explicit in {
+        "read_timeout",
+        "transport",
+        "quota_429",
+        "http_408",
+        "http_5xx",
+    }:
+        return "provider_outage"
     message = str(exc or "").casefold()
     transient_markers = (
         "read_timeout",
@@ -7575,6 +7599,69 @@ def _gemini_failure_kind(exc: Exception) -> str:
         "live deadline",
     )
     return "provider_outage" if any(marker in message for marker in transient_markers) else "generation_error"
+
+
+def _response_validation_fallback(client=None, *, reasons=(), has_images=False) -> str:
+    """Return a claim-free clarification matched to finite rejection codes."""
+    locale = _assisted_checkout_locale(client) if client is not None else "uk"
+    codes = {str(reason or "") for reason in reasons}
+    if has_images and codes & {
+        "incomplete_image_coverage",
+        "missing_turn_intelligence",
+        "unknown_inline_coverage",
+    }:
+        key = "media"
+    elif codes & {
+        "unverified_payment",
+        "unverified_order",
+        "unverified_shipment",
+        "unverified_tracking",
+    }:
+        key = "status"
+    elif codes & {
+        "configuration_mismatch",
+        "unverified_price",
+        "unverified_discount",
+        "unsupported_currency",
+        "unauthorized_url",
+    }:
+        key = "configuration"
+    else:
+        key = "request"
+    copy = {
+        "en": {
+            "media": "I could not read every attached image clearly. Please resend the unclear part.",
+            "status": "I cannot confirm that status from the available information. Please share the order reference or clarify which status you mean.",
+            "configuration": "Please clarify the product, fit, size, and color so I can give the confirmed option and price.",
+            "request": "Please repeat the main detail you need, and I’ll answer using confirmed information.",
+        },
+        "ru": {
+            "media": "Не удалось чётко прочитать все изображения. Пришлите, пожалуйста, неразборчивую часть ещё раз.",
+            "status": "По доступным данным я не могу подтвердить этот статус. Пришлите номер заказа или уточните, какой статус вас интересует.",
+            "configuration": "Уточните, пожалуйста, товар, крой, размер и цвет — тогда я назову подтверждённый вариант и цену.",
+            "request": "Повторите, пожалуйста, главную деталь запроса, и я отвечу по подтверждённым данным.",
+        },
+        "uk": {
+            "media": "Не вдалося чітко прочитати всі зображення. Надішліть, будь ласка, нерозбірливу частину ще раз.",
+            "status": "За доступними даними я не можу підтвердити цей статус. Надішліть номер замовлення або уточніть, який статус вас цікавить.",
+            "configuration": "Уточніть, будь ласка, товар, крій, розмір і колір — тоді я назву підтверджений варіант і ціну.",
+            "request": "Повторіть, будь ласка, головну деталь запиту, і я відповім за підтвердженими даними.",
+        },
+    }
+    return copy.get(locale, copy["uk"])[key]
+
+
+def _provider_reply_truth_context(client, control, reply_text):
+    """Resolve an exact prose catalog quote without mutating typed controls."""
+    from management.services.ig_reply_authority import build_reply_truth_context
+
+    local_control = dict(control or {})
+    _checked_reply, resolved_control, _quote = _extract_authoritative_price_claim(
+        client,
+        str(reply_text or ""),
+        local_control,
+    )
+    return build_reply_truth_context(client, control=resolved_control)
 
 
 def gemini_generate(
@@ -7831,6 +7918,21 @@ def gemini_generate(
     if failure_context is not None:
         failure_context["serialized_request_bytes"] = serialized_request_bytes
 
+    from management.services.ig_response_guard import ProviderResponseGuard
+
+    response_guard = ProviderResponseGuard(
+        context_factory=lambda control, reply_text: _provider_reply_truth_context(
+            client,
+            control,
+            reply_text,
+        ),
+        image_mimes=tuple(mime for mime, _raw in images),
+        require_intelligence=(
+            routing_decision.task_class == TaskClass.COMPLEX_LIVE
+        ),
+        programme=prize_programme,
+    )
+
     # Діалог із клієнтом — найвищий пріоритет (роль 'chat'): пул ключів
     # GEMINI_API/2 → позичання GEMINI_API5/6; selected chat model is primary,
     # then the validated fallback chain.
@@ -7872,11 +7974,34 @@ def gemini_generate(
             parse=True,
             deadline_seconds=routing_decision.deadline_ms / 1000,
             routing_decision=routing_decision,
+            result_validator=response_guard.validate,
+            repair_payload_factory=response_guard.repair,
+            max_actual_dispatches=2,
         )
     except CallAIAnalysisError as exc:
+        failure_kind = _gemini_failure_kind(exc)
+        semantic_rejection = failure_kind == "invalid_response" or (
+            "failed deterministic result validation" in str(exc).casefold()
+        )
         if failure_context is not None:
-            failure_context["kind"] = _gemini_failure_kind(exc)
+            failure_context["kind"] = (
+                "invalid_response"
+                if semantic_rejection
+                else failure_kind
+            )
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {str(exc)[:300]}")
+        if semantic_rejection:
+            from management.services.ig_response_control import ValidatedResponse
+
+            return ValidatedResponse(
+                reply_text=_response_validation_fallback(
+                    client,
+                    reasons=response_guard.last_reasons,
+                    has_images=bool(images),
+                ),
+                valid=False,
+                error="invalid_response",
+            )
         return None
     except Exception as exc:
         if failure_context is not None:
@@ -7933,7 +8058,16 @@ def gemini_generate(
         )
     parsed = out.get("parsed")
     intelligence = {}
-    if isinstance(parsed, dict):
+    if response_guard.source is parsed and response_guard.response is not None:
+        text = response_guard.response
+        if text.turn_intelligence is not None:
+            intelligence = _validated_turn_intelligence(
+                text.turn_intelligence,
+                turn_candidate_set,
+                actual_media_binding,
+                prize_programme=prize_programme,
+            )
+    elif isinstance(parsed, dict):
         from management.services.ig_response_control import parse_structured_response
 
         text = parse_structured_response(parsed, prize_programme=prize_programme)
@@ -7964,8 +8098,16 @@ def gemini_generate(
                 prize_programme=prize_programme,
             )
     else:
-        # Rolling compatibility: old workers/tests may still return free text.
-        text = (parsed or "").strip() if isinstance(parsed, str) else ""
+        # A legacy model response is display data, never a second action
+        # channel. Internal deterministic/configured responses keep their
+        # separate legacy compatibility in the reply normalizer.
+        from management.services.ig_response_control import ValidatedResponse, parse_legacy_response
+
+        legacy = parse_legacy_response(parsed if isinstance(parsed, str) else "")
+        text = ValidatedResponse(
+            reply_text=legacy.reply_text, valid=False,
+            error="legacy_model_response",
+        ) if legacy.reply_text else None
     if not text:
         if failure_context is not None:
             failure_context["kind"] = "empty_response"
@@ -7979,7 +8121,17 @@ def gemini_generate(
         if failure_context is not None:
             failure_context["kind"] = "invalid_response"
         log("warning", "gemini_intelligence_missing", "complex media artifact missing")
-        return None
+        from management.services.ig_response_control import ValidatedResponse
+
+        text = ValidatedResponse(
+            reply_text=_response_validation_fallback(
+                client,
+                reasons=("incomplete_image_coverage",),
+                has_images=True,
+            ),
+            valid=False,
+            error="incomplete_image_coverage",
+        )
     if failure_context is not None:
         failure_context["model"] = provider_model
         failure_context["request_id"] = request_id
@@ -11944,6 +12096,7 @@ def _observe_not_allowed_inbound(
                 with transaction.atomic():
                     InstagramBotMessage.objects.create(
                         sender_id=sender_id,
+                        provider_namespace=ingress_provider_namespace(s),
                         client=client,
                         role=InstagramBotMessage.Role.USER,
                         text=text or "(зображення)",
@@ -12007,6 +12160,14 @@ def enqueue_inbound(
         return False
     if sender_id == s.ig_user_id:
         return False
+    if mid:
+        prior_namespace = InstagramBotMessage.objects.filter(mid=mid).values_list(
+            "provider_namespace", flat=True,
+        ).first()
+        if prior_namespace is not None and prior_namespace != ingress_provider_namespace(s):
+            if prior_namespace and cache.add("ig_inbound_namespace_notice", True, timeout=300):
+                log("warning", "inbound_namespace_unproven", "provider namespace mismatch requires reconciliation")
+            return False
     from management.models import IgPermissionTransitionJob
     from management.services import bot_followups, bot_sales_classifier
     from management.services.ig_permission_transitions import (
@@ -12100,6 +12261,7 @@ def enqueue_inbound(
             reply_to_provider_message_id=reply_to_provider_message_id,
             quick_reply_payload=quick_reply_payload,
             allow_media_capture=not bool(client.hidden_at),
+            provider_namespace=ingress_provider_namespace(s),
         )
         if msg is None:
             return False
@@ -12212,6 +12374,7 @@ def enqueue_inbound(
                         )
                         msg = InstagramBotMessage.objects.create(
                             sender_id=sender_id,
+                            provider_namespace=ingress_provider_namespace(s),
                             client=client,
                             role=InstagramBotMessage.Role.USER,
                             text=text or "(зображення)",
@@ -13367,6 +13530,8 @@ def _process_one_inside_reply_boundary(
     lease_token: str = "",
     permission=None,
 ) -> bool:
+    from management.services.ig_webhook_inbox import has_pending_ingress
+
     fallback_manager_handoff = False
     used_ai_failure_fallback = False
     outage_recovery_required = False
@@ -13403,6 +13568,9 @@ def _process_one_inside_reply_boundary(
     turn_media_binding: dict = {}
     live_commerce_decision = None
     live_commerce_fallback = ""
+    model_reply_guarded = False
+    model_actions_blocked = False
+    server_generated_urls: list[str] = []
 
     if row.client_id:
         # Логічний хід: усі вхідні, що прийшли поки бот ще не відповів, належать
@@ -14059,7 +14227,7 @@ def _process_one_inside_reply_boundary(
 
                 # Модель викликається лише тоді, коли L3 не відповів.
                 if l3_outcome is None:
-                    reply = gemini_generate(
+                    generated_reply = gemini_generate(
                         s, history, images=images or None, match_hint=match_hint,
                         memory_note=mem_note, context_note=ctx_note,
                         client=row.client if row.client_id else None,
@@ -14070,9 +14238,15 @@ def _process_one_inside_reply_boundary(
                         turn_media_binding=media_binding,
                         turn_media_context=media,
                     )
-                    if reply is None and live_commerce_fallback:
+                    if generated_reply is not None:
+                        reply = generated_reply
+                        model_reply_guarded = True
+                    elif live_commerce_fallback:
                         reply = live_commerce_fallback
                         used_ai_failure_fallback = True
+                if has_pending_ingress(s, row.sender_id):
+                    clear_typing_indicator()
+                    return _requeue_for_active_lease(row)
                 _persist_turn_intelligence(
                     row,
                     gemini_failure.get("turn_intelligence") or {},
@@ -14095,6 +14269,13 @@ def _process_one_inside_reply_boundary(
         clear_typing_indicator()
         return _skip_observed_row(row, reason="global_reply_paused_before_send")
 
+    if has_pending_ingress(s, row.sender_id):
+        # Common fence for model, deterministic, and configured static paths.
+        # A blocked or accepted newer receipt for this customer must be
+        # reconciled before the older row can continue.
+        clear_typing_indicator()
+        return _requeue_for_active_lease(row)
+
     _record_prize_case_from_intelligence(row)
 
     # Керуючі теги моделі: [MANAGER] (ескалація), [STAGE:x] (воронка) тощо.
@@ -14116,10 +14297,18 @@ def _process_one_inside_reply_boundary(
         control = {}
         controls_valid = True
         follow_candidate = None
+        model_reply_guarded = False
     # Invalid controls are discarded, not interpreted as a manager request.
     # A customer-safe reply may continue without changing CRM authority state;
     # explicit manager escalation remains separately validated below.
     needs_manager = bool(control.get("manager"))
+    pre_effect_rejection_reasons: list[str] = []
+    if model_reply_guarded and "price" in control:
+        # Legacy negotiated-price evidence admits model/agent messages and is
+        # not strong enough to authorize a new commercial action. Until the
+        # typed manager-offer producer exists, only catalog `price_quoted` or a
+        # frozen server proposal may cross this boundary.
+        pre_effect_rejection_reasons.append("unverified_price")
     reply, control = _apply_turn_intelligence_resolution(
         reply,
         control,
@@ -14129,6 +14318,14 @@ def _process_one_inside_reply_boundary(
     if reply and row.client_id:
         claim_failures = _authoritative_reply_claim_failures(row.client, reply, control)
         if claim_failures:
+            pre_effect_rejection_reasons.extend(
+                {
+                    "payment": "unverified_payment",
+                    "order": "unverified_order",
+                    "stock": "configuration_mismatch",
+                }.get(kind, "invalid_response")
+                for kind in claim_failures
+            )
             needs_manager = True
             control["manager"] = True
             reply = _reply_without_unproven_claims(
@@ -14153,6 +14350,7 @@ def _process_one_inside_reply_boundary(
             # holding state and let the normal manager escalation path handle it.
             needs_manager = True
             control["manager"] = True
+            pre_effect_rejection_reasons.append("unverified_price")
             log("warning", "price_claim_gate", f"{row.sender_id}: unverified exact price claim")
             reply = _paylink_fallback(row.client)
         else:
@@ -14162,8 +14360,41 @@ def _process_one_inside_reply_boundary(
         if control.get("options") and _control_option_values(control) is None:
             needs_manager = True
             control["manager"] = True
+            pre_effect_rejection_reasons.append("configuration_mismatch")
             log("warning", "option_control_gate", f"{row.sender_id}: malformed option controls")
             reply = _paylink_fallback(row.client)
+
+    if reply and row.client_id and model_reply_guarded:
+        from management.services.ig_reply_authority import build_reply_truth_context
+        from management.services.ig_reply_truth import validate_reply_truth
+
+        try:
+            proposal_truth = validate_reply_truth(
+                reply,
+                context=build_reply_truth_context(row.client, control=control),
+            )
+            truth_reasons = proposal_truth.reasons
+        except Exception:
+            truth_reasons = ("authority_unavailable",)
+        rejection_reasons = tuple(dict.fromkeys(
+            [*pre_effect_rejection_reasons, *truth_reasons]
+        ))
+        if rejection_reasons:
+            log(
+                "warning",
+                "reply_truth_pre_effect",
+                f"{row.sender_id}: {','.join(rejection_reasons)}",
+            )
+            reply = _response_validation_fallback(
+                row.client,
+                reasons=rejection_reasons,
+                has_images=bool(turn_images),
+            )
+            control = {}
+            controls_valid = False
+            follow_candidate = None
+            needs_manager = False
+            model_actions_blocked = True
 
     # Закріплюємо товар, якщо модель явно вказала [PRODUCT:id] — щоб подальша
     # оплата формувалась детерміновано саме на нього.
@@ -14173,7 +14404,13 @@ def _process_one_inside_reply_boundary(
     # передумав і назвав інший товар, `current_product_id` лишався старим —
     # звідси «не змінював товар назад». Опублікованість товару перевіряє
     # `bot_orders.pin_product`, тому вигаданий id тут не закріпиться.
-    if reply and row.client_id and not ugc_turn and _control_product_id(control):
+    if (
+        reply
+        and row.client_id
+        and not ugc_turn
+        and not model_actions_blocked
+        and _control_product_id(control)
+    ):
         _pin_control_product(
             row.client,
             _control_product_id(control),
@@ -14186,7 +14423,7 @@ def _process_one_inside_reply_boundary(
     # [QTY:...]), навіть якщо посилання ще не створюється. Інакше уточнення
     # фасону губилось, і наступного ходу його знову бракувало — це і був
     # механізм нескінченного «підкажіть фасон».
-    if reply and row.client_id and not ugc_turn:
+    if reply and row.client_id and not ugc_turn and not model_actions_blocked:
         try:
             saved = persist_control_selection(
                 row.client,
@@ -14211,7 +14448,7 @@ def _process_one_inside_reply_boundary(
             log("warning", "size_gap_notify", repr(exc))
 
     # [SPAM] — модель розпізнала спам/провокацію: рахуємо страйк (на 3-й — пауза).
-    if reply and row.client_id and control.get("spam"):
+    if reply and row.client_id and not model_actions_blocked and control.get("spam"):
         try:
             _register_spam(row.client)
         except Exception:
@@ -14221,7 +14458,11 @@ def _process_one_inside_reply_boundary(
     # finalize_paylink гарантує, що клієнт НЕ лишиться з обіцянкою без лінку —
     # на успіх додає реальний URL (вирізаючи вигаданий моделлю), на невдачу
     # прибирає висяче обіцяння й кличе менеджера.
-    if reply and row.client_id and not ugc_turn:
+    if reply and row.client_id and not ugc_turn and not model_actions_blocked:
+        urls_before_paylink = {
+            match.group(0).rstrip(".,;:!?)]}")
+            for match in _CUSTOMER_URL_RE.finditer(str(reply or ""))
+        }
         reply = finalize_paylink(
             reply,
             control,
@@ -14229,11 +14470,18 @@ def _process_one_inside_reply_boundary(
             row.sender_id,
             trigger_text=row.text,
         )
+        for match in _CUSTOMER_URL_RE.finditer(str(reply or "")):
+            url = match.group(0).rstrip(".,;:!?)]}")
+            if url not in urls_before_paylink and url not in server_generated_urls:
+                server_generated_urls.append(url)
 
     # Persisted invoice identity is the payment-delivery source of truth.  The
     # provider may return a generic pageUrl that does not contain monobank/mbnk,
     # so hostname heuristics alone are not sufficient here.
     payment_deal = _invoice_deal_for_reply(row.client, reply) if row.client_id else None
+    payment_url = str(getattr(payment_deal, "invoice_url", "") or "").strip()
+    if payment_url and payment_url in str(reply or "") and payment_url not in server_generated_urls:
+        server_generated_urls.append(payment_url)
 
     if (
         follow_candidate is not None
@@ -14570,6 +14818,10 @@ def _process_one_inside_reply_boundary(
         # Клієнт мусить дізнатись словами, що показане — не весь асортимент:
         # без цього три фото читаються як «це все, що є».
         reply = _append_more_products_hint(reply, catalog_media_selection, row.client)
+        if int(getattr(catalog_media_selection, "truncated_product_count", 0) or 0) > 0:
+            catalog_url = f"{_site_base_url()}/catalog/"
+            if catalog_url not in server_generated_urls:
+                server_generated_urls.append(catalog_url)
         try:
             from management.services.ig_catalog_media import (
                 CatalogMediaDeliveryState,
@@ -14697,6 +14949,79 @@ def _process_one_inside_reply_boundary(
                 log("warning", "follow_decision_cancel", type(exc).__name__)
             finally:
                 follow_authorized = None
+
+    if reply and row.client_id and model_reply_guarded:
+        from management.services.ig_reply_authority import build_reply_truth_context
+        from management.services.ig_reply_truth import validate_reply_truth
+
+        try:
+            final_truth = validate_reply_truth(
+                reply,
+                context=build_reply_truth_context(
+                    row.client,
+                    control=control,
+                    server_urls=tuple(server_generated_urls),
+                ),
+            )
+            final_reasons = final_truth.reasons
+        except Exception:
+            final_reasons = ("authority_unavailable",)
+        if final_reasons:
+            log(
+                "warning",
+                "reply_truth_final",
+                f"{row.sender_id}: {','.join(final_reasons)}",
+            )
+            if follow_authorized is not None:
+                try:
+                    from management.services.ig_follow_cta import finalize_follow_delivery
+
+                    finalize_follow_delivery(
+                        follow_authorized.decision_id,
+                        outcome="cancelled_before_io",
+                        lease_token=follow_authorized.lease_token,
+                        now=timezone.now(),
+                    )
+                    follow_cancelled_before_io = True
+                except Exception as exc:
+                    log("warning", "follow_decision_cancel", type(exc).__name__)
+                finally:
+                    follow_authorized = None
+            else:
+                cancel_prepared_follow_before_io()
+            reply = _response_validation_fallback(
+                row.client,
+                reasons=final_reasons,
+                has_images=bool(turn_images),
+            )
+            control = {}
+            needs_manager = False
+            payment_deal = None
+            model_actions_blocked = True
+
+    if has_pending_ingress(s, row.sender_id):
+        # No text send intent exists yet. Preserve any completed/partial catalog
+        # delivery evidence, cancel only unstarted follow copy, and let the
+        # durable inbox materialize the newer customer-specific permission fact.
+        if follow_authorized is not None:
+            try:
+                from management.services.ig_follow_cta import finalize_follow_delivery
+
+                finalize_follow_delivery(
+                    follow_authorized.decision_id,
+                    outcome="cancelled_before_io",
+                    lease_token=follow_authorized.lease_token,
+                    now=timezone.now(),
+                )
+                follow_cancelled_before_io = True
+            except Exception as exc:
+                log("warning", "follow_decision_cancel", type(exc).__name__)
+            finally:
+                follow_authorized = None
+        else:
+            cancel_prepared_follow_before_io()
+        clear_typing_indicator()
+        return _requeue_for_active_lease(row)
 
     # Э-DUP: this is the last text-only barrier and it runs *before*
     # send_state="sending".  It also closes every prepared side effect.
@@ -15887,6 +16212,7 @@ def _persist_polled_message(
             mid=mid,
             defaults={
                 "sender_id": customer_id,
+                "provider_namespace": ingress_provider_namespace(s),
                 "client": client,
                 "role": role,
                 "text": text,
@@ -15906,6 +16232,10 @@ def _persist_polled_message(
             },
         )
         if not created:
+            if row.provider_namespace != ingress_provider_namespace(s):
+                if row.provider_namespace and cache.add("ig_poll_namespace_notice", True, timeout=300):
+                    log("warning", "poll_namespace_unproven", "provider namespace mismatch requires reconciliation")
+                return False
             update_fields = []
             media_enriched = False
             if attachments:
@@ -16074,6 +16404,7 @@ def handle_webhook_payload(
                     mid=msg.get("mid", ""),
                     received_at=msg.get("_event_created_at"),
                     persistence_only=persistence_only,
+                    provider_namespace=ingress_provider_namespace(s),
                 )
             except Exception as exc:
                 log("warning", "echo", repr(exc))

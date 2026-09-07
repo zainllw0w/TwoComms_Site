@@ -23,6 +23,7 @@ from management.models import (
 from management.services import bot_conversation_analysis, bot_followups, bot_sales_classifier
 from management.services import call_ai_analysis
 from management.services import gemini_keys, instagram_bot
+from management.services.ig_reply_truth import ReplyTruthContext
 from orders.models import Order
 
 
@@ -41,6 +42,15 @@ class StructuredProviderBoundaryTests(TestCase):
 
         self.assertEqual(result["parsed"], expected)
         self.assertTrue(run.call_args.kwargs["parse"])
+
+    def test_typed_budget_terminal_503_remains_provider_outage(self):
+        error = call_ai_analysis.CallAIAnalysisError("validated budget exhausted")
+        error.failure_kind = "http_5xx"
+
+        self.assertEqual(
+            instagram_bot._gemini_failure_kind(error),
+            "provider_outage",
+        )
 
     def test_customer_chat_uses_mime_only_json_and_returns_validated_response(self):
         settings = InstagramBotSettings()
@@ -125,6 +135,193 @@ class StructuredProviderBoundaryTests(TestCase):
                 self.assertIsNone(result)
                 self.assertEqual(failure_context["kind"], "invalid_response")
 
+    def test_customer_chat_uses_one_public_call_for_bounded_repair(self):
+        settings = InstagramBotSettings()
+        calls = {"validation": 0, "repair": 0}
+
+        def provider(_payload, **kwargs):
+            calls["validation"] += 1
+            invalid = {"reply_text": "Оплату підтверджено.", "controls": []}
+            rejected = kwargs["result_validator"](
+                invalid,
+                usage={"_request_inline_count": 0},
+            )
+            self.assertFalse(rejected.valid)
+            repaired_payload = kwargs["repair_payload_factory"](
+                _payload,
+                invalid,
+                rejected.reason_codes,
+            )
+            self.assertIsInstance(repaired_payload, dict)
+            calls["repair"] += 1
+            valid = {"reply_text": "Чим можу допомогти?", "controls": []}
+            calls["validation"] += 1
+            accepted = kwargs["result_validator"](
+                valid,
+                usage={"_request_inline_count": 0},
+            )
+            self.assertTrue(accepted.valid)
+            return {
+                "parsed": valid,
+                "model": "gemini-test",
+                "usage": {"_request_inline_count": 0},
+                "meta": {"key": "test", "reasoning_task": "customer_chat"},
+            }
+
+        with patch(
+            "management.services.call_ai_analysis.gemini_generate_text",
+            side_effect=provider,
+        ) as generate:
+            result = instagram_bot.gemini_generate(
+                settings,
+                [{"role": "user", "text": "Оплата пройшла?"}],
+            )
+
+        self.assertEqual(generate.call_count, 1)
+        self.assertEqual(calls, {"validation": 2, "repair": 1})
+        self.assertTrue(result.valid)
+        self.assertEqual(result.reply_text, "Чим можу допомогти?")
+
+    def test_exact_catalog_prose_price_without_marker_passes_first_attempt(self):
+        from storefront.models import Category, Product, ProductStatus
+
+        category = Category.objects.create(name="Guard quote", slug="guard-quote")
+        product = Product.objects.create(
+            title="Guard quote product",
+            slug="guard-quote-product",
+            category=category,
+            price=900,
+            status=ProductStatus.PUBLISHED,
+        )
+        client = IgClient.get_or_create_for_sender("guard-prose-quote")
+        client.current_product = product
+        client.save(update_fields=["current_product", "updated_at"])
+        settings = InstagramBotSettings.load()
+        parsed = {
+            "reply_text": "Ціна цього варіанта — 900 грн.",
+            "controls": [{"kind": "product", "value": product.pk}],
+        }
+        validations = []
+
+        def provider(_payload, **kwargs):
+            decision = kwargs["result_validator"](
+                parsed,
+                usage={"_request_inline_count": 0},
+            )
+            validations.append(decision)
+            return {
+                "parsed": parsed,
+                "model": "gemini-test",
+                "usage": {"_request_inline_count": 0},
+                "meta": {"key": "test", "reasoning_task": "customer_chat"},
+            }
+
+        with patch(
+            "management.services.call_ai_analysis.gemini_generate_text",
+            side_effect=provider,
+        ) as generate:
+            result = instagram_bot.gemini_generate(
+                settings,
+                [{"role": "user", "text": "Яка ціна?"}],
+                client=client,
+            )
+
+        self.assertEqual(generate.call_count, 1)
+        self.assertEqual(len(validations), 1)
+        self.assertTrue(validations[0].valid, validations[0].reason_codes)
+        self.assertTrue(result.valid)
+        self.assertNotIn("price_quoted", result.control)
+
+        from management.services.ig_response_guard import ProviderResponseGuard
+
+        bad_guard = ProviderResponseGuard(
+            context_factory=lambda control, reply_text: (
+                instagram_bot._provider_reply_truth_context(
+                    client,
+                    control,
+                    reply_text,
+                )
+            )
+        )
+        bad = bad_guard.validate({
+            "reply_text": "Ціна цього варіанта — 800 грн.",
+            "controls": [{"kind": "product", "value": product.pk}],
+        }, usage={"_request_inline_count": 0})
+        self.assertFalse(bad.valid)
+        self.assertIn("unverified_price", bad.reason_codes)
+        unbacked_range = bad_guard.validate({
+            "reply_text": "Ціна від 800 до 900 грн.",
+            "controls": [{"kind": "product", "value": product.pk}],
+        }, usage={"_request_inline_count": 0})
+        self.assertFalse(unbacked_range.valid)
+        self.assertIn("unverified_price", unbacked_range.reason_codes)
+
+    def test_legacy_model_string_cannot_restore_operational_tags(self):
+        settings = InstagramBotSettings()
+        provider = {
+            "parsed": "[PAYLINK] [MANAGER] Можу допомогти з вибором.",
+            "model": "gemini-test",
+            "usage": {},
+            "meta": {"key": "test", "reasoning_task": "customer_chat"},
+        }
+        with patch(
+            "management.services.call_ai_analysis.gemini_generate_text",
+            return_value=provider,
+        ):
+            result = instagram_bot.gemini_generate(
+                settings,
+                [{"role": "user", "text": "Допоможіть"}],
+            )
+
+        reply, control, valid, _follow = (
+            instagram_bot._normalize_generated_reply_details(result)
+        )
+        self.assertFalse(valid)
+        self.assertEqual(control, {})
+        self.assertNotIn("PAYLINK", reply)
+        self.assertNotIn("MANAGER", reply)
+
+    def test_exhausted_semantic_repair_returns_reason_aware_safe_reply(self):
+        settings = InstagramBotSettings()
+        failure_context = {}
+
+        def rejected(_payload, **kwargs):
+            decision = kwargs["result_validator"](
+                {"reply_text": "Оплату підтверджено.", "controls": []},
+                usage={"_request_inline_count": 0},
+            )
+            self.assertIn("unverified_payment", decision.reason_codes)
+            raise call_ai_analysis.CallAIAnalysisError(
+                "Gemini reply failed deterministic result validation."
+            )
+
+        with patch(
+            "management.services.call_ai_analysis.gemini_generate_text",
+            side_effect=rejected,
+        ) as generate:
+            result = instagram_bot.gemini_generate(
+                settings,
+                [{"role": "user", "text": "Оплата пройшла?"}],
+                failure_context=failure_context,
+            )
+
+        self.assertEqual(generate.call_count, 1)
+        self.assertFalse(result.valid)
+        self.assertEqual(result.error, "invalid_response")
+        self.assertIn("не можу підтвердити", result.reply_text.casefold())
+        self.assertEqual(failure_context["kind"], "invalid_response")
+
+    def test_image_coverage_fallback_requests_only_the_unreadable_part(self):
+        reply = instagram_bot._response_validation_fallback(
+            None,
+            reasons=("incomplete_image_coverage",),
+            has_images=True,
+        )
+
+        self.assertIn("зображення", reply.casefold())
+        self.assertIn("ще раз", reply.casefold())
+        self.assertNotIn("товар, крій", reply.casefold())
+
 
 class StructuredWorkerAuthorityBoundaryTests(TestCase):
     """Only validated proposals may cross the live worker authority boundary."""
@@ -194,7 +391,8 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
             ),
         ) as send_text:
             handled = instagram_bot.process_pending(self.settings, max_items=1)
-        return source, handled, send_text.call_args.args[2]
+        delivered = send_text.call_args.args[2] if send_text.call_args else None
+        return source, handled, delivered
 
     def test_unapproved_phone_number_is_replaced_before_customer_send(self):
         client = self._client("phone-disclosure-blocked")
@@ -211,6 +409,196 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
         self.assertEqual(handled, 1)
         self.assertNotIn("+380 50 123 45 67", delivered)
         self.assertNotIn("0501234567", delivered.replace(" ", ""))
+
+    def test_payment_claim_is_rejected_before_invoice_or_model_actions(self):
+        client = self._client("truth-payment")
+        payload = {
+            "reply_text": "Оплату підтверджено.",
+            "controls": [
+                {"kind": "paylink", "value": "full"},
+                {"kind": "product", "value": 999999},
+                {"kind": "spam", "value": True},
+                {"kind": "manager", "value": True},
+            ],
+        }
+        with patch(
+            "management.services.instagram_bot.finalize_paylink",
+            side_effect=lambda reply, _control, *_args, **_kwargs: reply,
+        ) as finalize, patch(
+            "management.services.instagram_bot._pin_control_product",
+        ) as pin, patch(
+            "management.services.instagram_bot._register_spam",
+        ) as spam, patch(
+            "management.services.instagram_bot._escalate_manager_for_row",
+        ) as escalate:
+            _source, handled, delivered = self._run(
+                client,
+                payload,
+                suffix="truth-payment",
+                text="Оплата пройшла?",
+            )
+
+        self.assertEqual(handled, 1)
+        self.assertIn("не можу підтвердити", delivered.casefold())
+        finalize.assert_not_called()
+        pin.assert_not_called()
+        spam.assert_not_called()
+        escalate.assert_not_called()
+
+    def test_legacy_model_price_control_fails_closed_without_stating_amount(self):
+        client = self._client("truth-legacy-price")
+        payload = {
+            "reply_text": "Домовились, можу перейти до оформлення.",
+            "controls": [
+                {"kind": "price", "value": "777"},
+                {"kind": "paylink", "value": "full"},
+            ],
+        }
+        with patch(
+            "management.services.instagram_bot.finalize_paylink",
+            side_effect=lambda reply, _control, *_args, **_kwargs: reply,
+        ) as finalize:
+            _source, handled, delivered = self._run(
+                client,
+                payload,
+                suffix="truth-legacy-price",
+                text="Добре",
+            )
+
+        self.assertEqual(handled, 1)
+        self.assertIn("товар", delivered.casefold())
+        finalize.assert_not_called()
+        self.assertNotIn("777", delivered)
+
+    def test_authorized_catalog_quote_remains_customer_usable(self):
+        client = self._client("truth-quote")
+        payload = {
+            "reply_text": "Ціна цього варіанта — 900 грн.",
+            "controls": [{"kind": "price_quoted", "value": "900"}],
+        }
+        quote = {
+            "amount": "900.00",
+            "fit_option_code": "",
+            "price_source": "catalog",
+        }
+        with patch(
+            "management.services.instagram_bot._extract_authoritative_price_claim",
+            return_value=(payload["reply_text"], {"price_quoted": "900"}, quote),
+        ), patch(
+            "management.services.instagram_bot._validated_price_quote",
+            return_value=quote,
+        ), patch(
+            "management.services.ig_reply_authority.build_reply_truth_context",
+            return_value=ReplyTruthContext(
+                authorized_prices=(Decimal("900"),),
+            ),
+        ), patch(
+            "management.services.instagram_bot.finalize_paylink",
+            side_effect=lambda reply, _control, *_args, **_kwargs: reply,
+        ):
+            _source, handled, delivered = self._run(
+                client,
+                payload,
+                suffix="truth-quote",
+                text="Скільки коштує цей варіант?",
+            )
+
+        self.assertEqual(handled, 1)
+        self.assertIn("900 грн", delivered)
+
+    def test_final_phone_rewrite_is_truth_checked_before_send(self):
+        client = self._client("truth-final-rewrite")
+        payload = {"reply_text": "Чим можу допомогти?", "controls": []}
+        with patch(
+            "management.services.bot_sales_classifier.enforce_phone_disclosure_policy",
+            return_value=("Оплату підтверджено.", False, ""),
+        ), patch(
+            "management.services.instagram_bot.finalize_paylink",
+            side_effect=lambda reply, _control, *_args, **_kwargs: reply,
+        ), patch(
+            "management.services.instagram_bot._escalate_manager_for_row",
+        ) as escalate:
+            _source, handled, delivered = self._run(
+                client,
+                payload,
+                suffix="truth-final-rewrite",
+                text="Що далі?",
+            )
+
+        self.assertEqual(handled, 1)
+        self.assertIn("не можу підтвердити", delivered.casefold())
+        self.assertNotIn("Оплату підтверджено", delivered)
+        escalate.assert_not_called()
+
+    def test_pending_customer_ingress_fences_model_effects(self):
+        client = self._client("pending-ingress-pre-effect")
+        payload = {
+            "reply_text": "Можу допомогти з вибором.",
+            "controls": [{"kind": "paylink", "value": "full"}],
+        }
+        with patch(
+            "management.services.ig_webhook_inbox.has_pending_ingress",
+            return_value=True,
+        ), patch(
+            "management.services.instagram_bot.finalize_paylink",
+        ) as finalize:
+            source, handled, delivered = self._run(
+                client,
+                payload,
+                suffix="pending-ingress-pre-effect",
+                text="Беру",
+            )
+
+        source.refresh_from_db()
+        self.assertEqual(handled, 0)
+        self.assertIsNone(delivered)
+        self.assertEqual(source.status, InstagramBotMessage.Status.PENDING)
+        finalize.assert_not_called()
+
+    def test_pending_customer_ingress_also_fences_static_reply(self):
+        client = self._client("pending-ingress-static")
+        self.settings.ai_enabled = False
+        self.settings.trigger_text = "hello"
+        self.settings.reply_text = "Static reply"
+        self.settings.save(update_fields=["ai_enabled", "trigger_text", "reply_text"])
+        with patch(
+            "management.services.ig_webhook_inbox.has_pending_ingress",
+            return_value=True,
+        ):
+            source, handled, delivered = self._run(
+                client,
+                "unused model reply",
+                suffix="pending-ingress-static",
+                text="hello",
+            )
+
+        source.refresh_from_db()
+        self.assertEqual(handled, 0)
+        self.assertIsNone(delivered)
+        self.assertEqual(source.status, InstagramBotMessage.Status.PENDING)
+
+    def test_ingress_arriving_after_effects_still_fences_text_send(self):
+        client = self._client("pending-ingress-final")
+        payload = {"reply_text": "Можу допомогти з вибором.", "controls": []}
+        with patch(
+            "management.services.ig_webhook_inbox.has_pending_ingress",
+            side_effect=[False, False, True],
+        ), patch(
+            "management.services.instagram_bot.finalize_paylink",
+            side_effect=lambda reply, _control, *_args, **_kwargs: reply,
+        ) as finalize:
+            source, handled, delivered = self._run(
+                client,
+                payload,
+                suffix="pending-ingress-final",
+                text="Покажіть варіанти",
+            )
+
+        source.refresh_from_db()
+        self.assertEqual(handled, 0)
+        self.assertIsNone(delivered)
+        self.assertEqual(source.status, InstagramBotMessage.Status.PENDING)
+        finalize.assert_called_once()
 
     def test_current_turn_support_policy_routes_to_safe_manager_handoff(self):
         client = self._client("phone-disclosure-authorized")
@@ -358,6 +746,9 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
         ), patch(
             "management.services.instagram_bot._has_exact_stock_evidence",
             return_value=True,
+        ), patch(
+            "management.services.ig_reply_authority.build_reply_truth_context",
+            return_value=ReplyTruthContext(payment_confirmed=True),
         ):
             _source, handled, delivered = self._run(
                 client,
@@ -546,6 +937,7 @@ class StructuredWorkerAuthorityBoundaryTests(TestCase):
         self.assertEqual(handled, 1)
         self.assertIsNone(client.current_product_id)
 
+    @override_settings(SITE_BASE_URL="https://pay.example.test")
     def test_evidenced_purchase_proposal_remains_allowed(self):
         from storefront.models import Category, Product, ProductStatus
 

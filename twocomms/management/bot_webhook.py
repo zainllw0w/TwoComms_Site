@@ -14,6 +14,8 @@ import os
 import threading
 
 from django.core.cache import cache
+from django.conf import settings
+from django.db import DatabaseError
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
@@ -59,7 +61,23 @@ def ig_webhook(request):
         return HttpResponse("forbidden", status=403)
 
     if request.method == "POST":
-        raw = request.body  # bytes — потрібні для перевірки підпису
+        from management.services.ig_webhook_inbox import (
+            WebhookRejected,
+            accept_webhook,
+            max_body_bytes,
+        )
+
+        try:
+            declared_length = int(request.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            declared_length = 0
+        if declared_length > max_body_bytes():
+            bot.record_webhook_response(413, reason="body_too_large")
+            return HttpResponse("body_too_large", status=413)
+        raw = request.read(max_body_bytes() + 1)
+        if len(raw) > max_body_bytes():
+            bot.record_webhook_response(413, reason="body_too_large")
+            return HttpResponse("body_too_large", status=413)
         sig = request.headers.get("X-Hub-Signature-256", "")
         if not bot.verify_signature(raw, sig):
             _warn_signature_configuration_once()
@@ -68,40 +86,30 @@ def ig_webhook(request):
             bot.record_webhook_response(403, reason="invalid_signature")
             return HttpResponse("forbidden", status=403)
 
-        try:
-            payload = json.loads(raw.decode("utf-8", "replace"))
-        except Exception as exc:
-            # 200 остаётся осознанным: ретрай битого payload не поможет.
-            # Но терять наблюдаемость не обязательно (F-CORE-002). Тело
-            # webhook содержит PII, поэтому в лог — только метаданные:
-            # длина, наличие подписи и тип ошибки разбора.
-            logger.warning("ig_bot: bad payload (%s bytes): %r", len(raw), exc)
-            bot.log(
-                "error",
-                "webhook_bad_payload",
-                f"len={len(raw)} signed={bool(sig)} error={type(exc).__name__}",
-            )
-            bot.record_webhook_response(200)
-            return HttpResponse("ok")
+        if not bool(getattr(settings, "IG_WEBHOOK_INBOX_ENABLED", True)):
+            bot.record_webhook_response(503, reason="inbox_consumer_unavailable")
+            return HttpResponse("retry", status=503)
 
         try:
             settings_obj = InstagramBotSettings.load()
-            # Phase 0 / Task 1 — сире логування подій (діагностика форматів).
-            try:
-                bot.record_raw_event(payload)
-            except Exception:
-                logger.exception("ig_bot: record_raw_event error")
-            bot.handle_webhook_payload(settings_obj, payload, persistence_only=True)
-        except Exception as exc:
-            logger.exception("ig_bot: webhook handler error")
-            # The server log retains the traceback; the operator console needs
-            # a bounded, PII-free indicator for the same failed callback.
-            bot.log("error", "webhook_handler_error", type(exc).__name__)
-            bot.record_webhook_response(503, reason="handler_error")
+            acceptance = accept_webhook(raw, settings_obj)
+        except WebhookRejected as exc:
+            bot.log("error", "webhook_rejected", f"len={len(raw)} code={exc.code}")
+            bot.record_webhook_response(exc.status, reason=exc.code)
+            return HttpResponse(exc.code, status=exc.status)
+        except DatabaseError:
+            bot.log("error", "webhook_inbox_unavailable", f"len={len(raw)}")
+            bot.record_webhook_response(503, reason="inbox_unavailable")
             return HttpResponse("retry", status=503)
+        # Do not retain a signed foreign/rejected body in raw diagnostics.
+        # Accepted-fragment inspection belongs to the authenticated inbox drain.
+        bot.log(
+            "info", "webhook_inbox_committed",
+            f"accepted={acceptance.accepted} rejected={acceptance.rejected} duplicates={acceptance.duplicates}",
+        )
 
-        # ВІДРАЗУ 200 — головна вимога Meta (інакше повторні доставки).
+        # 2xx only after every accepted/rejected event has a durable receipt.
         bot.record_webhook_response(200)
-        return HttpResponse("ok")
+        return HttpResponse(f"accepted={acceptance.accepted};rejected={acceptance.rejected};duplicates={acceptance.duplicates}")
 
     return HttpResponse(status=405)

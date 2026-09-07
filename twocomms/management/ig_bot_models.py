@@ -30,6 +30,7 @@ from django.utils.translation import gettext_lazy as _
 
 __all__ = [
     "InstagramBotRawEvent",
+    "IgWebhookInboxEvent",
     "IgClient",
     "IgDeal",
     "IgDealInvoiceLifecycle",
@@ -169,6 +170,44 @@ class InstagramBotRawEvent(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - тривіально
         return f"RawEvent#{self.pk} {self.sender_id} [{self.attachment_types}]"
+
+
+class IgWebhookInboxEvent(models.Model):
+    """One namespace-scoped webhook receipt before any bot side effect runs."""
+
+    class Decision(models.TextChoices):
+        ACCEPTED = "accepted", _("Accepted")
+        REJECTED = "rejected", _("Rejected")
+        BLOCKED = "blocked", _("Blocked")
+
+    namespace = models.CharField(max_length=128)
+    event_key = models.CharField(max_length=255)
+    owner_id = models.CharField(max_length=64, blank=True, default="")
+    customer_igsid = models.CharField(max_length=64, blank=True, default="", db_index=True)
+    decision = models.CharField(max_length=16, choices=Decision.choices, db_index=True)
+    reason = models.CharField(max_length=64, blank=True, default="")
+    payload = models.JSONField(default=dict, blank=True)
+    payload_digest = models.CharField(max_length=64)
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    processed_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.CharField(max_length=64, blank=True, default="")
+    next_attempt_at = models.DateTimeField(null=True, blank=True, db_index=True)
+
+    class Meta:
+        ordering = ["id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["namespace", "event_key"],
+                name="ig_webhook_inbox_namespace_event_uniq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["decision", "processed_at", "id"],
+                name="ig_webhook_inbox_drain_idx",
+            ),
+        ]
 
 
 class BotDataDeletionRequest(models.Model):

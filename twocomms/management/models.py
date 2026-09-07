@@ -3877,6 +3877,9 @@ class InstagramBotMessage(models.Model):
     text = models.TextField(blank=True, default="")
     # mid унікальний лише для вхідних; вихідні (model) мають null.
     mid = models.CharField(max_length=255, null=True, blank=True, unique=True)
+    # Immutable provenance for the current single-account consumer. Raw Meta
+    # IDs remain unchanged for reply-to/echo reconciliation.
+    provider_namespace = models.CharField(max_length=128, blank=True, default="", db_default="", db_index=True)
     synthetic_event_key = models.CharField(
         max_length=64, null=True, blank=True, unique=True, db_index=True
     )
