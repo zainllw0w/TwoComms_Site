@@ -8,7 +8,7 @@ import datetime
 from decimal import Decimal
 from unittest.mock import patch
 
-from django.test import TestCase
+from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from management.models import (
@@ -82,6 +82,24 @@ class MemoryNoteTests(TestCase):
 
 
 class UpdateMemoryTests(TestCase):
+    def test_erasure_blocks_memory_generation(self):
+        client = IgClient.objects.create(igsid="erasing-memory", privacy_erasure_started_at=timezone.now())
+        with patch("management.services.bot_memory.gemini_generate_text") as generate:
+            self.assertFalse(bot_memory.update_client_memory(client))
+        generate.assert_not_called()
+
+    def test_erasure_during_generation_blocks_summary_write(self):
+        client = IgClient.objects.create(igsid="erasing-memory-late")
+        InstagramBotMessage.objects.create(client=client, sender_id=client.igsid, role="user", text="Synthetic preference")
+
+        def erase_during_generation(*args, **kwargs):
+            IgClient.objects.filter(pk=client.pk).update(privacy_erasure_started_at=timezone.now())
+            return {"parsed": "A summary that must not be stored"}
+
+        with patch("management.services.bot_memory.gemini_generate_text", side_effect=erase_during_generation):
+            self.assertFalse(bot_memory.update_client_memory(client))
+        client.refresh_from_db()
+        self.assertFalse(client.memory_summary)
     @patch("management.services.bot_memory.gemini_generate_text")
     def test_update_sets_summary_and_timestamp(self, mock_gen):
         mock_gen.return_value = {"parsed": "Клієнт хоче худі Kharkiv розмір M за 950 грн."}
@@ -108,7 +126,7 @@ class UpdateMemoryTests(TestCase):
         self.assertEqual(mock_upd.call_count, 0)
 
 
-class RetentionTests(TestCase):
+class RetentionTests(TransactionTestCase):
     def test_purge_stale_clients(self):
         old = IgClient.get_or_create_for_sender("old1")
         old.last_message_at = timezone.now() - datetime.timedelta(days=200)
@@ -169,7 +187,7 @@ class MemoryNoteInjectionTests(TestCase):
         self.assertIn("ПАМ-ЯТЬ-XYZ", sysi)
 
 
-class PurgeCommandTests(TestCase):
+class PurgeCommandTests(TransactionTestCase):
     def test_command_runs(self):
         from io import StringIO
 

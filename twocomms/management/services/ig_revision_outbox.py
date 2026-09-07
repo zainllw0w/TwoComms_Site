@@ -204,6 +204,8 @@ def _cas_readiness(
         _append(reasons, "revision_not_current")
     elif _digest(revision.bundle_snapshot) != revision.snapshot_digest:
         _append(reasons, "revision_snapshot_invalid")
+    if revision.overall_deadline <= now:
+        _append(reasons, "revision_deadline_exhausted")
     if client is None:
         _append(reasons, "client_missing")
     else:
@@ -249,6 +251,14 @@ def _cas_readiness(
     ).exists():
         _append(reasons, "pending_inbound")
     if client is not None and settings_obj is not None:
+        from management.services.ig_permission_transitions import permission_transition_blocks
+        from management.services.instagram_bot import allowed_sender_ids
+
+        if permission_transition_blocks(settings_id=settings_obj.pk, client_id=client.pk):
+            _append(reasons, "permission_transition_pending")
+        allowlist = allowed_sender_ids(settings_obj)
+        if allowlist and client.igsid not in allowlist:
+            _append(reasons, "sender_not_allowed")
         if not _run_checker(
             fact_checker,
             fact_bindings,
@@ -351,6 +361,23 @@ def _normalize_specs(specs, recipient: str) -> list[dict]:
             raise ValueError("effect_payload_too_large")
         part_index = counts.get(group, 0)
         counts[group] = part_index + 1
+        projection = raw.get("projection_metadata") or {}
+        if not isinstance(projection, Mapping):
+            raise ValueError("effect_projection_invalid")
+        projection = dict(projection)
+        if projection:
+            if group != "catalog_media" or set(projection) != {"part_index", "product_id", "title"}:
+                raise ValueError("effect_projection_invalid")
+            if (
+                isinstance(projection["product_id"], bool)
+                or not isinstance(projection["product_id"], int)
+                or projection["product_id"] <= 0
+                or isinstance(projection["part_index"], bool)
+                or projection["part_index"] != part_index
+                or not isinstance(projection["title"], str)
+                or len(projection["title"]) > 200
+            ):
+                raise ValueError("effect_projection_invalid")
         output.append({
             "group": group,
             "kind": kind,
@@ -358,6 +385,8 @@ def _normalize_specs(specs, recipient: str) -> list[dict]:
             "part_index": part_index,
             "payload": payload,
             "payload_digest": _digest(payload),
+            "projection_metadata": projection,
+            "projection_digest": _digest(projection),
             "activation": dict(raw.get("activation") or {}),
         })
     for item in output:
@@ -515,6 +544,8 @@ def plan_revision_effects(
                 plan_digest=plan_digest,
                 payload=item["payload"],
                 payload_digest=item["payload_digest"],
+                projection_metadata=item["projection_metadata"],
+                projection_digest=item["projection_digest"],
                 activation_group=item["activation_group"],
                 activation_part_index=item["activation_part_index"],
                 activation_failure_code=item["activation_failure_code"],
@@ -686,6 +717,10 @@ def mark_provider_started(
             and effect.provider_namespace == revision_namespace
             and effect.client_permission_epoch == revision.permission_epoch
             and _digest(effect.payload) == effect.payload_digest
+            and (
+                effect.projection_digest == _digest(effect.projection_metadata)
+                or (not effect.projection_metadata and not effect.projection_digest)
+            )
             and effect.revision_snapshot_digest == revision.snapshot_digest
         )
         if not immutable_request_valid:

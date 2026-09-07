@@ -11,7 +11,7 @@ from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import RequestFactory, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from django.urls import reverse
 from PIL import Image
@@ -30,7 +30,7 @@ from storefront.models import PromoCode
         },
     },
 )
-class ExternalUGCRewardTests(TestCase):
+class ExternalUGCRewardTests(TransactionTestCase):
     def _owned_image(self, storage_name, *, pattern_key=""):
         buffer = BytesIO()
         digest = hashlib.sha256(str(pattern_key or storage_name).encode("utf-8")).digest()
@@ -124,6 +124,13 @@ class ExternalUGCRewardTests(TestCase):
             password="test-password",
             is_staff=True,
         )
+        # B02.4 requires explicit capabilities; staff alone grants no bot access.
+        from django.contrib.auth.models import Permission
+
+        self.actor.user_permissions.add(*Permission.objects.filter(
+            content_type__app_label="management",
+            codename__in={"operate_ig_bot", "view_ig_conversation_pii", "manage_ig_payments"},
+        ))
         from management.models import InstagramBotSettings
 
         settings_obj = InstagramBotSettings.load()

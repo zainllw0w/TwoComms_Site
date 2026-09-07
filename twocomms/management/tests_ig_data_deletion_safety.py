@@ -15,7 +15,7 @@ from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from django.test import TestCase, override_settings
+from django.test import TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 from management.ig_bot_models import (
@@ -37,7 +37,7 @@ from management.models import (
 
 
 @override_settings(ALLOWED_HOSTS=["management.twocomms.shop", "testserver"])
-class LogDeletionScopeTests(TestCase):
+class LogDeletionScopeTests(TransactionTestCase):
     """F-SEC-003: удаление логов только по структурированной связи."""
 
     def test_deletion_keeps_logs_of_other_clients(self):
@@ -252,7 +252,7 @@ class LogDeletionScopeTests(TestCase):
 
 
 @override_settings(ALLOWED_HOSTS=["management.twocomms.shop", "testserver"])
-class AnonymousDeletionRequestTests(TestCase):
+class AnonymousDeletionRequestTests(TransactionTestCase):
     """F-SEC-002: публичная форма создаёт заявку, а не уничтожает данные."""
 
     def _post(self, identifier):

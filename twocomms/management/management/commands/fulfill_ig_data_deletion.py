@@ -8,6 +8,7 @@
     python manage.py fulfill_ig_data_deletion --code=ABCD1234 --actor="ivan"
 """
 from django.core.management.base import BaseCommand, CommandError
+from django.utils import timezone
 
 from management.models import BotDataDeletionRequest
 from management.services.ig_data_deletion import (
@@ -40,15 +41,25 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options["list"]:
             pending = BotDataDeletionRequest.objects.filter(
-                status=BotDataDeletionRequest.Status.PENDING_VERIFICATION
+                status__in=(
+                    BotDataDeletionRequest.Status.PENDING_VERIFICATION,
+                    BotDataDeletionRequest.Status.ERASING,
+                )
             ).order_by("created_at")
             if not pending:
                 self.stdout.write("No pending deletion requests.")
                 return
             for row in pending:
+                state = row.status
+                if row.status == BotDataDeletionRequest.Status.ERASING:
+                    state = (
+                        "erasing-expired"
+                        if row.erasure_lease_until and row.erasure_lease_until <= timezone.now()
+                        else "erasing-claimed"
+                    )
                 self.stdout.write(
                     f"{row.confirmation_code}  {row.created_at:%Y-%m-%d %H:%M}  "
-                    f"{row.normalized_identifier or '<empty>'}"
+                    f"{state}  {row.normalized_identifier or '<empty>'}"
                 )
             return
 
@@ -69,29 +80,48 @@ class Command(BaseCommand):
             )
             from django.db.models import Q
 
-            ident = row.normalized_identifier or row.identifier
-            clients = list(
-                IgClient.objects.filter(
-                    Q(igsid__iexact=ident)
-                    | Q(username__iexact=ident)
-                    | Q(display_name__iexact=ident)
-                    | Q(phone_normalized__iexact=ident)
+            frozen = row.status == BotDataDeletionRequest.Status.ERASING
+            if frozen:
+                clients = list(IgClient.objects.filter(pk__in=row.erasure_target_client_ids))
+                sender_ids = set(row.erasure_target_sender_ids)
+                messages = InstagramBotMessage.objects.filter(
+                    pk__in=row.erasure_target_message_ids
                 )
-            )
-            sender_ids = {ident} | {c.igsid for c in clients if c.igsid}
+                raw_events = InstagramBotRawEvent.objects.filter(
+                    sender_id__in=sender_ids,
+                    created_at__lte=row.erasure_cutoff_at,
+                )
+                logs = _log_rows_for_sender_ids(sender_ids).filter(
+                    created_at__lte=row.erasure_cutoff_at,
+                )
+            else:
+                ident = row.normalized_identifier or row.identifier
+                clients = list(
+                    IgClient.objects.filter(
+                        Q(igsid__iexact=ident)
+                        | Q(username__iexact=ident)
+                        | Q(display_name__iexact=ident)
+                        | Q(phone_normalized__iexact=ident)
+                    )
+                )
+                sender_ids = {ident} | {c.igsid for c in clients if c.igsid}
+                messages = InstagramBotMessage.objects.filter(
+                    Q(sender_id__in=sender_ids) | Q(client__in=clients)
+                )
+                raw_events = InstagramBotRawEvent.objects.filter(sender_id__in=sender_ids)
+                logs = _log_rows_for_sender_ids(sender_ids)
             self.stdout.write(f"request {code} status={row.status}")
-            self.stdout.write(f"  identifier: {ident}")
             self.stdout.write(f"  clients:    {len(clients)}")
             self.stdout.write(
                 "  messages:   "
-                f"{InstagramBotMessage.objects.filter(Q(sender_id__in=sender_ids) | Q(client__in=clients)).count()}"
+                f"{messages.count()}"
             )
             self.stdout.write(
                 "  raw events: "
-                f"{InstagramBotRawEvent.objects.filter(sender_id__in=sender_ids).count()}"
+                f"{raw_events.count()}"
             )
             self.stdout.write(
-                f"  logs:       {_log_rows_for_sender_ids(sender_ids).count()}"
+                f"  logs:       {logs.count()}"
             )
             self.stdout.write("dry-run: nothing deleted")
             return

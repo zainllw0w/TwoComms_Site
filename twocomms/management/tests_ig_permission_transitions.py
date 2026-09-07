@@ -56,6 +56,21 @@ class DurableOptOutReplyBoundaryTests(TestCase):
             opted_out_at=timezone.now(),
         )
 
+    def test_erasure_fence_blocks_an_already_generated_legacy_reply(self):
+        self.client_row.opted_out_at = None
+        self.client_row.save(update_fields=["opted_out_at"])
+        before = capture_reply_permission(self.settings.pk, self.client_row.pk)
+        self.assertTrue(before)
+        self.client_row.privacy_erasure_started_at = timezone.now()
+        self.client_row.save(update_fields=["privacy_erasure_started_at"])
+        with tempfile.TemporaryDirectory() as directory:
+            with customer_send_boundary(
+                self.settings.pk, self.client_row.pk, before,
+                lock_path=os.path.join(directory, "permission.lock"),
+            ) as permission:
+                self.assertFalse(permission)
+                self.assertEqual(permission.reason, "privacy_erasure_started")
+
     def test_active_opt_out_blocks_permission_even_without_pause_flag(self):
         permission = capture_reply_permission(
             self.settings.pk, self.client_row.pk

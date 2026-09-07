@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 
 from .bot_access import (
@@ -91,7 +91,7 @@ class MetaSignedRequestParserTests(SimpleTestCase):
     ALLOWED_HOSTS=["testserver", "management.twocomms.shop"],
     ROOT_URLCONF="twocomms.urls_management",
 )
-class InstagramBotPrivacyPolicyTests(TestCase):
+class InstagramBotPrivacyPolicyTests(TransactionTestCase):
     def _login_staff(self):
         user = get_user_model().objects.create_user(
             username="direct_bot_staff",

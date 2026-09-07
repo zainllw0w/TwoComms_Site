@@ -225,6 +225,7 @@ class BotDataDeletionRequest(models.Model):
         COMPLETED = "completed", "Completed"
         NO_MATCH = "no_match", "No matching records"
         RECEIVED = "received", "Received"
+        ERASING = "erasing", "Erasing"
         # Заявка принята, но владение идентификатором ещё не подтверждено.
         # Публичная форма создаёт ТОЛЬКО этот статус: удалять данные по
         # анонимному POST нельзя (F-SEC-002). Переход в COMPLETED/NO_MATCH
@@ -242,6 +243,18 @@ class BotDataDeletionRequest(models.Model):
     deleted_raw_events_count = models.PositiveIntegerField(default=0)
     deleted_logs_count = models.PositiveIntegerField(default=0)
     detail = models.TextField(blank=True, default="")
+    erasure_lease_token = models.CharField(
+        max_length=64, blank=True, default="", db_default=""
+    )
+    erasure_lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    erasure_target_client_ids = models.JSONField(default=list, db_default=[], blank=True)
+    erasure_target_message_ids = models.JSONField(default=list, db_default=[], blank=True)
+    erasure_target_sender_ids = models.JSONField(default=list, db_default=[], blank=True)
+    erasure_target_inbox_ids = models.JSONField(default=list, db_default=[], blank=True)
+    erasure_cutoff_at = models.DateTimeField(null=True, blank=True)
+    erasure_actor_label = models.CharField(
+        max_length=150, blank=True, default="", db_default=""
+    )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -251,6 +264,7 @@ class BotDataDeletionRequest(models.Model):
         ordering = ["-id"]
         indexes = [
             models.Index(fields=["status", "-created_at"], name="bot_del_status_dt"),
+            models.Index(fields=["status", "erasure_lease_until"], name="bot_del_lease_idx"),
             models.Index(fields=["source", "-created_at"], name="bot_del_source_dt"),
         ]
 
@@ -8176,6 +8190,16 @@ class _ImmutableTurnRevisionSourceQuerySet(models.QuerySet):
         raise ValueError("IgTurnRevisionSource is append-only")
 
 
+class _IgCustomerTurnRevisionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        if set(kwargs).intersection({
+            "generation_proposal", "generation_proposal_digest",
+            "generation_proposed_at", "action_receipts",
+        }):
+            raise ValueError("revision generation proposal is immutable")
+        return super().update(**kwargs)
+
+
 class IgCustomerTurnRevision(models.Model):
     """One client-head revision; its bundle payload becomes immutable at seal."""
 
@@ -8187,6 +8211,19 @@ class IgCustomerTurnRevision(models.Model):
         PROCESSED = "processed", _("Опрацьовано")
         SUPERSEDED = "superseded", _("Витіснено")
         OVERFLOW = "overflow", _("Перевищено межі")
+
+    class Origin(models.TextChoices):
+        INBOUND = "inbound", _("Вхідний хід")
+        AUTO_REFRESH = "auto_refresh", _("Автоматичне оновлення")
+
+    class SuccessorReason(models.TextChoices):
+        NONE = "", _("Не наступник")
+        PUBLICATION_CHANGED = "publication_changed", _("Публікація змінилася")
+        PUBLIC_POLICY_INPUTS_STALE = (
+            "public_policy_inputs_stale",
+            _("Публічні правила змінилися"),
+        )
+        FACT_BINDING_STALE = "fact_binding_stale", _("Факти змінилися")
 
     client = models.ForeignKey(
         "management.IgClient",
@@ -8209,6 +8246,20 @@ class IgCustomerTurnRevision(models.Model):
         db_constraint=False,
     )
     revision = models.PositiveBigIntegerField()
+    origin = models.CharField(
+        max_length=16,
+        choices=Origin.choices,
+        default=Origin.INBOUND,
+        db_default=Origin.INBOUND,
+        db_index=True,
+    )
+    successor_reason = models.CharField(
+        max_length=32,
+        choices=SuccessorReason.choices,
+        blank=True,
+        default=SuccessorReason.NONE,
+        db_default=SuccessorReason.NONE,
+    )
     # MariaDB permits many NULL values and one active value=1 per client.
     active_slot = models.PositiveSmallIntegerField(null=True, blank=True, default=1)
     state = models.CharField(
@@ -8229,6 +8280,12 @@ class IgCustomerTurnRevision(models.Model):
     erasure_started_at_snapshot = models.DateTimeField(null=True, blank=True)
     bundle_snapshot = models.JSONField(default=dict, blank=True)
     snapshot_digest = models.CharField(max_length=64, blank=True, default="")
+    generation_proposal = models.JSONField(default=dict, db_default={}, blank=True)
+    generation_proposal_digest = models.CharField(
+        max_length=64, blank=True, default="", db_default=""
+    )
+    generation_proposed_at = models.DateTimeField(null=True, blank=True)
+    action_receipts = models.JSONField(default=dict, db_default={}, blank=True)
     overflow = models.JSONField(default=dict, blank=True)
     sealed_at = models.DateTimeField(null=True, blank=True)
     claim_token = models.CharField(max_length=64, blank=True, default="")
@@ -8237,6 +8294,8 @@ class IgCustomerTurnRevision(models.Model):
     processed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = models.Manager.from_queryset(_IgCustomerTurnRevisionQuerySet)()
 
     class Meta:
         ordering = ["client_id", "revision"]
@@ -8267,14 +8326,18 @@ class IgCustomerTurnRevision(models.Model):
         if self.pk:
             previous = type(self).objects.filter(pk=self.pk).values(
                 "client_id", "turn_id", "parent_id", "revision",
+                "origin", "successor_reason",
                 "quiet_started_at", "quiet_cap_at", "overall_deadline",
                 "source_count", "text_chars", "media_part_count",
                 "permission_epoch", "erasure_started_at_snapshot",
                 "bundle_snapshot", "snapshot_digest", "overflow",
+                "generation_proposal", "generation_proposal_digest",
+                "generation_proposed_at", "action_receipts",
             ).first()
             if previous:
                 immutable = (
                     "client_id", "turn_id", "parent_id", "revision",
+                    "origin", "successor_reason",
                     "quiet_started_at", "quiet_cap_at", "overall_deadline",
                     "source_count", "text_chars", "media_part_count",
                     "permission_epoch", "erasure_started_at_snapshot", "overflow",
@@ -8286,6 +8349,20 @@ class IgCustomerTurnRevision(models.Model):
                     or self.bundle_snapshot != previous["bundle_snapshot"]
                 ):
                     raise ValueError("sealed turn revision snapshot is immutable")
+                if previous["generation_proposal_digest"] and (
+                    self.generation_proposal_digest
+                    != previous["generation_proposal_digest"]
+                    or self.generation_proposal
+                    != previous["generation_proposal"]
+                    or self.generation_proposed_at
+                    != previous["generation_proposed_at"]
+                ):
+                    raise ValueError("revision generation proposal is immutable")
+                if (
+                    previous["action_receipts"]
+                    and self.action_receipts != previous["action_receipts"]
+                ):
+                    raise ValueError("revision action receipts are immutable")
         return super().save(*args, **kwargs)
 
 
@@ -8392,6 +8469,8 @@ class IgRevisionDeliveryEffect(models.Model):
     plan_digest = models.CharField(max_length=64)
     payload = models.JSONField(default=dict)
     payload_digest = models.CharField(max_length=64)
+    projection_metadata = models.JSONField(default=dict, db_default={}, blank=True)
+    projection_digest = models.CharField(max_length=64, default="", db_default="", blank=True)
     activation_group = models.CharField(max_length=32, blank=True, default="")
     activation_part_index = models.PositiveSmallIntegerField(null=True, blank=True)
     activation_failure_code = models.CharField(max_length=64, blank=True, default="")
@@ -8461,6 +8540,7 @@ class IgRevisionDeliveryEffect(models.Model):
         "revision_id", "source_message_id", "effect_key", "actor", "purpose",
         "group", "kind", "order_index", "part_index", "part_count",
         "plan_digest", "payload", "payload_digest", "recipient_igsid",
+        "projection_metadata", "projection_digest",
         "activation_group", "activation_part_index", "activation_failure_code",
         "provider_namespace", "generation_request_id", "generation_model",
         "settings_id_snapshot", "settings_permission_epoch",

@@ -57,6 +57,8 @@ class ReplyPermission:
 def _client_allowed(client) -> tuple[bool, str]:
     if not client:
         return False, "client_missing"
+    if getattr(client, "privacy_erasure_started_at", None) is not None:
+        return False, "privacy_erasure_started"
     if client.hidden_at:
         return False, "hidden"
     if client.opted_out_at and (
@@ -131,6 +133,7 @@ def capture_reply_permission(settings_id: int | None, client_id: int | None) -> 
             "hidden_at",
             "opted_out_at",
             "opted_in_at",
+            "privacy_erasure_started_at",
         )
         .first()
     )

@@ -201,10 +201,16 @@ def _log_rows_for_sender_ids(sender_ids):
 
 def _delete_direct_bot_records(
     identifier: str = "", *, exact_client_ids=None, stale_before=None,
+    frozen_message_ids=None, frozen_sender_ids=None, frozen_inbox_ids=None,
+    frozen_cutoff_at=None,
 ) -> dict:
+    # The first client/message fence must commit before private-storage I/O.
+    if connection.in_atomic_block:
+        raise RuntimeError("DIRECT_BOT privacy erase cannot run inside an outer transaction")
     from .models import (
         BotDataDeletionRequest,
         IgClient,
+        IgWebhookInboxEvent,
         InstagramBotLog,
         InstagramBotMessage,
         InstagramBotProcessedMessage,
@@ -233,6 +239,22 @@ def _delete_direct_bot_records(
         if parsed > 0:
             parsed_locked_ids.add(parsed)
     locked_ids = sorted(parsed_locked_ids)
+    frozen_message_ids = tuple(sorted({
+        int(value) for value in (frozen_message_ids or ())
+        if isinstance(value, int) or (isinstance(value, str) and value.isdigit())
+    }))
+    frozen_sender_ids = tuple(sorted({
+        str(value) for value in (frozen_sender_ids or ()) if str(value)
+    }))
+    frozen_inbox_ids = tuple(sorted({
+        int(value) for value in (frozen_inbox_ids or ())
+        if isinstance(value, int) or (isinstance(value, str) and value.isdigit())
+    }))
+    frozen_targets = frozen_cutoff_at is not None
+    if frozen_targets and not locked_ids:
+        # A verified claim may have matched no existing client.  It must stay
+        # no-match on recovery, never resolve a later account by identifier.
+        identifier = ""
     result = {
         "normalized_identifier": normalized,
         "status": BotDataDeletionRequest.Status.NO_MATCH,
@@ -242,7 +264,7 @@ def _delete_direct_bot_records(
         "logs": 0,
         "detail": "",
     }
-    if not normalized and not locked_ids:
+    if not normalized and not locked_ids and not frozen_targets:
         result["detail"] = "Empty identifier."
         return result
 
@@ -252,13 +274,16 @@ def _delete_direct_bot_records(
     fence_at = timezone.now()
     with transaction.atomic():
         pre_clients_query = IgClient.objects.select_for_update()
-        if locked_ids:
+        if frozen_targets and not locked_ids:
+            pre_clients = []
+        elif locked_ids:
             pre_clients_query = pre_clients_query.filter(pk__in=locked_ids)
             if stale_before is not None:
                 pre_clients_query = pre_clients_query.filter(
                     last_message_at__isnull=False,
                     last_message_at__lt=stale_before,
                 )
+            pre_clients = list(pre_clients_query.order_by("pk"))
         else:
             pre_clients_query = pre_clients_query.filter(
                 Q(igsid__iexact=normalized)
@@ -266,22 +291,27 @@ def _delete_direct_bot_records(
                 | Q(display_name__iexact=normalized)
                 | Q(phone_normalized__iexact=normalized)
             )
-        pre_clients = list(pre_clients_query.order_by("pk"))
+            pre_clients = list(pre_clients_query.order_by("pk"))
         for client in pre_clients:
             if client.privacy_erasure_started_at is None:
                 client.privacy_erasure_started_at = fence_at
                 client.save(update_fields=["privacy_erasure_started_at", "updated_at"])
-        pre_sender_ids = {
+        pre_sender_ids = set(frozen_sender_ids) if frozen_targets else {
             value for value in (
                 normalized, *(c.igsid for c in pre_clients if c.igsid)
             ) if value
         }
-        pre_message_scope = Q(client__in=pre_clients)
-        if pre_sender_ids:
-            pre_message_scope |= Q(sender_id__in=pre_sender_ids)
-        message_rows = list(
-            InstagramBotMessage.objects.select_for_update().filter(pre_message_scope)
-        )
+        if frozen_targets:
+            message_rows = list(
+                InstagramBotMessage.objects.select_for_update().filter(pk__in=frozen_message_ids)
+            )
+        else:
+            pre_message_scope = Q(client__in=pre_clients)
+            if pre_sender_ids:
+                pre_message_scope |= Q(sender_id__in=pre_sender_ids)
+            message_rows = list(
+                InstagramBotMessage.objects.select_for_update().filter(pre_message_scope)
+            )
         private_message_ids = []
         for message in message_rows:
             if message.private_media_state == "deleted":
@@ -313,23 +343,36 @@ def _delete_direct_bot_records(
             IgClient.objects.select_for_update().filter(pk__in=fenced_client_ids)
         )
         sender_ids = set(fenced_sender_ids)
-        message_filter = Q(client__in=clients)
-        if sender_ids:
-            message_filter |= Q(sender_id__in=sender_ids)
+        if frozen_targets:
+            message_filter = Q(pk__in=frozen_message_ids)
+        else:
+            message_filter = Q(client__in=clients)
+            if sender_ids:
+                message_filter |= Q(sender_id__in=sender_ids)
         mids = list(
             InstagramBotMessage.objects.filter(message_filter)
             .exclude(mid__isnull=True).values_list("mid", flat=True)
         )
         message_scope = InstagramBotMessage.objects.filter(message_filter)
         messages_count, _ = message_scope.delete()
-        raw_events_count, _ = InstagramBotRawEvent.objects.filter(sender_id__in=sender_ids).delete()
+        raw_event_scope = InstagramBotRawEvent.objects.filter(sender_id__in=sender_ids)
+        if frozen_targets:
+            raw_event_scope = raw_event_scope.filter(created_at__lte=frozen_cutoff_at)
+        raw_events_count, _ = raw_event_scope.delete()
         # Только структурная принадлежность по IGSID, никогда `icontains`
         # по свободному тексту (F-SEC-003).
+        log_scope = _log_rows_for_sender_ids(sender_ids)
+        if frozen_targets:
+            log_scope = log_scope.filter(created_at__lte=frozen_cutoff_at)
         logs_count, _ = InstagramBotLog.objects.filter(
-            pk__in=list(_log_rows_for_sender_ids(sender_ids).values_list("pk", flat=True))
+            pk__in=list(log_scope.values_list("pk", flat=True))
         ).delete()
         if mids:
             InstagramBotProcessedMessage.objects.filter(mid__in=mids).delete()
+        if frozen_targets:
+            # Only receipts proven to belong to the current verified namespace
+            # at claim time are removed.  Later/new or foreign receipts survive.
+            IgWebhookInboxEvent.objects.filter(pk__in=frozen_inbox_ids).delete()
         client_ids = [client.pk for client in clients]
         if client_ids:
             # Analysis/memory tables use DO_NOTHING relations and append-only
@@ -447,6 +490,7 @@ def _delete_direct_bot_records(
         "status": (
             BotDataDeletionRequest.Status.COMPLETED
             if any([clients_count, messages_count, raw_events_count, logs_count])
+            or frozen_targets
             else BotDataDeletionRequest.Status.NO_MATCH
         ),
         "clients": clients_count,

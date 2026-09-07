@@ -23,6 +23,8 @@ _FINAL_CAS_STOP_CODES = frozenset({
     "pending_inbound", "publication_changed", "revision_namespace_unavailable",
     "revision_not_current", "revision_snapshot_invalid", "settings_disabled",
     "settings_permission_changed",
+    "permission_transition_pending", "sender_not_allowed",
+    "revision_deadline_exhausted",
 })
 
 

@@ -477,3 +477,65 @@ class RevisionOutboxTests(TestCase):
                 ("effect_payload_invalid",),
                 forbidden_key,
             )
+
+    def test_catalog_projection_is_persisted_and_cannot_be_rebound(self):
+        metadata = {"part_index": 0, "product_id": 11, "title": "Original title"}
+        spec = {
+            "group": "catalog_media", "kind": "image",
+            "payload": {"recipient": {"id": self.client_row.igsid}, "message": {
+                "attachment": {"type": "image", "payload": {"url": "https://twocomms.shop/media/original.jpg"}},
+            }},
+            "projection_metadata": metadata,
+        }
+        planned = self._plan([spec])
+        self.assertTrue(planned.created, planned.reasons)
+        effect = planned.effects[0]
+        self.assertEqual(effect.projection_metadata, metadata)
+        self.assertEqual(len(effect.projection_digest), 64)
+        changed = {**spec, "projection_metadata": {**metadata, "title": "Changed catalog title"}}
+        self.assertEqual(self._plan([changed]).reasons, ("plan_conflict",))
+        effect.projection_metadata = changed["projection_metadata"]
+        with self.assertRaises(ValueError):
+            effect.save(update_fields=["projection_metadata"])
+
+    def test_catalog_projection_rejects_unknown_fields_or_wrong_part(self):
+        for metadata in (
+            {"part_index": 1, "product_id": 11, "title": "Title"},
+            {"part_index": 0, "product_id": 11, "title": "Title", "private_url": "forbidden"},
+        ):
+            with self.subTest(metadata=metadata):
+                result = self._plan([{
+                    "group": "catalog_media", "kind": "image", "payload": self._payload("unused"),
+                    "projection_metadata": metadata,
+                }])
+                self.assertEqual(result.reasons, ("effect_projection_invalid",))
+
+    def test_pending_permission_transition_blocks_plan_before_epoch_changes(self):
+        from management.models import IgPermissionTransitionJob
+        from management.services.ig_permission_transitions import create_permission_transition
+
+        create_permission_transition(
+            kind=IgPermissionTransitionJob.Kind.GLOBAL_PAUSE,
+            dedupe_key="outbox-pause", settings=self.settings,
+        )
+        result = self._plan([{"group": "substantive_text", "kind": "text", "payload": self._payload("answer")}])
+        self.assertIn("permission_transition_pending", result.reasons)
+        self.assertFalse(self.revision.delivery_effects.exists())
+
+    def test_changed_sender_allowlist_blocks_planning(self):
+        self.settings.allowed_senders = "another-sender"
+        self.settings.save(update_fields=["allowed_senders"])
+        result = self._plan([{"group": "substantive_text", "kind": "text", "payload": self._payload("answer")}])
+        self.assertIn("sender_not_allowed", result.reasons)
+
+    def test_overall_deadline_stops_next_part_before_longer_claim_lease(self):
+        planned = self._plan([{"group": "substantive_text", "kind": "text", "payload": self._payload("answer")}])
+        self.assertTrue(planned.created, planned.reasons)
+        claimed = claim_next_effect(self.revision.pk, self.revision_token, "substantive_text")
+        self.assertTrue(claimed.token)
+        result = mark_provider_started(
+            claimed.effect.pk, claimed.token, self.revision_token,
+            now=self.revision.overall_deadline + timedelta(milliseconds=1),
+        )
+        self.assertEqual(result.reason, "revision_deadline_exhausted")
+        self.assertIsNone(result.effect.provider_started_at)

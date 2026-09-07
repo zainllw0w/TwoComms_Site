@@ -204,8 +204,13 @@ def build_summary_payload(transcript: str) -> dict:
 def update_client_memory(client: IgClient) -> bool:
     """Перегенеровує memory_summary з історії. False, якщо немає що стискати або
     модель не відповіла."""
+    writable = IgClient.objects.filter(pk=client.pk, privacy_erasure_started_at__isnull=True)
+    if not writable.exists():
+        return False
     transcript = _transcript(client)
     if not transcript.strip():
+        return False
+    if not writable.exists():
         return False
     try:
         out = gemini_generate_text(
@@ -218,9 +223,13 @@ def update_client_memory(client: IgClient) -> bool:
     summary = (out.get("parsed") or "").strip()
     if not summary:
         return False
+    updated_at = timezone.now()
+    if not writable.update(
+        memory_summary=summary[:4000], memory_updated_at=updated_at, updated_at=updated_at,
+    ):
+        return False
     client.memory_summary = summary[:4000]
-    client.memory_updated_at = timezone.now()
-    client.save(update_fields=["memory_summary", "memory_updated_at", "updated_at"])
+    client.memory_updated_at = updated_at
     return True
 
 

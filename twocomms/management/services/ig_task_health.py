@@ -692,6 +692,26 @@ def classify_daemon_supervision(
             progress_age_seconds=progress_age,
             inflight_operation=inflight_operation,
         )
+    # A shared database circuit intentionally defers work without completing a
+    # cycle.  Its fresh main-loop publication proves a live, bounded cooldown;
+    # it must not move completed progress or become a generic stalled-daemon
+    # alert.  If that publication itself stops, the normal stale-progress path
+    # below remains in force even while the process-pulse thread is alive.
+    deferred_at = _payload_moment(progress, "at")
+    if (
+        isinstance(progress, dict)
+        and progress.get("state") == "db_deferred"
+        and deferred_at is not None
+        and max(0.0, checked_at - deferred_at) < window
+    ):
+        return DaemonSupervisionVerdict(
+            state=DAEMON_STATE_PROGRESSING,
+            action=DAEMON_ACTION_NONE,
+            reason="db_deferred",
+            pulse_age_seconds=pulse_age,
+            progress_age_seconds=progress_age,
+            inflight_operation=inflight_operation,
+        )
     if progress_age is None:
         return DaemonSupervisionVerdict(
             state=DAEMON_STATE_NO_PROGRESS,

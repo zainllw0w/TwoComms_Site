@@ -278,6 +278,40 @@ class WatchdogFourStateTests(SimpleTestCase):
         self.assertEqual(verdict.action, DAEMON_ACTION_ESCALATE)
         self.assertFalse(verdict.requires_spawn)
 
+    def test_fresh_db_deferred_state_suppresses_generic_stall_escalation(self):
+        verdict = classify_daemon_supervision(
+            pulse={"at": 1000.0},
+            progress={
+                "at": 1000.0,
+                "progress_at": 700.0,
+                "last_completed_cycle_at": 700.0,
+                "state": "db_deferred",
+            },
+            lock_held=True,
+            now=1000.0,
+            alive_window_seconds=60,
+            no_progress_after_seconds=120,
+        )
+        self.assertEqual(verdict.state, DAEMON_STATE_PROGRESSING)
+        self.assertEqual(verdict.action, DAEMON_ACTION_NONE)
+        self.assertEqual(verdict.reason, "db_deferred")
+
+    def test_stale_db_deferred_publication_still_escalates(self):
+        verdict = classify_daemon_supervision(
+            pulse={"at": 1000.0},
+            progress={
+                "at": 700.0,
+                "progress_at": 700.0,
+                "state": "db_deferred",
+            },
+            lock_held=True,
+            now=1000.0,
+            alive_window_seconds=60,
+            no_progress_after_seconds=120,
+        )
+        self.assertEqual(verdict.state, DAEMON_STATE_NO_PROGRESS)
+        self.assertEqual(verdict.action, DAEMON_ACTION_ESCALATE)
+
     def test_no_provable_owner_spawns_even_while_lock_file_is_held(self):
         """Удерживаемый lock доказывает существование процесса, но не его работу."""
         verdict = classify_daemon_supervision(
