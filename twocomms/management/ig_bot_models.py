@@ -4099,21 +4099,12 @@ class _AppendOnlyPromptRevisionQuerySet(models.QuerySet):
 
 
 class BotPromptRevision(models.Model):
-    """Change history for the parts of the prompt that are edited by hand.
-
-    IMP-025 asked to version ``InstagramBotSettings.system_prompt``. Measured on
-    production that field is 3136 of ~26 900 assembled characters (11.7%), is
-    byte-identical to the constant in code, and has never been saved through the
-    form — ``settings_saved`` has zero log entries. The other 88% comes from code
-    and from ``bot_knowledge/brand.md``, both already versioned by git.
-
-    So the audited layer is the one that is genuinely editable and absent from
-    git: ``BotInstruction`` bodies and the live ``knowledge_base``.
-    """
+    """Append-only history for instructions, live directives and core policy."""
 
     class Target(models.TextChoices):
         INSTRUCTION = "instruction", _("Інструкція бота")
         KNOWLEDGE_BASE = "knowledge_base", _("Оперативні директиви")
+        SYSTEM_PROMPT = "system_prompt", _("Опубліковане ядро бота")
 
     class Kind(models.TextChoices):
         EDIT = "edit", _("Зміна")

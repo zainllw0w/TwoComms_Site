@@ -1,15 +1,4 @@
-"""Audit and rollback for the hand-edited parts of the bot prompt.
-
-Scope was chosen from measurement, not from the plan's wording. On production
-``InstagramBotSettings.system_prompt`` is 3136 of ~26 900 assembled characters,
-byte-identical to the constant in code, and was never saved through the form
-(``settings_saved`` has zero log entries). Versioning it would produce empty
-infrastructure over a field nobody touches.
-
-What is genuinely edited through the interface and absent from git:
-``BotInstruction`` bodies (7 rows) and the live ``knowledge_base``. Those are
-what this module audits.
-"""
+"""Append-only audit and rollback for every published prompt target."""
 from __future__ import annotations
 
 from management.ig_bot_models import BotPromptRevision
@@ -89,14 +78,88 @@ def rollback_revision(revision, *, actor=None):
         instruction.body = restored
         instruction.save(update_fields=["body", "updated_at"])
         title = str(instruction.title or "")[:200]
-    else:
+    elif revision.target == BotPromptRevision.Target.KNOWLEDGE_BASE:
+        from django.db import transaction
         from management.models import InstagramBotSettings
+        from management.services import instagram_bot
 
-        settings_obj = InstagramBotSettings.load()
-        replaced = str(settings_obj.knowledge_base or "")
-        settings_obj.knowledge_base = restored
-        settings_obj.save(update_fields=["knowledge_base"])
-        title = "knowledge_base"
+        with transaction.atomic():
+            settings_obj = (
+                InstagramBotSettings.objects.select_for_update().filter(pk=1).first()
+            )
+            if settings_obj is None:
+                return None
+            instagram_bot.validate_core_policy_for_publication(
+                str(settings_obj.system_prompt or ""),
+                restored,
+            )
+            replaced = str(settings_obj.knowledge_base or "")
+            settings_obj.knowledge_base = restored
+            settings_obj.settings_revision = (
+                int(settings_obj.settings_revision or 0) + 1
+            )
+            settings_obj.reply_permission_epoch = (
+                int(settings_obj.reply_permission_epoch or 0) + 1
+            )
+            settings_obj.save(update_fields=[
+                "knowledge_base",
+                "settings_revision",
+                "reply_permission_epoch",
+                "updated_at",
+            ])
+            return BotPromptRevision.objects.create(
+                target=revision.target,
+                target_id=revision.target_id,
+                kind=BotPromptRevision.Kind.ROLLBACK,
+                title="knowledge_base",
+                body=restored,
+                previous_body=replaced,
+                actor=actor if getattr(actor, "pk", None) else None,
+                actor_label=_actor_label(actor),
+                note=f"rollback of revision #{revision.pk}",
+            )
+    elif revision.target == BotPromptRevision.Target.SYSTEM_PROMPT:
+        from django.db import transaction
+        from management.models import InstagramBotSettings
+        from management.services import instagram_bot
+
+        with transaction.atomic():
+            settings_obj = (
+                InstagramBotSettings.objects.select_for_update().filter(pk=1).first()
+            )
+            if settings_obj is None:
+                return None
+            instagram_bot.validate_core_policy_for_publication(
+                restored,
+                str(settings_obj.knowledge_base or ""),
+            )
+            replaced = str(settings_obj.system_prompt or "")
+            settings_obj.system_prompt = restored
+            settings_obj.settings_revision = (
+                int(settings_obj.settings_revision or 0) + 1
+            )
+            settings_obj.reply_permission_epoch = (
+                int(settings_obj.reply_permission_epoch or 0) + 1
+            )
+            settings_obj.save(update_fields=[
+                "system_prompt",
+                "settings_revision",
+                "reply_permission_epoch",
+                "updated_at",
+            ])
+            return BotPromptRevision.objects.create(
+                target=revision.target,
+                target_id=revision.target_id,
+                kind=BotPromptRevision.Kind.ROLLBACK,
+                title="system_prompt",
+                body=restored,
+                previous_body=replaced,
+                actor=actor if getattr(actor, "pk", None) else None,
+                actor_label=_actor_label(actor),
+                note=f"rollback of revision #{revision.pk}",
+            )
+    else:
+        return None
     return BotPromptRevision.objects.create(
         target=revision.target,
         target_id=revision.target_id,
