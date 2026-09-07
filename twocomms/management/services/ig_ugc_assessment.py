@@ -733,9 +733,17 @@ def _ugc_media_retry_due(item: dict, *, now) -> bool:
         attempts = 0
     if status == "owned" and item.get("storage_name"):
         return False
+    if item.get("capture_terminal") is True:
+        return False
+    if "capture_retryable" in item:
+        if item.get("capture_retryable") is not True:
+            return False
+        from management.services.ig_media_recovery import retry_due
+
+        return retry_due(item, now=now)
     if attempts >= UGC_MEDIA_CAPTURE_MAX_ATTEMPTS:
         return False
-    if status == "acquiring":
+    if status in {"acquiring", "storing"}:
         started = _parse_media_datetime(item.get("capture_started_at"))
         return bool(
             started is None
@@ -757,8 +765,16 @@ def _ugc_media_capture_exhausted(item: dict) -> bool:
         != BRAND_TARGET_USERNAME
         or str(item.get("media_type") or "").strip().casefold()
         not in PROVIDER_MEDIA_TYPES
-        or str(item.get("status") or "").strip().casefold() != "unavailable"
     ):
+        return False
+    status = str(item.get("status") or "").strip().casefold()
+    if (
+        item.get("capture_terminal") is True
+        and item.get("resolution_required") is True
+        and status in {"unavailable", "expired", "blocked"}
+    ):
+        return True
+    if status != "unavailable":
         return False
     try:
         attempts = max(0, int(item.get("capture_attempts") or 0))

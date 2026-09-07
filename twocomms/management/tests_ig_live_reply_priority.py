@@ -2428,7 +2428,7 @@ class QuietDegradationTests(TestCase):
     @patch("management.services.instagram_bot.send_sender_action")
     @patch("management.services.instagram_bot.gemini_generate")
     @patch("management.services.instagram_bot.send_text")
-    def test_unowned_image_and_voice_use_manager_fail_safe_without_gemini(
+    def test_unowned_image_and_voice_request_resend_without_generic_manager_gate(
         self,
         send_text,
         generate,
@@ -2468,7 +2468,7 @@ class QuietDegradationTests(TestCase):
 
         generate.assert_not_called()
         self.assertEqual(send_text.call_count, 1)
-        self.assertGreaterEqual(notify_manager.call_count, 1)
+        notify_manager.assert_not_called()
         for source in sources:
             source.refresh_from_db()
             self.assertEqual(source.gemini_task_class, "no_model")
@@ -2481,11 +2481,61 @@ class QuietDegradationTests(TestCase):
 
     @patch("management.services.instagram_bot.notify_manager")
     @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
+    @patch("management.services.instagram_bot._capture_message_media")
+    @patch("management.services.instagram_bot.send_sender_action")
+    @patch(
+        "management.services.instagram_bot.gemini_generate",
+        return_value="З написом допоможу за вашим описом; саме фото поки не відкрилось.",
+    )
+    @patch("management.services.instagram_bot.send_text")
+    def test_meaningful_caption_continues_without_claiming_missing_image(
+        self,
+        send_text,
+        generate,
+        _sender_action,
+        _capture,
+        _typing_wait,
+        notify_manager,
+    ):
+        send_text.return_value = instagram_bot.ProviderDeliveryReceipt(
+            True,
+            "",
+            "",
+            "caption-text-reply",
+        )
+        source = self._pending(
+            "Що означає цей напис?",
+            "caption-with-missing-image",
+            media=[{
+                "url": "https://lookaside.invalid/caption-image",
+                "media_type": "image",
+                "mime": "image/jpeg",
+                "provenance": "live_webhook",
+                "status": "unavailable",
+                "capture_terminal": True,
+                "capture_retryable": False,
+                "resolution_required": True,
+                "resolution_action": "request_resend",
+            }],
+        )
+
+        instagram_bot.process_pending(self.settings, max_items=1)
+
+        generate.assert_called_once()
+        sent_text = send_text.call_args.args[2]
+        self.assertIn("фото поки не відкрилось", sent_text)
+        self.assertNotIn("[MANAGER]", sent_text)
+        notify_manager.assert_not_called()
+        source.refresh_from_db()
+        self.assertEqual(source.send_state, "sent")
+
+    @patch("management.services.instagram_bot.notify_manager")
+    @patch("management.services.instagram_bot._wait_for_typing_window", return_value="allowed")
     @patch("management.services.instagram_bot.download_image")
     @patch("management.services.instagram_bot.send_sender_action")
     @patch("management.services.instagram_bot.gemini_generate")
     @patch("management.services.instagram_bot.send_text")
-    def test_missing_private_root_routes_manager_before_download_or_gemini(
+    def test_missing_private_root_requests_resend_before_download_or_gemini(
         self,
         send_text,
         generate,
@@ -2517,7 +2567,7 @@ class QuietDegradationTests(TestCase):
         download.assert_not_called()
         generate.assert_not_called()
         send_text.assert_called_once()
-        notify_manager.assert_called()
+        notify_manager.assert_not_called()
         source.refresh_from_db()
         self.assertEqual(source.gemini_task_class, "no_model")
         self.assertEqual(source.gemini_routing_reason_codes, ["media_unavailable"])

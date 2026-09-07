@@ -204,6 +204,7 @@ class FetchOutcome:
     mime_type: str = ""
     body_bytes: bytes = b""
     reason: str = ""
+    status_code: int | None = None
 
 
 # --- config -----------------------------------------------------------------
@@ -750,12 +751,20 @@ def fetch_media(
             if status in REDIRECT_STATUSES:
                 if hop >= MAX_REDIRECTS:
                     _bump_rejection_counter(REASON_REDIRECT_LIMIT)
-                    return FetchOutcome(success=False, reason=REASON_REDIRECT_LIMIT)
+                    return FetchOutcome(
+                        success=False,
+                        reason=REASON_REDIRECT_LIMIT,
+                        status_code=status,
+                    )
 
                 location = response.getheader("Location")
                 if not location:
                     _bump_rejection_counter(REASON_REDIRECT_NO_LOCATION)
-                    return FetchOutcome(success=False, reason=REASON_REDIRECT_NO_LOCATION)
+                    return FetchOutcome(
+                        success=False,
+                        reason=REASON_REDIRECT_NO_LOCATION,
+                        status_code=status,
+                    )
 
                 # Resolve relative redirect against current URL
                 current_url = urljoin(current_url, location)
@@ -765,7 +774,11 @@ def fetch_media(
             # --- non-success ------------------------------------------------
             if status != 200:
                 _bump_rejection_counter(REASON_STATUS)
-                return FetchOutcome(success=False, reason=REASON_STATUS)
+                return FetchOutcome(
+                    success=False,
+                    reason=REASON_STATUS,
+                    status_code=status,
+                )
 
             # --- Content-Type -----------------------------------------------
             content_type_raw = response.getheader("Content-Type") or ""
@@ -773,10 +786,18 @@ def fetch_media(
             mime_type = _MIME_ALIASES.get(mime_type, mime_type)
             if mime_type in UNVERIFIABLE_AUDIO_MIME_TYPES:
                 _bump_rejection_counter(REASON_UNVERIFIABLE_MIME)
-                return FetchOutcome(success=False, reason=REASON_UNVERIFIABLE_MIME)
+                return FetchOutcome(
+                    success=False,
+                    reason=REASON_UNVERIFIABLE_MIME,
+                    status_code=status,
+                )
             if mime_type not in allowed_mime_types:
                 _bump_rejection_counter(REASON_CONTENT_TYPE)
-                return FetchOutcome(success=False, reason=REASON_CONTENT_TYPE)
+                return FetchOutcome(
+                    success=False,
+                    reason=REASON_CONTENT_TYPE,
+                    status_code=status,
+                )
 
             # --- Content-Length gate before streaming -----------------------
             content_length_str = response.getheader("Content-Length")
@@ -785,7 +806,11 @@ def fetch_media(
                     declared = int(content_length_str)
                     if declared > max_bytes:
                         _bump_rejection_counter(REASON_DECLARED_TOO_LARGE)
-                        return FetchOutcome(success=False, reason=REASON_DECLARED_TOO_LARGE)
+                        return FetchOutcome(
+                            success=False,
+                            reason=REASON_DECLARED_TOO_LARGE,
+                            status_code=status,
+                        )
                 except (ValueError, OverflowError):
                     pass
 
@@ -795,23 +820,48 @@ def fetch_media(
             )
             if read_error:
                 _bump_rejection_counter(read_error)
-                return FetchOutcome(success=False, reason=read_error)
+                return FetchOutcome(
+                    success=False,
+                    reason=read_error,
+                    status_code=status,
+                )
             if not body:
                 _bump_rejection_counter(REASON_EMPTY_BODY)
-                return FetchOutcome(success=False, reason=REASON_EMPTY_BODY)
+                return FetchOutcome(
+                    success=False,
+                    reason=REASON_EMPTY_BODY,
+                    status_code=status,
+                )
             if time.monotonic() > deadline:
                 _bump_rejection_counter(REASON_DEADLINE)
-                return FetchOutcome(success=False, reason=REASON_DEADLINE)
+                return FetchOutcome(
+                    success=False,
+                    reason=REASON_DEADLINE,
+                    status_code=status,
+                )
 
             if not _signature_matches(mime_type, body):
                 _bump_rejection_counter(REASON_SIGNATURE)
-                return FetchOutcome(success=False, reason=REASON_SIGNATURE)
+                return FetchOutcome(
+                    success=False,
+                    reason=REASON_SIGNATURE,
+                    status_code=status,
+                )
             image_error = _validate_image_payload(mime_type, body)
             if image_error:
                 _bump_rejection_counter(image_error)
-                return FetchOutcome(success=False, reason=image_error)
+                return FetchOutcome(
+                    success=False,
+                    reason=image_error,
+                    status_code=status,
+                )
 
-            return FetchOutcome(success=True, mime_type=mime_type, body_bytes=body)
+            return FetchOutcome(
+                success=True,
+                mime_type=mime_type,
+                body_bytes=body,
+                status_code=status,
+            )
 
         except TimeoutError:
             _bump_rejection_counter(REASON_DEADLINE)

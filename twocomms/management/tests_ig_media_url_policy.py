@@ -310,6 +310,7 @@ class FetchMediaTests(SimpleTestCase):
         )
         self.assertTrue(outcome.success)
         self.assertEqual(outcome.mime_type, "image/jpeg")
+        self.assertEqual(outcome.status_code, 200)
 
     def test_redirect_followed_and_revalidated(self):
         fake_resolver = fake_resolver_factory({
@@ -825,6 +826,7 @@ class HeaderGateBeforeStreamingTests(SimpleTestCase):
 
         self.assertFalse(outcome.success)
         self.assertEqual(outcome.reason, policy.REASON_STATUS)
+        self.assertEqual(outcome.status_code, 404)
 
 
 class StrictnessModeTests(SimpleTestCase):

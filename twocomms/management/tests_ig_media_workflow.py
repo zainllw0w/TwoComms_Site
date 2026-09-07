@@ -423,7 +423,7 @@ class PrivateMessageMediaStorageTests(TestCase):
             }],
         )
 
-        def download(_url):
+        def download(_url, **_kwargs):
             IgClient.objects.filter(pk=client.pk).update(
                 privacy_erasure_started_at=timezone.now(),
             )
@@ -1161,7 +1161,8 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         ))
         existing.refresh_from_db()
         storage.exists.return_value = False
-        storage.save.return_value = "ig_message_media/promoted/new.jpg"
+        storage.save.side_effect = lambda name, _content: name
+        storage.open.return_value = mock_open(read_data=b"new-live-image").return_value
         storage.url.return_value = "/media/ig_message_media/promoted/new.jpg"
 
         media = instagram_bot._capture_message_media(existing)
@@ -1213,7 +1214,8 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         ))
         existing.refresh_from_db()
         storage.exists.return_value = False
-        storage.save.return_value = "ig_message_media/promoted/same.jpg"
+        storage.save.side_effect = lambda name, _content: name
+        storage.open.return_value = mock_open(read_data=b"same-url-live-image").return_value
         storage.url.return_value = "/media/ig_message_media/promoted/same.jpg"
 
         media = instagram_bot._capture_message_media(existing)
@@ -1336,8 +1338,10 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         storage = storage.return_value
 
         storage.exists.return_value = False
-        storage.save.return_value = "ig_message_media/1/fresh.jpg"
-        storage.open.return_value = mock_open(read_data=b"fresh-webhook-image").return_value
+        storage.save.side_effect = lambda name, _content: name
+        storage.open.side_effect = lambda *_args, **_kwargs: mock_open(
+            read_data=b"fresh-webhook-image"
+        ).return_value
         row = self.message(
             source="webhook",
             url="https://lookaside.example/fresh-webhook.jpg",
@@ -1370,7 +1374,8 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         storage = storage.return_value
 
         storage.exists.return_value = False
-        storage.save.return_value = "ig_message_media/raw/raw.jpg"
+        storage.save.side_effect = lambda name, _content: name
+        storage.open.return_value = mock_open(read_data=b"raw-live-image").return_value
         raw_media.return_value = {
             "raw-only-mid": [{
                 "url": "https://lookaside.example/raw-live.jpg",
@@ -1395,7 +1400,7 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         self.assertEqual(download.call_args.args, ("https://lookaside.example/raw-live.jpg",))
         self.assertEqual(media[0]["provenance"], "live_webhook")
         self.assertEqual(media[0]["status"], "owned")
-        self.assertEqual(media[0]["storage_name"], "ig_message_media/raw/raw.jpg")
+        self.assertTrue(media[0]["storage_name"].startswith(f"ig_message_media/{row.pk}/"))
 
     @patch("management.services.ig_payment_review._raw_media_by_mid")
     @patch(
@@ -1446,7 +1451,8 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         storage = storage.return_value
 
         storage.exists.return_value = False
-        storage.save.return_value = "ig_message_media/raw/unmatched.jpg"
+        storage.save.side_effect = lambda name, _content: name
+        storage.open.return_value = mock_open(read_data=b"unmatched-live-image").return_value
         storage.url.return_value = "/media/ig_message_media/raw/unmatched.jpg"
         row = InstagramBotMessage.objects.create(
             client=self.client, sender_id=self.client.igsid,
@@ -1477,7 +1483,8 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         storage = storage.return_value
 
         storage.exists.return_value = False
-        storage.save.return_value = "ig_message_media/budget/0.jpg"
+        storage.save.side_effect = lambda name, _content: name
+        storage.open.return_value = mock_open(read_data=b"one-image").return_value
         storage.url.return_value = "/media/ig_message_media/budget/0.jpg"
         row = InstagramBotMessage.objects.create(
             client=self.client,
@@ -1562,6 +1569,259 @@ class HistoricalAttachmentOwnershipTests(TestCase):
         self.assertIsNone(instagram_bot._claim_media_capture(row.pk, url))
         row.refresh_from_db()
         self.assertEqual(row.attachment_media[0]["status"], "owned")
+
+    @patch("management.services.instagram_bot.download_image")
+    def test_after_save_crash_resumes_verified_prepared_blob_without_refetch(
+        self,
+        download,
+    ):
+        from django.core.files.base import ContentFile
+        from management.services import instagram_bot
+        from management.services.ig_media_recovery import (
+            prepared_blob_descriptor,
+        )
+        from management.services.ig_private_media import private_media_storage
+
+        with tempfile.TemporaryDirectory() as private_root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve()),
+        ):
+            url = "https://lookaside.example/prepared-crash.jpg"
+            row = InstagramBotMessage.objects.create(
+                client=self.client,
+                sender_id=self.client.igsid,
+                role=InstagramBotMessage.Role.USER,
+                text="Ось фото",
+                status=InstagramBotMessage.Status.PROCESSING,
+                source="webhook",
+                media_capture_eligible=True,
+                attachments=json.dumps([url]),
+                attachment_media=[{
+                    "url": url,
+                    "provenance": "live_webhook",
+                    "status": "pending",
+                }],
+            )
+            token, item, use_token = instagram_bot._claim_media_capture(row.pk, url)
+            raw = b"already-saved-private-bytes"
+            descriptor = prepared_blob_descriptor(
+                storage_name=f"ig_message_media/{row.pk}/prepared.jpg",
+                mime_type="image/jpeg",
+                body_bytes=raw,
+            )
+            self.assertIsNotNone(instagram_bot._persist_prepared_media_blob(
+                row.pk,
+                item["source_part_id"],
+                token,
+                use_token,
+                descriptor,
+            ))
+            storage = private_media_storage()
+            self.assertEqual(
+                storage.save(descriptor["storage_name"], ContentFile(raw)),
+                descriptor["storage_name"],
+            )
+            row.refresh_from_db()
+            media = [dict(part) for part in row.attachment_media]
+            media[0]["capture_started_at"] = (
+                timezone.now() - timedelta(minutes=10)
+            ).isoformat()
+            row.attachment_media = media
+            row.private_media_use_until = timezone.now() - timedelta(seconds=1)
+            row.save(update_fields=["attachment_media", "private_media_use_until"])
+
+            recovered = instagram_bot._capture_message_media(row)
+
+            download.assert_not_called()
+            self.assertEqual(recovered[0]["status"], "owned")
+            self.assertEqual(
+                recovered[0]["content_hash"],
+                descriptor["content_hash"],
+            )
+            self.assertEqual(recovered[0].get("prepared_blob"), {})
+
+    @patch(
+        "management.services.instagram_bot.download_image",
+        return_value=("image/jpeg", b"fresh-valid-bytes"),
+    )
+    def test_bad_prepared_file_is_deleted_and_refetched_not_accepted(
+        self,
+        download,
+    ):
+        from django.core.files.base import ContentFile
+        from management.services import instagram_bot
+        from management.services.ig_media_recovery import prepared_blob_descriptor
+        from management.services.ig_private_media import private_media_storage
+
+        with tempfile.TemporaryDirectory() as private_root, override_settings(
+            IG_PRIVATE_MEDIA_ROOT=str(Path(private_root).resolve()),
+        ):
+            url = "https://lookaside.example/partial-crash.jpg"
+            row = InstagramBotMessage.objects.create(
+                client=self.client,
+                sender_id=self.client.igsid,
+                role=InstagramBotMessage.Role.USER,
+                text="Ось фото",
+                status=InstagramBotMessage.Status.PROCESSING,
+                source="webhook",
+                media_capture_eligible=True,
+                attachments=json.dumps([url]),
+                attachment_media=[{
+                    "url": url,
+                    "provenance": "live_webhook",
+                    "status": "pending",
+                }],
+            )
+            token, item, use_token = instagram_bot._claim_media_capture(row.pk, url)
+            descriptor = prepared_blob_descriptor(
+                storage_name=f"ig_message_media/{row.pk}/partial.jpg",
+                mime_type="image/jpeg",
+                body_bytes=b"expected-complete-bytes",
+            )
+            instagram_bot._persist_prepared_media_blob(
+                row.pk,
+                item["source_part_id"],
+                token,
+                use_token,
+                descriptor,
+            )
+            storage = private_media_storage()
+            storage.save(
+                descriptor["storage_name"],
+                ContentFile(b"partial"),
+            )
+            row.refresh_from_db()
+            media = [dict(part) for part in row.attachment_media]
+            media[0]["capture_started_at"] = (
+                timezone.now() - timedelta(minutes=10)
+            ).isoformat()
+            row.attachment_media = media
+            row.private_media_use_until = timezone.now() - timedelta(seconds=1)
+            row.save(update_fields=["attachment_media", "private_media_use_until"])
+
+            recovered = instagram_bot._capture_message_media(row)
+
+            self.assertEqual(download.call_count, 1)
+            self.assertFalse(storage.exists(descriptor["storage_name"]))
+            self.assertEqual(recovered[0]["status"], "owned")
+            self.assertEqual(
+                recovered[0]["content_hash"],
+                hashlib.sha256(b"fresh-valid-bytes").hexdigest(),
+            )
+
+    def test_stale_capture_token_cannot_finalize_after_part_is_reclaimed(self):
+        from management.services import instagram_bot
+
+        url = "https://lookaside.example/stale-token.jpg"
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось фото",
+            status=InstagramBotMessage.Status.PROCESSING,
+            source="webhook",
+            media_capture_eligible=True,
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+        first_token, first_item, first_use = instagram_bot._claim_media_capture(
+            row.pk,
+            url,
+        )
+        row.refresh_from_db()
+        media = [dict(part) for part in row.attachment_media]
+        media[0]["capture_started_at"] = (
+            timezone.now() - timedelta(minutes=10)
+        ).isoformat()
+        row.attachment_media = media
+        row.private_media_use_until = timezone.now() - timedelta(seconds=1)
+        row.save(update_fields=["attachment_media", "private_media_use_until"])
+        second_token, _second_item, second_use = instagram_bot._claim_media_capture(
+            row.pk,
+            first_item["source_part_id"],
+        )
+
+        instagram_bot._finish_media_capture(
+            row.pk,
+            first_item["source_part_id"],
+            first_token,
+            {
+                "status": "owned",
+                "storage_name": "private/stale.jpg",
+                "mime": "image/jpeg",
+                "bytes": 5,
+                "content_hash": hashlib.sha256(b"stale").hexdigest(),
+            },
+            use_token=first_use,
+        )
+        row.refresh_from_db()
+        self.assertEqual(row.attachment_media[0]["status"], "acquiring")
+        self.assertEqual(row.attachment_media[0]["capture_token"], second_token)
+
+        instagram_bot._finish_media_capture(
+            row.pk,
+            first_item["source_part_id"],
+            second_token,
+            {
+                "status": "owned",
+                "storage_name": "private/current.jpg",
+                "mime": "image/jpeg",
+                "bytes": 7,
+                "content_hash": hashlib.sha256(b"current").hexdigest(),
+            },
+            use_token=second_use,
+        )
+        row.refresh_from_db()
+        self.assertEqual(row.attachment_media[0]["storage_name"], "private/current.jpg")
+
+    @patch("management.services.instagram_bot.download_image")
+    @patch("management.services.instagram_bot._private_media_storage")
+    def test_permanent_mime_failure_is_typed_and_never_retried(
+        self,
+        _storage,
+        download,
+    ):
+        from management.services import ig_media_url_policy, instagram_bot
+
+        def rejected(_url, *, failure_context=None, **_kwargs):
+            failure_context["outcome"] = ig_media_url_policy.FetchOutcome(
+                success=False,
+                reason=ig_media_url_policy.REASON_CONTENT_TYPE,
+                status_code=200,
+            )
+            return None
+
+        download.side_effect = rejected
+        url = "https://lookaside.example/not-an-image"
+        row = InstagramBotMessage.objects.create(
+            client=self.client,
+            sender_id=self.client.igsid,
+            role=InstagramBotMessage.Role.USER,
+            text="Ось файл",
+            status=InstagramBotMessage.Status.PROCESSING,
+            source="webhook",
+            media_capture_eligible=True,
+            attachments=json.dumps([url]),
+            attachment_media=[{
+                "url": url,
+                "provenance": "live_webhook",
+                "status": "pending",
+            }],
+        )
+
+        first = instagram_bot._capture_message_media(row)
+        second = instagram_bot._capture_message_media(row)
+
+        self.assertEqual(download.call_count, 1)
+        self.assertEqual(first, second)
+        self.assertEqual(first[0]["error_kind"], "content_type")
+        self.assertEqual(first[0]["capture_failure_class"], "permanent")
+        self.assertFalse(first[0]["capture_retryable"])
+        self.assertTrue(first[0]["capture_terminal"])
+        self.assertEqual(first[0]["resolution_action"], "request_resend")
 
     def test_reply_worker_captures_live_media_before_rule_classifier(self):
         from management.services import instagram_bot

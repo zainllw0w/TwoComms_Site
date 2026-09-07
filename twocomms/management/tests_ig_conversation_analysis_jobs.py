@@ -815,6 +815,7 @@ class ConversationAnalysisJobTests(TestCase):
         }], message_scope="analysis-bound-inspection", identity_origin="ingress")
         media[0]["inspection"] = {
             "state": "inspected",
+            "source_part_id": media[0]["source_part_id"],
             "outcome": "understood",
             "content_hash": content_hash,
             "request_id": "request-bound",
@@ -849,7 +850,7 @@ class ConversationAnalysisJobTests(TestCase):
 
     @patch("management.services.instagram_bot.download_image", return_value=None)
     @patch("management.services.bot_conversation_analysis.gemini_generate_json")
-    def test_live_media_download_failure_is_typed_before_provider(
+    def test_live_media_temporary_failure_defers_analysis_until_capture_retry(
         self,
         generate,
         download,
@@ -873,32 +874,22 @@ class ConversationAnalysisJobTests(TestCase):
             now=timezone.now() - timedelta(minutes=1),
         )
 
-        def provider_result(*_args, **_kwargs):
-            job = IgConversationAnalysisJob.objects.get(client=self.client)
-            self.assertEqual(job.media_phase, "failed")
-            self.assertEqual(job.media_error_kind, "download_failed")
-            self.assertEqual(job.media_item_count, 1)
-            self.assertIsNotNone(job.media_started_at)
-            self.assertIsNotNone(job.media_completed_at)
-            return {
-                "parsed": {
-                    "interaction_type": "product_interest",
-                    "score_band": "exploring",
-                    "purchase_probability": 0.4,
-                    "confidence": 0.7,
-                },
-                "model": "gemini-test",
-                "meta": {},
-            }
-
-        generate.side_effect = provider_result
+        IgConversationAnalysisJob.objects.filter(client=self.client).update(attempts=1)
 
         self.assertEqual(
             analysis.process_due_analysis(limit=1),
-            {"done": 1, "failed": 0, "skipped": 0, "superseded": 0},
+            {"done": 0, "failed": 0, "skipped": 0, "superseded": 0},
         )
-        download.assert_called_once_with(url)
-        generate.assert_called_once()
+        job = IgConversationAnalysisJob.objects.get(client=self.client)
+        message.refresh_from_db()
+        self.assertEqual(job.status, IgConversationAnalysisJob.Status.PENDING)
+        self.assertEqual(job.last_error, "deferred_for_media_retry")
+        self.assertEqual(job.attempts, 1)
+        self.assertEqual(job.media_phase, "acquiring")
+        self.assertIsNone(job.media_completed_at)
+        self.assertTrue(message.attachment_media[0]["capture_retryable"])
+        self.assertEqual(download.call_args.args, (url,))
+        generate.assert_not_called()
 
     def test_duplicate_schedule_keeps_revision_due_backoff_and_processing_token(self):
         message = self.message("Підкажіть розмір")

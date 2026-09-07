@@ -797,7 +797,10 @@ def _conversation(
     on_media_progress=None,
 ) -> tuple[list[dict], dict[int, dict], list[dict]]:
     rows = _analysis_message_rows(client_id, watermark)
-    from management.services.instagram_bot import _capture_message_media
+    from management.services.instagram_bot import (
+        _capture_message_media,
+        _media_part_capture_pending,
+    )
 
     # Keep media acquisition bounded by the same eight-image provider budget;
     # an old client can contain many webhook rows and must not consume the
@@ -806,15 +809,12 @@ def _conversation(
     for row in reversed(rows):
         if capture_budget <= 0:
             break
-        if isinstance(row.turn_intelligence_artifact, dict) and row.turn_intelligence_artifact:
-            continue
         entries = row.attachment_media or []
         needs_capture = (
             not entries and row.source == "webhook"
         ) or any(
             isinstance(item, dict)
-            and item.get("provenance") == "live_webhook"
-            and item.get("status") != "owned"
+            and _media_part_capture_pending(item)
             for item in entries
         )
         if not needs_capture:
@@ -836,6 +836,20 @@ def _conversation(
             if isinstance(item, dict)
         )
         capture_budget -= max(0, after_attempts - before_attempts)
+    from management.services.ig_media_recovery import pending_retry_at, retry_due
+
+    media_retry_now = timezone.now()
+    retry_parts = [
+        item
+        for row in rows
+        for item in (row.attachment_media or [])
+        if isinstance(item, dict)
+    ]
+    media_retry_at = (
+        media_retry_now
+        if any(retry_due(item, now=media_retry_now) for item in retry_parts)
+        else pending_retry_at(retry_parts, now=media_retry_now)
+    )
     total = 0
     classify_media_items = None
     media_expected = any(
@@ -960,6 +974,8 @@ def _conversation(
     bounded_sources = media_sources[:8]
     if media_error_kind:
         bounded_sources.append({"media_error_kind": media_error_kind})
+    if media_retry_at:
+        bounded_sources.append({"media_retry_at": media_retry_at.isoformat()})
     return rendered, by_id, bounded_sources
 
 
@@ -1331,6 +1347,24 @@ def _process_claim(
             completed_at=timezone.now(),
         )
         raise
+    media_retry_value = next((
+        source.get("media_retry_at")
+        for source in media_sources
+        if isinstance(source, dict) and source.get("media_retry_at")
+    ), None)
+    if media_retry_value:
+        from management.services.ig_media_recovery import parse_recovery_datetime
+
+        media_retry_at = parse_recovery_datetime(media_retry_value)
+        if media_retry_at and _defer_claim_for_media_retry(
+            job.pk,
+            token,
+            retry_at=media_retry_at,
+            now=timezone.now(),
+        ):
+            return "deferred"
+        if media_retry_at:
+            return "superseded"
     if not transcript:
         return _finish_skip(
             job.pk, token, watermark, claimed_revision, "empty_conversation", now
@@ -1788,6 +1822,42 @@ def _defer_claim_for_customer_reply(job_id: int, token: str, now=None) -> bool:
             "claimed_watermark_message_id", "claimed_revision",
             *claimed_materiality_fields, "attempts",
             "last_error", "next_attempt_at", "updated_at",
+        ])
+        return True
+
+
+def _defer_claim_for_media_retry(
+    job_id: int,
+    token: str,
+    *,
+    retry_at,
+    now=None,
+) -> bool:
+    """Keep background analysis pending until the capture retry is due."""
+    now = now or timezone.now()
+    with transaction.atomic():
+        job = IgConversationAnalysisJob.objects.select_for_update().filter(
+            pk=job_id,
+            status=IgConversationAnalysisJob.Status.PROCESSING,
+            lease_token=token,
+        ).first()
+        if not job:
+            return False
+        job.status = IgConversationAnalysisJob.Status.PENDING
+        job.lease_token = ""
+        job.lease_until = None
+        job.claimed_watermark_message_id = 0
+        job.claimed_revision = 0
+        claimed_materiality_fields = _clear_claimed_materiality(job)
+        # The current claim did not call the provider; retain earlier failures.
+        job.attempts = max(0, int(job.attempts or 0) - 1)
+        job.last_error = "deferred_for_media_retry"
+        job.next_attempt_at = max(job.due_at, now, retry_at)
+        job.save(update_fields=[
+            "status", "lease_token", "lease_until",
+            "claimed_watermark_message_id", "claimed_revision",
+            *claimed_materiality_fields, "attempts", "last_error",
+            "next_attempt_at", "updated_at",
         ])
         return True
 

@@ -67,6 +67,17 @@ from management.services.ig_media_manifest import (
     media_coverage,
     normalize_attachment_media,
 )
+from management.services.ig_media_recovery import (
+    MAX_CAPTURE_ATTEMPTS,
+    RETRY_BASE_SECONDS,
+    initial_capture_deadline,
+    owned_part_updates,
+    parse_recovery_datetime,
+    plan_capture_failure,
+    prepared_blob_descriptor,
+    prepared_blob_matches,
+    prepared_part_updates,
+)
 
 GRAPH_VERSION = "v25.0"
 GRAPH = f"https://graph.facebook.com/{GRAPH_VERSION}"
@@ -7053,24 +7064,29 @@ def _turn_requires_owned_media(row: InstagramBotMessage) -> bool:
     return False
 
 
-def _media_unavailable_reply(client) -> str:
+def _media_unavailable_reply(client, *, retry_pending: bool = False) -> str:
     language = str(getattr(client, "language", "uk") or "uk").casefold()
-    if language.startswith("ru"):
-        text = (
-            "Не удалось безопасно открыть вложение. Пришлите его ещё раз — "
-            "менеджер тоже проверит сообщение."
-        )
+    if retry_pending and language.startswith("ru"):
+        text = "Вложение пока не открылось. Попробую загрузить его повторно."
+    elif retry_pending and language.startswith("en"):
+        text = "The attachment has not opened yet. I’ll try loading it again."
+    elif retry_pending:
+        text = "Вкладення поки не відкрилося. Спробую завантажити його повторно."
+    elif language.startswith("ru"):
+        text = "Не удалось открыть вложение. Пришлите его, пожалуйста, ещё раз."
     elif language.startswith("en"):
-        text = (
-            "I could not safely open the attachment. Please send it again; "
-            "a manager will also review the message."
-        )
+        text = "I could not open the attachment. Please send it once more."
     else:
-        text = (
-            "Не вдалося безпечно відкрити вкладення. Надішліть його ще раз — "
-            "менеджер також перевірить повідомлення."
-        )
-    return f"{text} [MANAGER]"
+        text = "Не вдалося відкрити вкладення. Надішліть його, будь ласка, ще раз."
+    return text
+
+
+def _has_meaningful_media_caption(row: InstagramBotMessage) -> bool:
+    text = " ".join(str(getattr(row, "text", "") or "").split()).casefold()
+    return text not in {
+        "", "(зображення)", "(медіа)", "(вкладення)", "(изображение)",
+        "(вложение)", "(image)", "(media)", "(attachment)",
+    }
 
 
 TURN_CANDIDATE_CAP = 200
@@ -9377,12 +9393,12 @@ def _normalize_turn_media_binding(
     }
 
 
-def download_image(
+def _fetch_inline_media(
     url: str,
     *,
     profile: str = "provider",
-) -> tuple[str, bytes] | None:
-    """Fetch verified image/audio bytes through the sole remote-media policy."""
+):
+    """Fetch once and retain the typed policy outcome for capture recovery."""
     from management.services import ig_media_url_policy
 
     allowed_mimes = (
@@ -9396,15 +9412,44 @@ def download_image(
         max_bytes=INLINE_AUDIO_MAX_BYTES,
     )
     if not outcome.success:
-        log("warning", "image_download", outcome.reason)
-        return None
+        return outcome
     mime = _normalized_inline_mime(outcome.mime_type)
     limit = INLINE_IMAGE_MAX_BYTES if mime.startswith("image/") else INLINE_AUDIO_MAX_BYTES
     if mime not in SUPPORTED_INLINE_IMAGE_MIMES | SUPPORTED_INLINE_AUDIO_MIMES:
-        return None
+        return ig_media_url_policy.FetchOutcome(
+            success=False,
+            reason=ig_media_url_policy.REASON_CONTENT_TYPE,
+            status_code=outcome.status_code,
+        )
     if len(outcome.body_bytes) > limit:
+        return ig_media_url_policy.FetchOutcome(
+            success=False,
+            reason=ig_media_url_policy.REASON_STREAM_TOO_LARGE,
+            status_code=outcome.status_code,
+        )
+    return ig_media_url_policy.FetchOutcome(
+        success=True,
+        mime_type=mime,
+        body_bytes=outcome.body_bytes,
+        status_code=outcome.status_code,
+    )
+
+
+def download_image(
+    url: str,
+    *,
+    profile: str = "provider",
+    failure_context: dict | None = None,
+) -> tuple[str, bytes] | None:
+    """Compatibility projection for non-capture media callers."""
+    outcome = _fetch_inline_media(url, profile=profile)
+    if failure_context is not None:
+        failure_context.clear()
+        failure_context["outcome"] = outcome
+    if not outcome.success:
+        log("warning", "image_download", outcome.reason)
         return None
-    return mime, outcome.body_bytes
+    return outcome.mime_type, outcome.body_bytes
 
 
 MEDIA_PROVENANCE_LIVE_WEBHOOK = "live_webhook"
@@ -9415,8 +9460,8 @@ MEDIA_STATUS_OWNED = "owned"
 MEDIA_STATUS_METADATA_ONLY = "metadata_only"
 MEDIA_STATUS_UNAVAILABLE = "unavailable"
 MEDIA_CAPTURE_CLAIM_SECONDS = 60
-MEDIA_CAPTURE_MAX_ATTEMPTS = 2
-MEDIA_CAPTURE_RETRY_BASE_SECONDS = 30
+MEDIA_CAPTURE_MAX_ATTEMPTS = MAX_CAPTURE_ATTEMPTS
+MEDIA_CAPTURE_RETRY_BASE_SECONDS = RETRY_BASE_SECONDS
 MEDIA_INSPECTION_VERSION = "ig-media-inspection-v1"
 
 
@@ -9434,6 +9479,7 @@ def _explicit_media_states(parts: list[dict]) -> list[dict]:
     status_to_capture = {
         MEDIA_STATUS_PENDING: "discovered",
         MEDIA_STATUS_ACQUIRING: "fetching",
+        "storing": "fetching",
         MEDIA_STATUS_OWNED: "owned",
         MEDIA_STATUS_UNAVAILABLE: "failed",
         MEDIA_STATUS_METADATA_ONLY: "metadata_only",
@@ -10052,6 +10098,20 @@ def _message_media_capture_owner_valid(locked: InstagramBotMessage) -> bool:
     ).exists()
 
 
+def _media_part_capture_pending(item: dict) -> bool:
+    if not isinstance(item, dict):
+        return False
+    if item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK:
+        return False
+    if item.get("status") == MEDIA_STATUS_OWNED and item.get("storage_name"):
+        return False
+    if item.get("capture_terminal") is True:
+        return False
+    if item.get("capture_retryable") is False and item.get("error_kind"):
+        return False
+    return True
+
+
 def _claim_media_capture(
     message_id: int,
     source_part_id: str,
@@ -10086,19 +10146,36 @@ def _claim_media_capture(
             if item.get("status") == MEDIA_STATUS_OWNED and item.get("storage_name"):
                 return None
             attempts = max(0, int(item.get("capture_attempts") or 0))
-            if (
-                item.get("status") == MEDIA_STATUS_UNAVAILABLE
-                and attempts >= MEDIA_CAPTURE_MAX_ATTEMPTS
+            prepared_blob = (
+                item.get("prepared_blob")
+                if isinstance(item.get("prepared_blob"), dict)
+                else {}
+            )
+            if item.get("capture_terminal") is True or (
+                item.get("capture_retryable") is False
+                and item.get("error_kind")
             ):
                 return None
-            next_attempt_at = str(item.get("capture_next_attempt_at") or "").strip()
-            if next_attempt_at:
-                try:
-                    retry_at = datetime.fromisoformat(next_attempt_at.replace("Z", "+00:00"))
-                except (TypeError, ValueError):
-                    retry_at = None
-                if retry_at and retry_at > timezone.now():
-                    return None
+            deadline_at = parse_recovery_datetime(item.get("capture_deadline_at"))
+            if deadline_at and now > deadline_at and not prepared_blob:
+                item.update({
+                    "status": "expired",
+                    "error_kind": "capture_deadline_exhausted",
+                    "capture_failure_class": "expired",
+                    "capture_retryable": False,
+                    "capture_next_attempt_at": "",
+                    "capture_terminal": True,
+                    "resolution_required": True,
+                    "resolution_action": "request_resend",
+                })
+                locked.attachment_media = _explicit_media_states(media)
+                locked.save(update_fields=["attachment_media"])
+                return None
+            if attempts >= MEDIA_CAPTURE_MAX_ATTEMPTS and not prepared_blob:
+                return None
+            retry_at = parse_recovery_datetime(item.get("capture_next_attempt_at"))
+            if retry_at and retry_at > now:
+                return None
             if item.get("status") == MEDIA_STATUS_ACQUIRING:
                 try:
                     started = datetime.fromisoformat(
@@ -10116,7 +10193,12 @@ def _claim_media_capture(
                 "status": MEDIA_STATUS_ACQUIRING,
                 "capture_token": token,
                 "capture_started_at": now.isoformat(),
-                "capture_attempts": attempts + 1,
+                # Reclaiming a prepared blob first verifies local bytes and
+                # does not consume another network attempt.
+                "capture_attempts": attempts if prepared_blob else attempts + 1,
+                "capture_deadline_at": (
+                    deadline_at or initial_capture_deadline(now=now)
+                ).isoformat(),
             })
             locked.attachment_media = _explicit_media_states(media)
             locked.private_media_use_token = use_token
@@ -10126,6 +10208,82 @@ def _claim_media_capture(
                 "private_media_use_until",
             ])
             return token, dict(item), use_token
+    return None
+
+
+def _persist_prepared_media_blob(
+    message_id: int,
+    source_part_id: str,
+    token: str,
+    use_token: str,
+    descriptor: dict,
+) -> dict | None:
+    """Persist the intended private blob before crossing the storage write."""
+    with transaction.atomic():
+        locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
+        if (
+            not _message_media_capture_owner_valid(locked)
+            or locked.private_media_state in {"delete_pending", "deleting", "deleted"}
+            or locked.private_media_use_token != use_token
+        ):
+            return None
+        media = _normalize_message_media(
+            locked.attachment_media or [],
+            message_scope=locked.pk,
+        )
+        for item in media:
+            if (
+                str(item.get("source_part_id") or "") == source_part_id
+                and item.get("capture_token") == token
+            ):
+                item.update(prepared_part_updates(descriptor))
+                locked.attachment_media = _explicit_media_states(media)
+                locked.save(update_fields=["attachment_media"])
+                return dict(item)
+    return None
+
+
+def _consume_prepared_refetch_attempt(
+    message_id: int,
+    source_part_id: str,
+    token: str,
+    use_token: str,
+) -> dict | None:
+    """Consume one network retry after a prepared target has no valid bytes."""
+    with transaction.atomic():
+        locked = InstagramBotMessage.objects.select_for_update().get(pk=message_id)
+        if (
+            not _message_media_capture_owner_valid(locked)
+            or locked.private_media_state in {"delete_pending", "deleting", "deleted"}
+            or locked.private_media_use_token != use_token
+        ):
+            return None
+        media = _normalize_message_media(
+            locked.attachment_media or [],
+            message_scope=locked.pk,
+        )
+        for item in media:
+            if (
+                str(item.get("source_part_id") or "") != source_part_id
+                or item.get("capture_token") != token
+            ):
+                continue
+            attempts = max(0, int(item.get("capture_attempts") or 0))
+            deadline_at = parse_recovery_datetime(item.get("capture_deadline_at"))
+            if (
+                attempts >= MEDIA_CAPTURE_MAX_ATTEMPTS
+                or not deadline_at
+                or timezone.now() > deadline_at
+            ):
+                return None
+            item.update({
+                "status": MEDIA_STATUS_ACQUIRING,
+                "capture_attempts": attempts + 1,
+                "prepared_blob": {},
+            })
+            locked.attachment_media = _explicit_media_states(media)
+            locked.save(update_fields=["attachment_media"])
+            return dict(item)
     return None
 
 
@@ -10175,6 +10333,11 @@ def _finish_media_capture(
                     # never exposed as owned media after the erasure fence.
                     item["status"] = "delete_pending"
                     item["error_kind"] = "privacy_erasure"
+                    item["capture_retryable"] = False
+                    item["capture_terminal"] = True
+                    item["resolution_required"] = False
+                    item["resolution_action"] = ""
+                    item["prepared_blob"] = {}
                 item.pop("capture_token", None)
                 item.pop("capture_started_at", None)
                 break
@@ -10211,6 +10374,148 @@ def _finish_media_capture(
             ])
         locked.save(update_fields=update_fields)
         return list(locked.attachment_media or [])
+
+
+def _capture_failure_updates(outcome, item: dict, *, error_kind: str = "") -> dict:
+    deadline_at = parse_recovery_datetime(item.get("capture_deadline_at"))
+    plan = plan_capture_failure(
+        outcome,
+        attempts=max(1, int(item.get("capture_attempts") or 1)),
+        now=timezone.now(),
+        deadline_at=deadline_at,
+    )
+    updates = plan.part_updates()
+    if error_kind:
+        updates["error_kind"] = str(error_kind)[:64]
+    return updates
+
+
+def _resume_prepared_media_blob(
+    row: InstagramBotMessage,
+    item: dict,
+    *,
+    token: str,
+    use_token: str,
+    private_storage,
+) -> tuple[str, list[dict] | None, dict | None]:
+    """Verify a prepared private blob, or authorize exactly one refetch."""
+    from management.services import ig_media_url_policy
+
+    descriptor = (
+        item.get("prepared_blob")
+        if isinstance(item.get("prepared_blob"), dict)
+        else {}
+    )
+    if not descriptor:
+        return "none", None, item
+    source_part_id = str(item.get("source_part_id") or "")
+    try:
+        prepared = prepared_part_updates(descriptor)["prepared_blob"]
+        storage_name = str(prepared["storage_name"])
+        expected_bytes = int(prepared["bytes"])
+    except Exception:
+        prepared = None
+        storage_name = ""
+        expected_bytes = 0
+    exists = False
+    if prepared is not None:
+        try:
+            exists = bool(private_storage.exists(storage_name))
+        except Exception:
+            failure = ig_media_url_policy.FetchOutcome(
+                success=False,
+                reason=ig_media_url_policy.REASON_TRANSPORT,
+            )
+            current = _finish_media_capture(
+                row.pk,
+                source_part_id,
+                token,
+                {
+                    **_capture_failure_updates(
+                        failure,
+                        item,
+                        error_kind="storage_verification_failed",
+                    ),
+                    "prepared_blob": descriptor,
+                },
+                use_token=use_token,
+            )
+            return "failed", current, None
+    if exists:
+        try:
+            with private_storage.open(storage_name, "rb") as handle:
+                stored_bytes = handle.read(expected_bytes + 1)
+        except Exception:
+            stored_bytes = b""
+        if prepared_blob_matches(prepared, stored_bytes):
+            updates = owned_part_updates(
+                prepared,
+                verified_body_bytes=stored_bytes,
+            )
+            updates["delete_after"] = (
+                timezone.now()
+                + timedelta(seconds=_private_media_retention_seconds())
+            ).isoformat()
+            current = _finish_media_capture(
+                row.pk,
+                source_part_id,
+                token,
+                updates,
+                use_token=use_token,
+            )
+            return "finalized", current, None
+        try:
+            private_storage.delete(storage_name)
+            exists = bool(private_storage.exists(storage_name))
+        except Exception:
+            exists = True
+        if exists:
+            failure = ig_media_url_policy.FetchOutcome(
+                success=False,
+                reason=ig_media_url_policy.REASON_TRANSPORT,
+            )
+            current = _finish_media_capture(
+                row.pk,
+                source_part_id,
+                token,
+                {
+                    **_capture_failure_updates(
+                        failure,
+                        item,
+                        error_kind="storage_verification_failed",
+                    ),
+                    "prepared_blob": descriptor,
+                },
+                use_token=use_token,
+            )
+            return "failed", current, None
+    refetch_item = _consume_prepared_refetch_attempt(
+        row.pk,
+        source_part_id,
+        token,
+        use_token,
+    )
+    if refetch_item is not None:
+        return "refetch", None, refetch_item
+    failure = ig_media_url_policy.FetchOutcome(
+        success=False,
+        reason=ig_media_url_policy.REASON_TRANSPORT,
+    )
+    current = _finish_media_capture(
+        row.pk,
+        source_part_id,
+        token,
+        {
+            **_capture_failure_updates(
+                failure,
+                item,
+                error_kind="prepared_blob_missing",
+            ),
+            "prepared_blob": {},
+        },
+        use_token=use_token,
+    )
+    return "failed", current, None
 
 
 def _capture_message_media(
@@ -10259,11 +10564,7 @@ def _capture_message_media(
     current = _persist_media_metadata(row, current)
     private_storage = None
     if any(
-        item.get("provenance") == MEDIA_PROVENANCE_LIVE_WEBHOOK
-        and not (
-            item.get("status") == MEDIA_STATUS_OWNED
-            and item.get("storage_name")
-        )
+        _media_part_capture_pending(item)
         for item in current
         if isinstance(item, dict)
     ):
@@ -10276,9 +10577,7 @@ def _capture_message_media(
     for snapshot in list(current):
         if attempts_used >= max(0, int(limit or 0)):
             break
-        if snapshot.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK:
-            continue
-        if snapshot.get("status") == MEDIA_STATUS_OWNED and snapshot.get("storage_name"):
+        if not _media_part_capture_pending(snapshot):
             continue
         if on_progress is not None and not on_progress():
             break
@@ -10288,22 +10587,38 @@ def _capture_message_media(
             continue
         token, item, use_token = claimed
         attempts_used += 1
+        resume_state, resumed_media, refetch_item = _resume_prepared_media_blob(
+            row,
+            item,
+            token=token,
+            use_token=use_token,
+            private_storage=private_storage,
+        )
+        if resume_state in {"finalized", "failed"}:
+            current = resumed_media or current
+            continue
+        if resume_state == "refetch" and refetch_item is not None:
+            item = refetch_item
         url = str(item.get("url") or "")
-        downloaded = download_image(url)
+        fetch_context: dict = {}
+        downloaded = download_image(url, failure_context=fetch_context)
+        fetch_outcome = fetch_context.get("outcome")
         if not downloaded:
-            current = _finish_media_capture(row.pk, source_part_id, token, {
-                "status": MEDIA_STATUS_UNAVAILABLE,
-                "error_kind": "download_failed",
-                "capture_next_attempt_at": (
-                    timezone.now()
-                    + timedelta(
-                        seconds=MEDIA_CAPTURE_RETRY_BASE_SECONDS
-                        * (2 ** max(0, int(item.get("capture_attempts") or 1) - 1))
-                    )
-                ).isoformat()
-                if int(item.get("capture_attempts") or 1) < MEDIA_CAPTURE_MAX_ATTEMPTS
-                else "",
-            }, use_token=use_token)
+            if fetch_outcome is None:
+                from management.services import ig_media_url_policy
+
+                fetch_outcome = ig_media_url_policy.FetchOutcome(
+                    success=False,
+                    reason=ig_media_url_policy.REASON_TRANSPORT,
+                )
+            log("warning", "image_download", fetch_outcome.reason)
+            current = _finish_media_capture(
+                row.pk,
+                source_part_id,
+                token,
+                _capture_failure_updates(fetch_outcome, item),
+                use_token=use_token,
+            )
             continue
         mime, raw = downloaded
         # Downloading is outside the transaction. Recheck the current owner and
@@ -10322,10 +10637,15 @@ def _capture_message_media(
                 current = _finish_media_capture(row.pk, source_part_id, token, {
                     "status": MEDIA_STATUS_UNAVAILABLE,
                     "error_kind": "permission_changed",
+                    "capture_retryable": False,
                     "capture_next_attempt_at": "",
+                    "capture_terminal": True,
+                    "resolution_required": False,
+                    "resolution_action": "",
                 }, use_token=use_token)
             continue
         created_storage_name = ""
+        descriptor = None
         try:
             from django.core.files.base import ContentFile
 
@@ -10347,30 +10667,70 @@ def _capture_message_media(
                 f"ig_message_media/{int(getattr(row, 'pk', 0) or 0)}/"
                 f"{content_hash[:32]}{suffix}"
             )
-            storage_name = path
-            if not private_storage.exists(path):
-                saved_name = private_storage.save(path, ContentFile(raw))
+            descriptor = prepared_blob_descriptor(
+                storage_name=path,
+                mime_type=mime,
+                body_bytes=raw,
+            )
+            prepared = _persist_prepared_media_blob(
+                row.pk,
+                source_part_id,
+                token,
+                use_token,
+                descriptor,
+            )
+            if prepared is None:
+                current = _finish_media_capture(
+                    row.pk,
+                    source_part_id,
+                    token,
+                    {
+                        "status": MEDIA_STATUS_UNAVAILABLE,
+                        "error_kind": "permission_changed",
+                        "capture_retryable": False,
+                        "capture_next_attempt_at": "",
+                        "capture_terminal": True,
+                        "resolution_required": False,
+                        "resolution_action": "",
+                    },
+                    use_token=use_token,
+                )
+                continue
+            storage_name = descriptor["storage_name"]
+            if private_storage.exists(storage_name):
+                with private_storage.open(storage_name, "rb") as handle:
+                    existing_bytes = handle.read(int(descriptor["bytes"]) + 1)
+                if not prepared_blob_matches(descriptor, existing_bytes):
+                    private_storage.delete(storage_name)
+                    if private_storage.exists(storage_name):
+                        raise RuntimeError("prepared storage path contains invalid bytes")
+            if not private_storage.exists(storage_name):
+                saved_name = private_storage.save(storage_name, ContentFile(raw))
                 created_storage_name = saved_name
-                if saved_name != path and private_storage.exists(path):
-                    private_storage.delete(saved_name)
-                    created_storage_name = ""
-                else:
-                    storage_name = saved_name
+                if saved_name != storage_name:
+                    try:
+                        private_storage.delete(saved_name)
+                    finally:
+                        created_storage_name = ""
+                    raise RuntimeError("private storage changed prepared blob path")
+            with private_storage.open(storage_name, "rb") as handle:
+                verified_bytes = handle.read(int(descriptor["bytes"]) + 1)
+            updates = owned_part_updates(
+                descriptor,
+                verified_body_bytes=verified_bytes,
+            )
             delete_after = (
                 timezone.now()
                 + timedelta(seconds=_private_media_retention_seconds())
             )
-            current = _finish_media_capture(row.pk, source_part_id, token, {
-                "status": MEDIA_STATUS_OWNED,
-                "storage_name": storage_name,
-                "private_storage": True,
-                "mime": str(mime)[:64],
-                "bytes": len(raw),
-                "content_hash": content_hash,
-                "delete_after": delete_after.isoformat(),
-                "error_kind": "",
-                "capture_next_attempt_at": "",
-            }, use_token=use_token)
+            updates["delete_after"] = delete_after.isoformat()
+            current = _finish_media_capture(
+                row.pk,
+                source_part_id,
+                token,
+                updates,
+                use_token=use_token,
+            )
             accepted = any(
                 isinstance(candidate, dict)
                 and candidate.get("status") == MEDIA_STATUS_OWNED
@@ -10382,23 +10742,23 @@ def _capture_message_media(
 
                 delete_immediately([row.pk])
         except Exception as exc:
+            from management.services import ig_media_url_policy
+
             if created_storage_name:
                 try:
                     private_storage.delete(created_storage_name)
                 except Exception:
                     pass
             current = _finish_media_capture(row.pk, source_part_id, token, {
-                "status": MEDIA_STATUS_UNAVAILABLE,
-                "error_kind": "storage_failed",
-                "capture_next_attempt_at": (
-                    timezone.now()
-                    + timedelta(
-                        seconds=MEDIA_CAPTURE_RETRY_BASE_SECONDS
-                        * (2 ** max(0, int(item.get("capture_attempts") or 1) - 1))
-                    )
-                ).isoformat()
-                if int(item.get("capture_attempts") or 1) < MEDIA_CAPTURE_MAX_ATTEMPTS
-                else "",
+                **_capture_failure_updates(
+                    ig_media_url_policy.FetchOutcome(
+                        success=False,
+                        reason=ig_media_url_policy.REASON_TRANSPORT,
+                    ),
+                    item,
+                    error_kind="storage_failed",
+                ),
+                "prepared_blob": descriptor or {},
             }, use_token=use_token)
             log("warning", "message_media_store", repr(exc))
         if on_progress is not None and not on_progress():
@@ -12848,7 +13208,11 @@ def _process_one_inside_reply_boundary(
             gate_media or [],
             message_id=row.pk,
         )
-        if _turn_requires_owned_media(row) and not gate_images:
+        if (
+            _turn_requires_owned_media(row)
+            and not gate_images
+            and not _has_meaningful_media_caption(row)
+        ):
             from management.services.gemini_routing import persist_decision
 
             media_fail_safe = True
@@ -12857,11 +13221,21 @@ def _process_one_inside_reply_boundary(
                 deterministic_action="media_unavailable",
             )
             persist_decision(row, routing_decision)
-            reply = _media_unavailable_reply(row.client)
+            retry_pending = any(
+                isinstance(item, dict)
+                and item.get("capture_retryable") is True
+                and item.get("capture_terminal") is not True
+                for item in (gate_media or [])
+            )
+            reply = _media_unavailable_reply(
+                row.client,
+                retry_pending=retry_pending,
+            )
             log(
                 "warning",
                 "media_fail_safe",
-                f"{row.sender_id}: owned media unavailable; manager route",
+                f"{row.sender_id}: owned media unavailable; "
+                f"{'automatic retry pending' if retry_pending else 'resend requested'}",
             )
     if row.client_id:
         # Product corrections must become durable state before the classifier,
