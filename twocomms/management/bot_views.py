@@ -1792,7 +1792,7 @@ def _is_provider_media_link(url: str) -> bool:
 
 
 def _message_media_rows(message, media_evidence) -> list[dict]:
-    """Attachments of one message, taken from the immutable transcript.
+    """Redacted per-part capture and inspection state for one message.
 
     ``sales_context["_media_evidence"]`` is scoring telemetry, not a transcript:
     its ``source_message_id`` is whatever message ``classify_message`` was called
@@ -1803,41 +1803,89 @@ def _message_media_rows(message, media_evidence) -> list[dict]:
     The evidence still answers a question it can answer — what role and intent
     were inferred for that asset — and is looked up by asset identity.
     """
-    raw = str(getattr(message, "attachments", "") or "").strip()
-    if not raw:
-        return []
+    from management.services.ig_media_manifest import (
+        MediaManifestError,
+        normalize_attachment_media,
+        public_media_manifest,
+    )
+
     try:
-        urls = json.loads(raw)
-    except (TypeError, ValueError):
+        media = normalize_attachment_media(
+            getattr(message, "attachment_media", None) or [],
+            message_scope=getattr(message, "pk", ""),
+        )
+        manifest = public_media_manifest(media)
+    except MediaManifestError:
         return []
-    if not isinstance(urls, list):
-        return []
-    meta_by_asset = {}
-    for row in media_evidence if isinstance(media_evidence, list) else []:
-        if not isinstance(row, dict):
-            continue
-        key = _media_asset_key(row.get("url"))
-        if key and key not in meta_by_asset:
-            meta_by_asset[key] = row
+    artifact = getattr(message, "turn_intelligence_artifact", None)
+    artifact = artifact if isinstance(artifact, dict) else {}
+    request = artifact.get("media_request") if isinstance(artifact.get("media_request"), dict) else {}
     rows = []
-    seen = set()
-    for candidate in urls:
-        url = _safe_media_url(candidate)
-        if not url:
-            continue
-        key = _media_asset_key(url)
-        if key in seen:
-            continue
-        seen.add(key)
-        meta = meta_by_asset.get(key) or {}
+    for item, public in list(zip(media, manifest, strict=True))[:_MESSAGE_MEDIA_LIMIT]:
+        inspection = item.get("inspection") if isinstance(item.get("inspection"), dict) else {}
+        preview_url = ""
+        if (
+            item.get("status") == "owned"
+            and item.get("private_storage") is True
+            and str(item.get("mime") or "").startswith("image/")
+        ):
+            try:
+                preview_url = reverse(
+                    "management_bot_private_media_preview",
+                    args=[message.pk, public["source_part_id"]],
+                    urlconf="management.urls",
+                )
+            except Exception:
+                preview_url = ""
         rows.append({
-            "url": url,
-            "role": str(meta.get("role") or "other")[:32],
-            "intent": str(meta.get("intent") or "unknown")[:40],
-            "provider_link": _is_provider_media_link(url),
+            **public,
+            "type_code": _bounded_text(inspection.get("type_code"), 32),
+            "error_kind": _bounded_text(item.get("error_kind"), 64),
+            "preview_url": preview_url,
+            "model": _bounded_text(inspection.get("provider_model"), 80),
+            "effort": "unknown",
+            "request_id": _bounded_text(inspection.get("request_id"), 40),
+            "request_model": _bounded_text(request.get("provider_model"), 80),
         })
-        if len(rows) >= _MESSAGE_MEDIA_LIMIT:
-            break
+    if rows:
+        return rows
+    # Older transcript rows can have only the legacy attachment JSON. Never
+    # revive an incoming signed CDN URL: show its bounded missing-part state.
+    try:
+        legacy_attachments = json.loads(str(getattr(message, "attachments", "") or ""))
+    except (TypeError, ValueError, json.JSONDecodeError):
+        legacy_attachments = []
+    if not isinstance(legacy_attachments, list):
+        return rows
+    if (
+        getattr(message, "role", "") == "model"
+        and getattr(message, "source", "") == "catalog_media"
+    ):
+        for candidate in legacy_attachments[:_MESSAGE_MEDIA_LIMIT]:
+            public_url = _safe_storefront_url(candidate)
+            if any(part in str(public_url).casefold() for part in (
+                "/ig_message_media/", "/ig_payment_reviews/", "/bot/private-media/",
+            )):
+                public_url = ""
+            if public_url:
+                rows.append({
+                    "public_url": public_url,
+                    "role": "product",
+                    "capture_state": "not_applicable",
+                    "inspection_state": "not_applicable",
+                    "inspection_outcome": "",
+                    "effort": "unknown",
+                })
+        return rows
+    for original_index, _candidate in enumerate(legacy_attachments[:_MESSAGE_MEDIA_LIMIT]):
+        rows.append({
+            "original_index": original_index,
+            "capture_state": "unknown",
+            "inspection_state": "uninspected",
+            "inspection_outcome": "not_captured",
+            "error_kind": "legacy_media_unavailable",
+            "effort": "unknown",
+        })
     return rows
 
 
@@ -5357,7 +5405,20 @@ def bot_client_detail_api(request, client_id):
             "id": f.id,
             "kind": f.kind,
             "status": f.status,
+            "status_label": (
+                "Потребує перевірки"
+                if f.kind == IgFollowUpTask.Kind.MANAGER_TASK
+                and f.reason.startswith("prize_review:")
+                and f.manager_approval_status
+                == IgFollowUpTask.ManagerApprovalStatus.PENDING
+                else f.get_status_display()
+            ),
             "reason": f.reason,
+            "reason_label": (
+                "Перевірка призового сертифіката"
+                if f.reason.startswith("prize_review:")
+                else ""
+            ),
             "discount_percent": f.discount_percent,
             "due_at": f.due_at.isoformat() if f.due_at else "",
             "meta_window_deadline": f.meta_window_deadline.isoformat() if f.meta_window_deadline else "",

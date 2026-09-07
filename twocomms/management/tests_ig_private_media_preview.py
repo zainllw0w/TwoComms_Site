@@ -9,7 +9,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from management.models import IgClient, InstagramBotMessage
+from management.models import AdminAuditLog, IgClient, InstagramBotMessage
 from management.services.ig_private_media import private_media_storage
 
 
@@ -60,6 +60,9 @@ class PrivateMediaPreviewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response["Cache-Control"])
         self.assertEqual(response["X-Content-Type-Options"], "nosniff")
+        self.assertTrue(AdminAuditLog.objects.filter(
+            actor=self.user, action="ig_private_media.preview", entity_id=str(row.pk),
+        ).exists())
 
     def test_erasure_or_digest_change_makes_preview_unavailable(self):
         with tempfile.TemporaryDirectory() as root, override_settings(

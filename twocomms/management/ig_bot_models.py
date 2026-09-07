@@ -4624,6 +4624,9 @@ class IgFollowUpTask(models.Model):
     )
     meta_window_deadline = models.DateTimeField(null=True, blank=True, db_index=True)
     message_text = models.TextField(blank=True, default="")
+    # Mutable operator-only context for MANAGER_TASK business cases. Customer
+    # follow-up copy remains in message_text and never receives this JSON.
+    manager_context = models.JSONField(null=True, blank=True, default=None)
     # Durable event identity and two-phase worker claim.  A nullable unique
     # key lets ordinary time-based tasks coexist while event-triggered tasks
     # remain idempotent across daemon/cron/retry workers.

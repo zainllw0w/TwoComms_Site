@@ -45,6 +45,7 @@ from django.utils import timezone
 
 from management.models import (
     IgClient,
+    IgFollowUpTask,
     IgBotNotification,
     IgConversationAnalysisJob,
     IgPollCursor,
@@ -7196,6 +7197,7 @@ def _validated_turn_intelligence(
     artifact,
     candidate_set: dict | None = None,
     media_binding: dict | None = None,
+    prize_programme=None,
 ) -> dict:
     """Validate model candidates against the published catalog and enrich them."""
     if artifact is None:
@@ -7271,6 +7273,7 @@ def _validated_turn_intelligence(
                 actual_content_hashes=list(
                     media_binding.get("actual_content_hashes") or []
                 ),
+                prize_programme=prize_programme,
             )
             expected_image_indexes = {
                 index
@@ -7366,6 +7369,41 @@ def _validated_turn_intelligence(
         ),
         "auto_product_id": auto_product_id,
     }
+
+
+def _record_prize_case_from_intelligence(row: InstagramBotMessage) -> None:
+    """Project verified image evidence or an explicit preference into one case."""
+    artifact = getattr(row, "turn_intelligence_artifact", None)
+    if not isinstance(artifact, dict) or not artifact:
+        return
+    intent = str(artifact.get("intent") or "")
+    candidate = any(
+        isinstance(item, dict) and item.get("prize_certificate")
+        for item in artifact.get("image_observations") or []
+    )
+    preference_kind = {"prize_catalog": "catalog", "prize_custom": "custom"}.get(intent)
+    if not candidate and not preference_kind:
+        return
+    permission_epoch = artifact.get("request_permission_epoch")
+    if not isinstance(permission_epoch, int) or isinstance(permission_epoch, bool):
+        return
+    from management.services.ig_prize_programme import active_shooting_prize_programme
+    from management.services.ig_prize_cases import upsert_prize_review_case
+
+    # Re-read publication: disabling/changing the scenario while Gemini was
+    # running cannot authorize an obsolete candidate with a stale version.
+    programme = active_shooting_prize_programme()
+    if programme is None:
+        return
+    preference = {"kind": preference_kind} if preference_kind else None
+    if preference is not None and preference_kind == "catalog":
+        product_id = artifact.get("auto_product_id")
+        if product_id:
+            preference["product_id"] = product_id
+    upsert_prize_review_case(
+        row, programme=programme, preference=preference,
+        expected_permission_epoch=permission_epoch,
+    )
 
 
 def _persist_turn_intelligence(row: InstagramBotMessage, artifact: dict) -> None:
@@ -7553,6 +7591,9 @@ def gemini_generate(
     """history: [{'role':'user'|'model','text':str}] хронологічно.
     images: список (mime_type, raw_bytes) для ОСТАННЬОГО (поточного) user-ходу."""
     media_was_requested = bool(images)
+    request_permission_epoch = (
+        int(getattr(client, "reply_permission_epoch", 0)) if client is not None else None
+    )
     images, admitted_indexes, omitted_media_count = _bounded_inline_media_with_indexes(
         images or []
     )
@@ -7669,6 +7710,31 @@ def gemini_generate(
     sys_text = (
         sys_text + "\n\n" + structured_response_instruction()
     ).strip()
+    from management.services.ig_prize_programme import (
+        active_shooting_prize_programme, programme_turn_instruction,
+    )
+
+    pending_prize_case = bool(
+        client is not None
+        and getattr(client, "pk", None)
+        and IgFollowUpTask.objects.filter(
+            client_id=client.pk,
+            kind=IgFollowUpTask.Kind.MANAGER_TASK,
+            reason="prize_review:shooting_prize",
+            manager_approval_status=IgFollowUpTask.ManagerApprovalStatus.PENDING,
+        ).exclude(status__in=[
+            IgFollowUpTask.Status.COMPLETED, IgFollowUpTask.Status.CANCELLED,
+        ]).exists()
+    )
+    prize_programme = (
+        active_shooting_prize_programme()
+        if pending_prize_case or any(mime.startswith("image/") for mime, _raw in images)
+        else None
+    )
+    if prize_programme is not None:
+        sys_text += "\n\n" + programme_turn_instruction(
+            prize_programme, pending_case=pending_prize_case,
+        )
     if str(getattr(routing_decision, "task_class", "") or "") == "complex_live":
         sys_text += (
             "\n\n[TURN INTELLIGENCE — REQUIRED FOR THIS COMPLEX TURN]\n"
@@ -7870,7 +7936,7 @@ def gemini_generate(
     if isinstance(parsed, dict):
         from management.services.ig_response_control import parse_structured_response
 
-        text = parse_structured_response(parsed)
+        text = parse_structured_response(parsed, prize_programme=prize_programme)
         if not text.reply_text or text.error == "invalid_reply_text":
             if failure_context is not None:
                 failure_context["kind"] = "invalid_response" if text.error else "empty_response"
@@ -7895,6 +7961,7 @@ def gemini_generate(
                 text.turn_intelligence,
                 turn_candidate_set,
                 actual_media_binding,
+                prize_programme=prize_programme,
             )
     else:
         # Rolling compatibility: old workers/tests may still return free text.
@@ -7918,6 +7985,8 @@ def gemini_generate(
         failure_context["request_id"] = request_id
         failure_context["provider_inline_count"] = provider_inline_count
         if intelligence:
+            if request_permission_epoch is not None:
+                intelligence["request_permission_epoch"] = request_permission_epoch
             failure_context["turn_intelligence"] = intelligence
     try:
         s.last_gemini_model = provider_model
@@ -14025,6 +14094,8 @@ def _process_one_inside_reply_boundary(
     if not InstagramBotSettings.objects.filter(pk=s.pk, is_enabled=True).exists():
         clear_typing_indicator()
         return _skip_observed_row(row, reason="global_reply_paused_before_send")
+
+    _record_prize_case_from_intelligence(row)
 
     # Керуючі теги моделі: [MANAGER] (ескалація), [STAGE:x] (воронка) тощо.
     control = {}

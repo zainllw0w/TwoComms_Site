@@ -8,7 +8,8 @@ from django.http import HttpResponse
 from django.utils import timezone
 from django.views.decorators.http import require_GET
 from management.bot_access import is_meta_bot_reviewer
-from management.models import IgClient, InstagramBotMessage
+from management.models import AdminAuditLog, IgClient, InstagramBotMessage
+from management.services.ig_media_manifest import MediaManifestError, normalize_attachment_media
 from management.services.ig_private_media import acquire_blob_use, private_media_storage, release_blob_use
 
 VIEW_PII_PERMISSION = "management.view_ig_conversation_pii"
@@ -64,9 +65,13 @@ def _safe_part(row, client, source_part_id: str, *, use_token: str) -> dict:
         or row.private_media_use_until <= timezone.now()
     ):
         raise PrivateMediaUnavailable
+    try:
+        media = normalize_attachment_media(row.attachment_media or [], message_scope=row.pk)
+    except MediaManifestError as exc:
+        raise PrivateMediaUnavailable from exc
     matches = [
         dict(part)
-        for part in (row.attachment_media or ())
+        for part in media
         if isinstance(part, Mapping)
         and str(part.get("source_part_id") or "") == str(source_part_id or "")
     ]
@@ -132,6 +137,12 @@ def private_media_preview(request, message_id: int, source_part_id: str):
             if str(part.get("content_hash") or "").lower() != actual_hash:
                 raise PrivateMediaUnavailable
             mime = part["mime"]
+            AdminAuditLog.objects.create(
+                actor=request.user, actor_role="ig_media_viewer",
+                action="ig_private_media.preview", entity_type="InstagramBotMessage",
+                entity_id=str(row.pk), after={"source_part_id": source_part_id},
+                reason="authorized_operator_preview",
+            )
         response = HttpResponse(raw, content_type=mime)
         response["Content-Disposition"] = "inline; filename=private-media"
         response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"

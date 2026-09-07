@@ -209,6 +209,7 @@ class StructuredImageObservationTests(SimpleTestCase):
         self.assertEqual(result.error, "invalid_turn_intelligence")
 
 
+@patch("management.services.ig_prize_programme.active_shooting_prize_programme", new=lambda: None)
 class MediaBundleIntegrationTests(SimpleTestCase):
     def test_live_provider_assigns_identity_before_equal_url_transport_merge(self):
         url = "https://provider.example/shared.jpg"
