@@ -277,6 +277,44 @@ def structured_response_schema(
     return schema
 
 
+def structured_response_instruction() -> str:
+    """Bounded semantic contract for MIME-only JSON generation."""
+    return (
+        "[RESPONSE JSON CONTRACT — REQUIRED]\n"
+        "Return exactly one JSON object, without Markdown or surrounding text. "
+        "Allowed root keys: reply_text, controls, follow_cta, turn_intelligence. "
+        "reply_text is a non-empty customer reply of at most 4000 characters. "
+        "controls is required and is an array of at most 32 objects; every object "
+        "has exactly kind and value. Allowed kind values: "
+        + ", ".join(sorted(CONTROL_KINDS))
+        + ". Boolean controls use JSON true; other values use the exact bounded "
+        "string, number, integer, or integer-array form requested by the prompt. "
+        "follow_cta is optional; when included it has exactly include:boolean and "
+        f"text:string ({_FOLLOW_MIN_LENGTH}-{_FOLLOW_MAX_LENGTH} characters). "
+        "turn_intelligence is optional unless this turn explicitly requires it. "
+        "When present it has catalog_candidates, transcript, intent, confidence, "
+        "and optional audio_status and image_observations. catalog_candidates is an "
+        "array of at most 8 objects with exactly product_id, confidence, evidence. "
+        "Every confidence is a number from 0 to 1; product_id is a positive integer "
+        "from the supplied catalog, evidence is at most 240 characters. transcript "
+        "is a string of at most 4000 characters, empty when there is no audio. "
+        "intent is a lowercase ASCII identifier matching [a-z][a-z0-9_]{0,63}, "
+        "for example media_review. audio_status is not_applicable, transcribed, "
+        "or unintelligible. "
+        "image_observations is an array of at most 8 objects with source_image_index "
+        "(unique zero-based integer for an attached image) and outcome, plus "
+        "optional evidence_code and type_code. Allowed outcome: "
+        + ", ".join(sorted(IMAGE_OBSERVATION_OUTCOMES))
+        + ". Allowed evidence_code: "
+        + ", ".join(sorted(IMAGE_EVIDENCE_CODES))
+        + ". Allowed type_code: "
+        + ", ".join(sorted(IMAGE_TYPE_CODES))
+        + ". Do not return prize_certificate unless a separate programme contract "
+        "explicitly requires it. The server strictly validates every field and "
+        "rejects unknown keys or unauthorized actions."
+    )
+
+
 @dataclass(frozen=True)
 class ResponseControl:
     """One normalized control emitted by the model."""
@@ -799,6 +837,7 @@ __all__ = [
     "parse_legacy_tags",
     "parse_model_response",
     "parse_structured_response",
+    "structured_response_instruction",
     "structured_response_schema",
     "validate_structured_response",
 ]

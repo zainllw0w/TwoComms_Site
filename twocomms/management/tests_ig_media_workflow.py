@@ -53,6 +53,35 @@ class MediaSemanticsTests(SimpleTestCase):
         self.assertEqual(merged[0]["target_username"], "twocomms")
         self.assertTrue(merged[0]["provider_native_mention"])
 
+    def test_expired_url_tombstone_survives_attachment_replay_without_refetch(self):
+        from management.services.instagram_bot import (
+            _media_part_capture_pending,
+            _merge_attachment_media,
+        )
+
+        tombstone = {
+            "source_part_id": "mp1_" + "a" * 32,
+            "original_index": 0,
+            "identity_origin": "ingress",
+            "provenance": "live_webhook",
+            "status": "unavailable",
+            "error_kind": "download_failed",
+            "url_metadata_expired": True,
+        }
+        replay = {
+            "url": "https://lookaside.fbsbx.com/file?token=secret",
+            "original_index": 0,
+            "provenance": "live_webhook",
+            "status": "pending",
+        }
+
+        merged = _merge_attachment_media([tombstone], [replay], message_scope="tombstone")
+
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["source_part_id"], tombstone["source_part_id"])
+        self.assertNotIn("url", merged[0])
+        self.assertFalse(_media_part_capture_pending(merged[0]))
+
     @patch("management.services.ig_payment_review._raw_media_by_mid")
     def test_historical_webhook_raw_media_stays_metadata_only_and_not_retryable(
         self, raw_media
@@ -2500,22 +2529,17 @@ class CatalogAssignmentTests(SimpleTestCase):
         self.assertFalse(_review_evidence_needs_refresh("confirmed", current, extracted))
         self.assertFalse(_review_evidence_needs_refresh("pending", extracted, extracted))
 
-    @patch("django.core.files.storage.default_storage")
-    @patch(
-        "management.services.instagram_bot._owned_media_bytes",
-        return_value=("image/jpeg", b"same-product"),
-    )
-    def test_persist_review_media_reuses_duplicate_provider_media(self, owned_bytes, storage):
+    def test_persist_review_media_keeps_duplicate_owned_media_private(self):
         from management.services.ig_payment_review import _persist_review_media
 
-        storage.exists.return_value = False
-        storage.url.return_value = "/media/ig_payment_reviews/reused.jpg"
         media = [
             {
                 "url": "https://lookaside.example/signed-a.jpg",
                 "provenance": "live_webhook",
                 "status": "owned",
+                "private_storage": True,
                 "storage_name": "ig_message_media/provider-post.jpg",
+                "local_url": "/media/ig_payment_reviews/legacy-copy.jpg",
                 "ig_post_media_id": "post-123",
                 "role": "product",
             },
@@ -2523,6 +2547,7 @@ class CatalogAssignmentTests(SimpleTestCase):
                 "url": "https://lookaside.example/signed-b.jpg",
                 "provenance": "live_webhook",
                 "status": "owned",
+                "private_storage": True,
                 "storage_name": "ig_message_media/provider-post.jpg",
                 "ig_post_media_id": "post-123",
                 "role": "product",
@@ -2531,10 +2556,9 @@ class CatalogAssignmentTests(SimpleTestCase):
 
         persisted = _persist_review_media(media)
 
-        self.assertEqual(owned_bytes.call_count, 1)
-        self.assertEqual(storage.save.call_count, 1)
-        self.assertEqual(persisted[0]["local_url"], persisted[1]["local_url"])
-        self.assertEqual(persisted[0]["content_hash"], persisted[1]["content_hash"])
+        self.assertNotIn("local_url", persisted[0])
+        self.assertEqual(persisted[0]["storage_name"], "ig_message_media/provider-post.jpg")
+        self.assertEqual(persisted[1]["storage_name"], "ig_message_media/provider-post.jpg")
 
     @patch("management.services.bot_vision.match_many", return_value=[{
         "product_id": 11,

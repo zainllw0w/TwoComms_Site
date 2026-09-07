@@ -3883,6 +3883,15 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
         return False
     row.refresh_from_db()
     payload = dict(row.payload or {})
+    from management.services.ig_manager_media_projection import redact_notification_payload
+
+    sanitized_payload = redact_notification_payload(payload)
+    if sanitized_payload != payload:
+        payload = sanitized_payload
+        IgBotNotification.objects.filter(
+            pk=row.pk,
+            status=IgBotNotification.Status.SENDING,
+        ).update(payload=payload, updated_at=timezone.now())
 
     registration_transport = payload.get("transport") == "site_registration"
     if registration_transport:
@@ -4019,6 +4028,13 @@ def _deliver_manager_notification_unlocked(dedupe_key: str) -> bool:
     media_rows = payload.get("media") if isinstance(payload.get("media"), list) else []
     for media in media_rows[:8]:
         if not isinstance(media, dict) or media.get("delivery_status") == "sent":
+            continue
+        if media.get("availability") in {"private_preview", "unavailable"}:
+            # Customer bytes are available only through the authorized preview.
+            # A skipped binary upload is a completed notification, not a retry.
+            media["delivery_status"] = "not_forwarded_private"
+            media.pop("delivery_error", None)
+            persist_payload()
             continue
         private_storage_name = str(media.get("private_storage_name") or "")
         media_urls = _telegram_media_url_candidates(media)
@@ -4496,23 +4512,10 @@ def notify_manager(
     if isinstance(reply_markup, dict):
         payload["reply_markup"] = reply_markup
     if isinstance(media, list):
-        payload["media"] = [
-            {
-                key: str(item.get(key) or "")[:1200]
-                for key in (
-                    "role", "url", "local_url", "message_id", "product_id",
-                    "product_title", "product_url", "confidence",
-                    "private_storage_name", "mime", "content_hash",
-                )
-                if item.get(key)
-            }
-            for item in media[:8]
-            if isinstance(item, dict) and (
-                item.get("url")
-                or item.get("local_url")
-                or item.get("private_storage_name")
-            )
-        ]
+        payload["media"] = [dict(item) for item in media[:8] if isinstance(item, dict)]
+    from management.services.ig_manager_media_projection import redact_notification_payload
+
+    payload = redact_notification_payload(payload)
     try:
         with transaction.atomic():
             row, created = IgBotNotification.objects.select_for_update().get_or_create(
@@ -4543,6 +4546,7 @@ def notify_manager(
                                 item.get("private_storage_name")
                                 or item.get("local_url")
                                 or item.get("url")
+                                or item.get("preview_url")
                                 or ""
                             ),
                             str(item.get("message_id") or ""),
@@ -4556,6 +4560,7 @@ def notify_manager(
                                 item.get("private_storage_name")
                                 or item.get("local_url")
                                 or item.get("url")
+                                or item.get("preview_url")
                                 or ""
                             ),
                             str(item.get("message_id") or ""),
@@ -4581,6 +4586,7 @@ def notify_manager(
                             item.get("private_storage_name")
                             or item.get("local_url")
                             or item.get("url")
+                            or item.get("preview_url")
                             or ""
                         ),
                         str(item.get("message_id") or ""),
@@ -4595,6 +4601,7 @@ def notify_manager(
                             item.get("private_storage_name")
                             or item.get("local_url")
                             or item.get("url")
+                            or item.get("preview_url")
                             or ""
                         ),
                         str(item.get("message_id") or ""),
@@ -7655,6 +7662,13 @@ def gemini_generate(
         return None
     if failure_context is not None:
         failure_context["compiled_policy"] = policy_metadata
+    from management.services.ig_response_control import (
+        structured_response_instruction,
+    )
+
+    sys_text = (
+        sys_text + "\n\n" + structured_response_instruction()
+    ).strip()
     if str(getattr(routing_decision, "task_class", "") or "") == "complex_live":
         sys_text += (
             "\n\n[TURN INTELLIGENCE — REQUIRED FOR THIS COMPLEX TURN]\n"
@@ -7697,9 +7711,6 @@ def gemini_generate(
             )
         ],
     }
-    from management.services.ig_response_control import structured_response_schema
-
-    payload["generationConfig"]["responseJsonSchema"] = structured_response_schema()
     if sys_text:
         payload["system_instruction"] = {"parts": [{"text": sys_text}]}
 
@@ -9759,7 +9770,7 @@ def _attachment_media_metadata(
     )
     status = MEDIA_STATUS_PENDING if live else MEDIA_STATUS_METADATA_ONLY
     result = []
-    for raw in urls or []:
+    for original_index, raw in enumerate(urls or []):
         url = str(raw or "").strip()
         if not url.startswith(("https://", "http://")):
             continue
@@ -9767,6 +9778,7 @@ def _attachment_media_metadata(
             continue
         result.append({
             "url": url[:1200],
+            "original_index": original_index,
             "provenance": provenance,
             "status": status,
         })
@@ -9985,6 +9997,14 @@ def _private_media_retention_seconds() -> int:
     return max(3600, min(configured, 7 * 24 * 3600))
 
 
+def _failed_media_url_retention_seconds() -> int:
+    try:
+        configured = int(getattr(settings, "IG_FAILED_MEDIA_URL_RETENTION_SECONDS", 24 * 3600))
+    except (TypeError, ValueError):
+        configured = 24 * 3600
+    return max(3600, min(configured, 7 * 24 * 3600))
+
+
 def _owned_media_bytes(
     item: dict,
     *,
@@ -10124,8 +10144,18 @@ def _merge_attachment_media(
                 # of several equal-URL source parts it refreshes.
                 continue
             else:
-                item["original_index"] = next_index
-                next_index += 1
+                tombstone_matches = [
+                    candidate
+                    for candidate in existing_normalized
+                    if candidate.get("url_metadata_expired") is True
+                    and candidate.get("original_index") == item.get("original_index")
+                ]
+                if len(tombstone_matches) == 1:
+                    item["source_part_id"] = tombstone_matches[0]["source_part_id"]
+                    item["identity_origin"] = tombstone_matches[0]["identity_origin"]
+                elif item.get("original_index") is None:
+                    item["original_index"] = next_index
+                    next_index += 1
         prepared_incoming.append(item)
     incoming_normalized = _normalize_message_media(
         prepared_incoming,
@@ -10149,9 +10179,15 @@ def _merge_attachment_media(
     }
     for item in [*existing_normalized, *incoming_normalized]:
         url = str(item.get("url") or "").strip()
-        if not url.startswith(("https://", "http://")):
+        tombstone = bool(item.get("url_metadata_expired"))
+        if not url.startswith(("https://", "http://")) and not (
+            tombstone and item.get("source_part_id")
+        ):
             continue
-        item["url"] = url[:1200]
+        if url.startswith(("https://", "http://")):
+            item["url"] = url[:1200]
+        else:
+            item.pop("url", None)
         identity = (
             str(item.get("source_message_scope") or ""),
             str(item.get("source_part_id") or ""),
@@ -10170,7 +10206,11 @@ def _merge_attachment_media(
             combined = {**item, **current}
             # A refreshed signed URL belongs to this same source part and may
             # replace the stale transport source without weakening owned bytes.
-            combined["url"] = item["url"]
+            if not current.get("url_metadata_expired") and item.get("url"):
+                combined["url"] = item["url"]
+        if current.get("url_metadata_expired") or item.get("url_metadata_expired"):
+            combined.pop("url", None)
+            combined["url_metadata_expired"] = True
         if current_rank >= 40 and item_rank < 40:
             for key in owned_fields:
                 if key in current:
@@ -10270,6 +10310,10 @@ def _media_part_capture_pending(item: dict) -> bool:
     if not isinstance(item, dict):
         return False
     if item.get("provenance") != MEDIA_PROVENANCE_LIVE_WEBHOOK:
+        return False
+    if item.get("url_metadata_expired") is True:
+        return False
+    if not str(item.get("url") or "").startswith(("https://", "http://")):
         return False
     if item.get("status") == MEDIA_STATUS_OWNED and item.get("storage_name"):
         return False
@@ -10496,6 +10540,14 @@ def _finish_media_capture(
                 and item.get("capture_token") == token
             ):
                 item.update(updates)
+                if (
+                    item.get("status") in {MEDIA_STATUS_UNAVAILABLE, "failed", "expired", "blocked"}
+                    and str(item.get("url") or "").startswith(("https://", "http://"))
+                    and not str(item.get("url_metadata_delete_after") or "").strip()
+                ):
+                    item["url_metadata_delete_after"] = (
+                        timezone.now() + timedelta(seconds=_failed_media_url_retention_seconds())
+                    ).isoformat()
                 if privacy_fenced and updates.get("status") == MEDIA_STATUS_OWNED:
                     # Retain the private name only as deletion debt. It is
                     # never exposed as owned media after the erasure fence.
@@ -10545,16 +10597,21 @@ def _finish_media_capture(
 
 
 def _capture_failure_updates(outcome, item: dict, *, error_kind: str = "") -> dict:
+    now = timezone.now()
     deadline_at = parse_recovery_datetime(item.get("capture_deadline_at"))
     plan = plan_capture_failure(
         outcome,
         attempts=max(1, int(item.get("capture_attempts") or 1)),
-        now=timezone.now(),
+        now=now,
         deadline_at=deadline_at,
     )
     updates = plan.part_updates()
     if error_kind:
         updates["error_kind"] = str(error_kind)[:64]
+    if not str(item.get("url_metadata_delete_after") or "").strip():
+        updates["url_metadata_delete_after"] = (
+            now + timedelta(seconds=_failed_media_url_retention_seconds())
+        ).isoformat()
     return updates
 
 
@@ -10697,7 +10754,11 @@ def _capture_message_media(
     current = [
         dict(item)
         for item in (getattr(row, "attachment_media", None) or [])
-        if isinstance(item, dict) and item.get("url")
+        if isinstance(item, dict) and (
+            item.get("url") or (
+                item.get("url_metadata_expired") is True and item.get("source_part_id")
+            )
+        )
     ]
     historical_urls = {
         str(item.get("url") or "")
@@ -10941,6 +11002,61 @@ def purge_expired_private_message_media(*, now=None, limit: int = 100) -> int:
     return purge_due(now=now, limit=limit)
 
 
+def purge_expired_failed_media_url_metadata(*, now=None, limit: int = 100) -> int:
+    """Bound signed-URL retention without deleting its media-part tombstone."""
+    from management.services.ig_manager_media_projection import expire_failed_capture_urls
+
+    now = now or timezone.now()
+    changed = 0
+    page_size = max(1, min(int(limit), 500))
+    cursor_key = "ig_failed_media_url_cleanup_cursor"
+    cursor = int(cache.get(cursor_key, 0) or 0)
+    queryset = InstagramBotMessage.objects.exclude(attachment_media=[]).order_by("id")
+    ids = list(queryset.filter(pk__gt=cursor).values_list("pk", flat=True)[:page_size])
+    if not ids and cursor:
+        ids = list(queryset.values_list("pk", flat=True)[:page_size])
+    if ids:
+        cache.set(cursor_key, ids[-1], timeout=7 * 24 * 3600)
+    for message_id in ids:
+        with transaction.atomic():
+            row = InstagramBotMessage.objects.select_for_update().filter(pk=message_id).first()
+            if row is None:
+                continue
+            media = list(row.attachment_media or [])
+            legacy_deadline = row.created_at + timedelta(
+                seconds=_failed_media_url_retention_seconds()
+            )
+            sanitized = expire_failed_capture_urls(
+                media, now=now, legacy_delete_after=legacy_deadline,
+            )
+            expired_urls = {
+                str(before.get("url") or "")
+                for before, after in zip(media, sanitized, strict=True)
+                if isinstance(before, dict)
+                and isinstance(after, dict)
+                and after.get("url_metadata_expired") is True
+                and before.get("url")
+            }
+            attachments = str(row.attachments or "")
+            cleaned_attachments = attachments
+            if expired_urls:
+                try:
+                    parsed = json.loads(attachments)
+                    if isinstance(parsed, list):
+                        cleaned_attachments = json.dumps([
+                            value for value in parsed
+                            if str(value or "") not in expired_urls
+                        ], ensure_ascii=False)
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    pass
+            if sanitized != media or cleaned_attachments != attachments:
+                row.attachment_media = sanitized
+                row.attachments = cleaned_attachments
+                row.save(update_fields=["attachment_media", "attachments"])
+                changed += 1
+    return changed
+
+
 def _maybe_purge_expired_private_media() -> None:
     try:
         if not cache.add("ig_private_media_purge_due", 1, timeout=3600):
@@ -10949,6 +11065,7 @@ def _maybe_purge_expired_private_media() -> None:
         pass
     try:
         purge_expired_private_message_media(limit=100)
+        purge_expired_failed_media_url_metadata(limit=100)
     except Exception as exc:
         log("warning", "private_media_purge", type(exc).__name__)
 

@@ -557,73 +557,21 @@ def _augment_messages_with_raw_media(client, messages) -> list[dict]:
 
 
 def _persist_review_media(media: list[dict]) -> list[dict]:
-    """Download bounded image evidence to our media storage for durable review.
+    """Keep customer evidence in its owned private blob, never a public copy.
 
-    Signed Meta URLs can expire; ``local_url`` is best effort and the original
-    URL remains in evidence for audit. Non-image or failed downloads are never
-    sent into catalog matching.
+    Existing first-party catalog URLs remain distinct metadata. Live customer
+    media is read through ``_owned_media_bytes`` by the analysis callers below;
+    this projection stage must not duplicate those bytes into ``default_storage``.
     """
-    try:
-        from django.core.files.base import ContentFile
-        from django.core.files.storage import default_storage
-        from management.services.instagram_bot import download_image
-    except Exception:
-        return media
-    enriched = []
-    persisted_by_source = {}
+    result = []
     for item in media[:8]:
-        row = dict(item)
-        if _historical_media(row):
-            enriched.append(row)
-            continue
-        url = str(row.get("url") or "")
-        if not url:
-            enriched.append(row)
-            continue
-        source_key = ""
-        if row.get("ig_post_media_id"):
-            source_key = f"{row.get('type') or 'media'}:{row.get('ig_post_media_id')}"
-        cached = persisted_by_source.get(source_key) if source_key else None
-        if cached:
-            row.update(cached)
-            enriched.append(row)
-            continue
-        try:
-            downloaded = None
-            if _live_owned_media(row):
-                from management.services.instagram_bot import _owned_media_bytes
-
-                downloaded = _owned_media_bytes(
-                    row,
-                    message_id=row.get("message_id") or row.get("source_message_id"),
-                )
-            elif _safe_local_media_url(row):
-                base = (getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop").rstrip("/") + "/"
-                downloaded = download_image(
-                    urljoin(base, _safe_local_media_url(row).lstrip("/")),
-                    profile="own_origin",
-                )
-            if downloaded:
-                mime, raw = downloaded
-                suffix = ".jpg" if mime == "image/jpeg" else ".bin"
-                digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:24]
-                content_hash = hashlib.sha256(raw).hexdigest()
-                path = f"ig_payment_reviews/{digest}{suffix}"
-                if not default_storage.exists(path):
-                    default_storage.save(path, ContentFile(raw))
-                durable_fields = {
-                    "local_url": default_storage.url(path),
-                    "mime": mime[:64],
-                    "bytes": len(raw),
-                    "content_hash": content_hash,
-                }
-                row.update(durable_fields)
-                if source_key:
-                    persisted_by_source[source_key] = durable_fields
-        except Exception:
-            pass
-        enriched.append(row)
-    return enriched
+        row = dict(item) if isinstance(item, dict) else item
+        if isinstance(row, dict) and _live_owned_media(row):
+            # Older review rows may carry a public copy from the removed path.
+            # It is never an admissible substitute for the owned private blob.
+            row.pop("local_url", None)
+        result.append(row)
+    return result
 
 
 def _resolve_payment_media_candidates(media: list[dict]) -> list[dict]:

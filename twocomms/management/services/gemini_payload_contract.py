@@ -113,6 +113,7 @@ _SCHEMA_LIST_KEYS = ("anyOf", "oneOf", "allOf", "prefixItems")
 
 LIVE_VARIANT = "live"
 DOCUMENTED_VARIANT = "documented"
+JSON_MODE_VARIANT = "json_mode"
 
 # Один 400 доказує несумісність цього тіла на весь час життя контракту. TTL
 # потрібен лише щоб зміна схеми (новий fingerprint і так новий) або зміна на
@@ -274,7 +275,7 @@ def simplify_schema(schema):
 
 
 def _response_config(payload) -> tuple:
-    """(generationConfig, ключ схеми) або (None, "") якщо контракту немає."""
+    """Return response config and schema key; empty key means MIME-only JSON."""
     if not isinstance(payload, dict):
         return None, ""
     generation = payload.get("generationConfig")
@@ -283,6 +284,8 @@ def _response_config(payload) -> tuple:
     for key in ("responseJsonSchema", "responseSchema"):
         if isinstance(generation.get(key), (dict, list)):
             return generation, key
+    if generation.get("responseMimeType") == "application/json":
+        return generation, ""
     return None, ""
 
 
@@ -348,6 +351,19 @@ def guard_payload(payload, *, model: str = "", now=None) -> tuple:
     if generation is None:
         return payload, ContractReport(reason="no_contract")
     now = now or timezone.now()
+    if not schema_key:
+        fingerprint = contract_fingerprint(payload)
+        blocked = bool(
+            flag("GEMINI_PAYLOAD_CONTRACT_CIRCUIT")
+            and contract_circuit_open(fingerprint, now=now)
+        )
+        return payload, ContractReport(
+            fingerprint=fingerprint,
+            variant=JSON_MODE_VARIANT,
+            live_fingerprint=fingerprint,
+            blocked=blocked,
+            reason="json_mode_rejected" if blocked else "json_mode",
+        )
     live_schema = generation.get(schema_key)
     live_fingerprint = contract_fingerprint(payload)
     unsupported = unsupported_keywords(live_schema)

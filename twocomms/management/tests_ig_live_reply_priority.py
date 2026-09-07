@@ -42,7 +42,7 @@ class StructuredProviderBoundaryTests(TestCase):
         self.assertEqual(result["parsed"], expected)
         self.assertTrue(run.call_args.kwargs["parse"])
 
-    def test_customer_chat_requests_closed_json_and_returns_validated_response(self):
+    def test_customer_chat_uses_mime_only_json_and_returns_validated_response(self):
         settings = InstagramBotSettings()
         provider = {
             "parsed": {
@@ -68,13 +68,15 @@ class StructuredProviderBoundaryTests(TestCase):
         config = payload["generationConfig"]
         self.assertEqual(config["responseMimeType"], "application/json")
         self.assertNotIn("responseSchema", config)
-        schema = config["responseJsonSchema"]
-        self.assertEqual(schema["type"], "object")
-        self.assertEqual(set(schema["required"]), {"reply_text", "controls"})
-        self.assertNotIn("additionalProperties", schema)
-        kinds = schema["properties"]["controls"]["items"]["properties"]["kind"]["enum"]
-        self.assertIn("objhandle", kinds)
-        self.assertNotIn("variant", kinds)
+        self.assertNotIn("responseJsonSchema", config)
+        self.assertNotIn("_responseJsonSchema", config)
+        instruction = payload["system_instruction"]["parts"][0]["text"]
+        self.assertEqual(instruction.count("[RESPONSE JSON CONTRACT — REQUIRED]"), 1)
+        self.assertIn("reply_text", instruction)
+        self.assertIn("controls", instruction)
+        self.assertIn("turn_intelligence", instruction)
+        self.assertIn("image_observations", instruction)
+        self.assertIn("source_image_index", instruction)
         self.assertTrue(generate.call_args.kwargs["parse"])
 
     def test_customer_chat_keeps_invalid_control_result_fail_closed(self):

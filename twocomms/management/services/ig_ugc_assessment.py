@@ -844,6 +844,7 @@ def queue_ugc_manager_review(assessment) -> bool:
                 "mime": str(item.get("mime") or "")[:64],
                 "content_hash": str(item.get("content_hash") or "")[:64],
                 "message_id": str(getattr(source, "pk", "") or ""),
+                "source_part_id": str(item.get("source_part_id") or "")[:40],
             })
     product_context = [
         {

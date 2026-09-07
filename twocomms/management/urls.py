@@ -10,6 +10,7 @@ from . import network_views
 from . import views_levels
 from . import bot_webhook
 from . import bot_views
+from . import ig_private_media_views
 from . import binotel_views
 from . import binotel_webhook
 from . import call_views
@@ -108,6 +109,11 @@ urlpatterns = [
     path('bot/api/clients/<int:client_id>/unhide/', bot_views.bot_client_unhide_api, name='management_bot_client_unhide_api'),
     path('bot/api/clients/<int:client_id>/lost/', bot_views.bot_client_mark_lost_api, name='management_bot_client_mark_lost_api'),
     path('bot/api/clients/<int:client_id>/reset-funnel/', bot_views.bot_client_reset_funnel_api, name='management_bot_client_reset_funnel_api'),
+    path(
+        'bot/private-media/<int:message_id>/<str:source_part_id>/preview/',
+        ig_private_media_views.private_media_preview,
+        name='management_bot_private_media_preview',
+    ),
     path('bot/api/kb/', bot_views.bot_kb_api, name='management_bot_kb_api'),
     path('bot/api/kb/save/', bot_views.bot_kb_save_api, name='management_bot_kb_save_api'),
     path('invoices/', views.invoices, name='management_invoices'),
