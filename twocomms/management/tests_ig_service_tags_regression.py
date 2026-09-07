@@ -33,6 +33,9 @@ class ServiceCaseInstructionRoutingTests(TestCase):
             intent_tags="price, discount",
             is_active=True,
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
 
     def _open_case(self):
         order = Order.objects.create(
@@ -92,6 +95,9 @@ class ServiceCaseInstructionRoutingTests(TestCase):
             intent_tags="",
             is_active=True,
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         self._open_case()
 
         block = active_instruction_block(self.client_row)

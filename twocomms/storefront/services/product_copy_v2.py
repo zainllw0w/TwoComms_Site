@@ -50,11 +50,10 @@ def _nom_cap(cat): return _nom(cat).capitalize()
 
 CATEGORY_COMMON = {
     "tshirts": {
-        "para_material": _(
-            "Виготовлена зі щільного бавовняного трикотажу 180–220 г/м²: "
-            "не просвічується, добре тримає форму після прання, м'яка до шкіри. "
-            "Принт нанесено методом DTF-друку — насичені кольори та тонкі деталі."
-        ),
+        # Fit-specific current-base facts live in approved_public_facts.
+        # A category fallback cannot tell regular from oversize, so it must
+        # not invent a shared grammage or material claim.
+        "para_material": "",
         "para_style": _(
             "Універсальна форма: пасує і для сольного носіння, і для шарування "
             "під сорочку, худі або легку куртку. Поєднується з джинсами, "
@@ -96,13 +95,9 @@ CATEGORY_COMMON = {
         ),
     },
     "hoodie": {
-        "para_material": _(
-            "Худі виготовлене зі щільного трикотажу з начосом 280–320 г/м²: "
-            "тримає тепло, добре сидить, не витягується після прання. Капюшон "
-            "двошаровий, із плетеним шнурком; манжети та низ — посилена "
-            "резинка. Принт нанесено DTF-друком — стійка фарба, що передає всі "
-            "деталі ілюстрації."
-        ),
+        # The fleece basis is known; composition and grammage are not yet a
+        # public product fact, so no generic fallback is allowed.
+        "para_material": "",
         "para_style": _(
             "Базовий шар streetwear-гардероба: сидить як у regular, так і в "
             "oversize-силуеті, поєднується з футболкою, лонгслівом або "
@@ -146,12 +141,9 @@ CATEGORY_COMMON = {
         ),
     },
     "long-sleeve": {
-        "para_material": _(
-            "Лонгслів виготовлений з бавовняного трикотажу 200–240 г/м² — "
-            "щільнішого за футбольний, легшого за худі. Манжети — двошарова "
-            "резинка, тримає рукав на місці. Принт нанесено DTF-друком: "
-            "насичені стійкі кольори, тонкі деталі."
-        ),
+        # No material or grammage is approved for the current long-sleeve
+        # base without a product-specific specification.
+        "para_material": "",
         "para_style": _(
             "Універсальний базовий шар streetwear-гардероба: можна носити "
             "окремо у прохолодну погоду, шарувати під худі або легку куртку. "

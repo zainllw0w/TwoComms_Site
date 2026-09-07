@@ -5,9 +5,6 @@ import hashlib
 import json
 from dataclasses import dataclass
 
-from management.models import BotInstruction
-
-
 PROGRAMME_ID = "shooting_prize"
 RESERVED_INTENT_TAG = "programme:shooting_prize"
 PRIZE_STATUSES = frozenset({"recognized", "uncertain", "not_match"})
@@ -59,47 +56,51 @@ class PrizeCertificateObservation:
         }
 
 
-def _instruction_tags(value: str) -> set[str]:
-    return {
-        item.strip().casefold()
-        for item in str(value or "").replace(";", ",").split(",")
-        if item.strip()
-    }
-
-
-def _version_for(instruction: BotInstruction) -> str:
+def _version_for(publication, item: dict) -> str:
     payload = {
-        "title": str(instruction.title or ""),
-        "body": str(instruction.body or ""),
-        "intent_tags": str(instruction.intent_tags or ""),
-        "priority": int(instruction.priority),
-        "is_active": bool(instruction.is_active),
+        "publication_id": int(publication.publication_id),
+        "publication_version": int(publication.version),
+        "publication_hash": str(publication.snapshot_hash),
+        "item": item,
     }
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(encoded.encode()).hexdigest()
 
 
-def active_shooting_prize_programme() -> PrizeProgramme | None:
-    """Return exactly one enabled programme, never guessing from a title."""
+def active_shooting_prize_programme(*, publication_snapshot=None) -> PrizeProgramme | None:
+    """Return one public programme from one immutable publication snapshot."""
+    from management.services.ig_policy_publication import load_active_policy_snapshot
+
+    publication = publication_snapshot or load_active_policy_snapshot()
     matches = [
-        instruction
-        for instruction in BotInstruction.objects.filter(is_active=True).order_by("priority", "id")
-        if RESERVED_INTENT_TAG in _instruction_tags(instruction.intent_tags)
-        and str(instruction.body or "").strip()
+        item
+        for item in publication.snapshot.get("instructions") or []
+        if isinstance(item, dict)
+        and item.get("active") is True
+        and item.get("trust_scope") == "public_policy"
+        and str(item.get("body") or "").strip()
+        and item.get("programme_metadata") == {
+            "kind": PROGRAMME_ID,
+            "programme_id": PROGRAMME_ID,
+            "manager_required": True,
+            "confirmed_visual_sample": False,
+        }
     ]
     if len(matches) != 1:
         return None
-    instruction = matches[0]
+    item = matches[0]
     return PrizeProgramme(
         programme_id=PROGRAMME_ID,
-        version=_version_for(instruction),
-        instruction=str(instruction.body).strip(),
+        version=_version_for(publication, item),
+        instruction=str(item["body"]).strip(),
         cue_codes=tuple(sorted(PRIZE_CUE_CODES)),
     )
 
 
-def conditional_programme_snapshot() -> dict | None:
-    programme = active_shooting_prize_programme()
+def conditional_programme_snapshot(*, publication_snapshot=None) -> dict | None:
+    programme = active_shooting_prize_programme(
+        publication_snapshot=publication_snapshot
+    )
     return programme.prompt_snapshot() if programme else None
 
 

@@ -57,6 +57,13 @@ def _payload(observation, *, type_code="certificate"):
 
 
 class PrizeProgrammeLoaderTests(TestCase):
+    def setUp(self):
+        from management.tests_ig_policy_helpers import (
+            ensure_test_instruction_publication,
+        )
+
+        ensure_test_instruction_publication()
+
     def test_exact_reserved_tag_selects_one_active_plain_language_instruction(self):
         instruction = BotInstruction.objects.create(
             title="Editable shooting copy",
@@ -64,6 +71,9 @@ class PrizeProgrammeLoaderTests(TestCase):
             intent_tags=f"global,{RESERVED_INTENT_TAG}",
             priority=12,
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
 
         programme = active_shooting_prize_programme()
 
@@ -73,6 +83,7 @@ class PrizeProgrammeLoaderTests(TestCase):
         first_version = programme.version
         instruction.body += " Updated."
         instruction.save(update_fields=["body", "updated_at"])
+        publish_current_instructions()
         self.assertNotEqual(active_shooting_prize_programme().version, first_version)
 
     def test_missing_or_ambiguous_programme_fails_closed(self):
@@ -81,6 +92,9 @@ class PrizeProgrammeLoaderTests(TestCase):
             BotInstruction.objects.create(
                 body=f"programme {index}", intent_tags=RESERVED_INTENT_TAG,
             )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         self.assertIsNone(active_shooting_prize_programme())
 
 

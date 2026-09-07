@@ -792,8 +792,23 @@ def begin_request(
     deadline_seconds: float | None = None,
     routing_decision=None,
     lane: str = "",
+    request_policy_manifest=None,
 ) -> "RequestObserver | NullRequestObserver":
     """Create one immutable graph only when the shadow gate is active."""
+    from management.services.gemini_accounting_contract import (
+        RequestPolicyManifestError,
+        sanitize_request_policy_manifest,
+    )
+
+    try:
+        safe_policy_manifest = sanitize_request_policy_manifest(
+            request_policy_manifest
+        )
+    except RequestPolicyManifestError as exc:
+        return blocked_observer(
+            exc.code if exc.code == "policy_manifest_mismatch"
+            else "policy_manifest_invalid"
+        )
     if not shadow_runtime_active():
         return NULL_OBSERVER
     try:
@@ -824,6 +839,7 @@ def begin_request(
         deadline_ms = max(0, int(float(deadline_seconds or 0) * 1000))
         profile_version = _quota_profile_version_for_plan(safe_plan, now=now)
         source_message_id = lineage.get("source_message_id") or None
+        resolved_request_id = str(request_id or uuid.uuid4().hex)[:40]
         last_contention = None
         for delay in OWNERSHIP_RETRY_DELAYS:
             if delay:
@@ -867,13 +883,31 @@ def begin_request(
                             # cross-backend invariant.  The inbound row remains
                             # the MariaDB mutex and this explicit read provides
                             # a deterministic blocked reason on both engines.
+                            if (
+                                len(existing) == 1
+                                and existing[0].policy_manifest
+                                != safe_policy_manifest
+                            ):
+                                return blocked_observer("policy_manifest_mismatch")
                             return blocked_observer(
                                 "duplicate_source_lane"
                                 if len(existing) == 1
                                 else "multiple_source_lane"
                             )
+                    existing_request = (
+                        GeminiRequest.objects.select_for_update()
+                        .filter(request_id=resolved_request_id)
+                        .only("pk", "policy_manifest")
+                        .first()
+                    )
+                    if existing_request is not None:
+                        return blocked_observer(
+                            "policy_manifest_mismatch"
+                            if existing_request.policy_manifest != safe_policy_manifest
+                            else "request_conflict"
+                        )
                     graph = GeminiRequest.objects.create(
-                        request_id=str(request_id or uuid.uuid4().hex)[:40],
+                        request_id=resolved_request_id,
                         lane=resolved_lane,
                         task_class=task_class,
                         reasoning_task=str(reasoning_task or "")[:40],
@@ -910,6 +944,7 @@ def begin_request(
                         candidate_plan_digest=canonical_candidate_plan_digest(
                             safe_plan
                         ),
+                        policy_manifest=safe_policy_manifest,
                         deadline_ms=deadline_ms,
                         deadline_at=(
                             now + dt.timedelta(milliseconds=deadline_ms)

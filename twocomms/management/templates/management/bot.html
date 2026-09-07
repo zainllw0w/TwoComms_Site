@@ -601,7 +601,16 @@ body.bot-stats-detail-drawer-open{overflow:hidden;}
 .bot-kb-item .x{margin-left:auto;border:0;background:transparent;color:#9aa7b9;padding:0 3px;cursor:pointer;font-size:17px;font-weight:700;line-height:1;flex:0 0 auto;transition:color .15s;}
 .bot-kb-item .x:hover{color:#f87171;}
 .bot-kb-form{display:flex;flex-direction:column;gap:7px;}
-.bot-kb-form input,.bot-kb-form select{background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:8px 10px;font-size:12.5px;}
+.bot-kb-form input,.bot-kb-form select,.bot-kb-form textarea{background:#0c0f17;border:1px solid #232a38;border-radius:9px;color:#e7ecf3;padding:8px 10px;font-size:12.5px;}
+.bot-kb-form textarea{min-height:92px;resize:vertical;font:inherit;}
+.bot-policy-bar{display:grid;gap:10px;margin:0 0 16px;padding:12px;border:1px solid #2a3850;border-radius:10px;background:#0c1421;}
+.bot-policy-state{display:flex;gap:8px;align-items:center;flex-wrap:wrap;color:#cbd5e1;font-size:12px;}
+.bot-policy-state b{color:#f8fafc;}.bot-policy-state .draft{color:#fbbf24;}.bot-policy-state .published{color:#86efac;}
+.bot-policy-actions{display:flex;gap:8px;flex-wrap:wrap;}.bot-policy-actions button{min-height:34px;}
+.bot-policy-preview-fields{display:grid;grid-template-columns:140px minmax(160px,1fr) minmax(180px,2fr);gap:8px;}
+.bot-policy-preview-fields input,.bot-policy-preview-fields select{background:#0a0f18;border:1px solid #273247;border-radius:8px;color:#e7ecf3;padding:8px;}
+.bot-policy-result{display:grid;gap:6px;color:#aeb8c7;font-size:11px;line-height:1.45;}.bot-policy-result b{color:#dbeafe;}.bot-policy-result .error{color:#fca5a5;}
+@media(max-width:720px){.bot-policy-preview-fields{grid-template-columns:1fr;}}
 
 /* ---- Clients workspace ---- */
 .bot-clients-workspace{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(300px,380px);gap:12px;align-items:stretch;height:clamp(620px,calc(100dvh - 180px),760px);min-height:0;transition:grid-template-columns .2s ease;}
@@ -1512,16 +1521,37 @@ body.bot-drawer-open{overflow:hidden;}
   <section class="bot-panel" data-panel="kb">
     <div class="bot-card">
       <h2>Інструкції, посилання та реклама</h2>
-      <div class="bot-hint" style="margin-bottom:16px;">Бот враховує це у відповідях: інструкції додаються в контекст, швидкі посилання надсилаються за запитом (розмірні сітки-хайлайти, каталог), реклама мапиться на товар/тему для миттєвої орієнтації.</div>
+      <div class="bot-hint" style="margin-bottom:16px;">Зміни інструкцій спочатку зберігаються як чернетка. Бот читає лише цілісну опубліковану версію. Швидкі посилання й правила реклами працюють окремо.</div>
       <div id="bot-kb-feedback" class="bot-feedback" role="status" aria-live="polite"></div>
+      <div class="bot-policy-bar">
+        <div id="bot-policy-state" class="bot-policy-state">Завантаження стану публікації…</div>
+        <div class="bot-policy-preview-fields">
+          <select id="bot-policy-preview-locale" aria-label="Мова перегляду"><option value="all">Усі мови</option><option value="uk">Українська</option><option value="ru">Російська</option><option value="en">Англійська</option></select>
+          <input id="bot-policy-preview-tags" placeholder="Теги сценарію, напр. sales, size">
+          <input id="bot-policy-preview-turn" placeholder="Приклад запиту для перевірки тригерів">
+        </div>
+        <div class="bot-policy-actions">
+          <button type="button" class="bot-btn" id="bot-policy-preview">Переглянути</button>
+          <button type="button" class="bot-save" id="bot-policy-publish">Опублікувати</button>
+          <button type="button" class="bot-btn" id="bot-policy-history">Історія</button>
+        </div>
+        <div id="bot-policy-result" class="bot-policy-result" aria-live="polite"></div>
+      </div>
       <div class="bot-kb-wrap">
         <div>
           <h3 class="bot-kb-h">Інструкції</h3>
           <div id="kb-instructions" class="bot-kb-list"></div>
           <div class="bot-kb-form">
             <input id="kbi-title" placeholder="Заголовок">
-            <input id="kbi-body" placeholder="Текст інструкції">
-            <button class="bot-save" data-kb-add="instruction">Додати</button>
+            <textarea id="kbi-body" placeholder="Текст інструкції"></textarea>
+            <input id="kbi-tags" placeholder="Теги аудиторії через кому">
+            <input id="kbi-triggers" placeholder="Тригери через кому, напр. size_question">
+            <div class="bot-grid2"><input id="kbi-priority" type="number" value="100" placeholder="Пріоритет"><select id="kbi-locale"><option value="all">Усі мови</option><option value="uk">Українська</option><option value="ru">Російська</option><option value="en">Англійська</option></select></div>
+            <select id="kbi-trust"><option value="public_policy">Публічна політика бота</option><option value="operator_only">Лише для операторів</option></select>
+            <select id="kbi-programme"><option value="">Звичайна інструкція</option><option value="shooting_prize">Сценарій стрілецького сертифіката</option></select>
+            <select id="kbi-actions" multiple size="6" aria-label="Допустимі пропозиції дій"><option value="show_products">Показати товари</option><option value="catalog_link">Дати посилання каталогу</option><option value="paylink">Запропонувати checkout</option><option value="payment">Вказати перевірену суму передоплати</option><option value="product">Обрати товар</option><option value="item">Додати позицію</option><option value="option">Зберегти опцію</option><option value="qty">Зберегти кількість</option><option value="size">Зберегти розмір</option><option value="fit">Зберегти крій</option><option value="color_variant_id">Зберегти варіант кольору</option><option value="price_quoted">Показати перевірену ціну каталогу</option><option value="manager">Запросити менеджера</option><option value="stage">Оновити м’який етап</option><option value="order">Зібрати дані замовлення</option><option value="spam">Позначити спам</option><option value="objhandle">Позначити обробку заперечення</option></select>
+            <label class="bot-radio"><input id="kbi-active" type="checkbox" checked> Активна після публікації</label>
+            <button class="bot-save" data-kb-add="instruction">Зберегти чернетку</button>
           </div>
         </div>
         <div>
@@ -3999,17 +4029,29 @@ body.bot-drawer-open{overflow:hidden;}
   const KB=(function(){
     const kbBase='{% url "management_bot_kb_api" %}';
     const kbSave='{% url "management_bot_kb_save_api" %}';
+    const previewUrl='{% url "management_bot_policy_preview_api" %}';
+    const publishUrl='{% url "management_bot_policy_publish_api" %}';
+    const historyUrl='{% url "management_bot_policy_history_api" %}';
+    const rollbackUrl='{% url "management_bot_policy_rollback_api" %}';
     const kbFeedback=document.getElementById('bot-kb-feedback');
+    const policyStateEl=document.getElementById('bot-policy-state');
+    const policyResult=document.getElementById('bot-policy-result');
+    let policy={};let instructions=[];let editingId=null;
     function setKbFeedback(message,kind=''){if(!kbFeedback)return;kbFeedback.textContent=message||'';kbFeedback.className='bot-feedback'+(kind?(' '+kind):'');}
-    async function save(fd){const response=await fetch(kbSave,{method:'POST',headers:{'X-CSRFToken':csrf,'X-Requested-With':'XMLHttpRequest'},body:fd});const data=await response.json().catch(()=>({}));if(!response.ok||!data.success)throw new Error(data.error||'Не вдалося зберегти зміни.');return data;}
-    async function del(type,id){const prompts={instruction:'Видалити цю інструкцію без можливості відновлення?',quicklink:'Видалити це швидке посилання?',adcampaign:'Видалити це правило реклами?'};if(!window.confirm(prompts[type]||'Видалити цей запис?'))return;const fd=new FormData();fd.append('type',type);fd.append('op','delete');fd.append('id',id);setKbFeedback('Видаляємо…');try{await save(fd);setKbFeedback('Запис видалено.','success');await load({preserveFeedback:true});}catch(error){setKbFeedback(error.message||'Не вдалося видалити запис.','error');}}
-    function row(type,id,label){const d=document.createElement('div');d.className='bot-kb-item';const text=document.createElement('span');text.textContent=label;const remove=document.createElement('button');remove.type='button';remove.className='x';remove.textContent='×';remove.setAttribute('aria-label','Видалити запис');remove.addEventListener('click',()=>del(type,id));d.append(text,remove);return d;}
+    function draftTokens(fd){fd.append('draft_revision',String(policy.draft_revision||0));fd.append('draft_hash',policy.draft_hash||'');}
+    async function request(url,fd=null){const options={headers:{'X-Requested-With':'XMLHttpRequest'}};if(fd){options.method='POST';options.headers['X-CSRFToken']=csrf;options.body=fd;}const response=await fetch(url,options);const data=await response.json().catch(()=>({}));if(!response.ok||!data.success){const error=new Error(data.error||'Не вдалося виконати дію.');error.stale=response.status===409;throw error;}return data;}
+    async function save(fd){return request(kbSave,fd);}
+    function renderPolicyState(){if(!policyStateEl)return;policyStateEl.replaceChildren();const label=document.createElement('b');label.textContent='Чернетка '+String(policy.draft_revision||0);const status=document.createElement('span');if(!policy.ready){status.className='draft';status.textContent='Опублікована версія недоступна';}else if(policy.has_unpublished_changes){status.className='draft';status.textContent='Є неопубліковані зміни';}else{status.className='published';status.textContent='Опубліковано · версія '+String((policy.active_publication||{}).version||'—');}policyStateEl.append(label,status);const publish=document.getElementById('bot-policy-publish');if(publish)publish.disabled=!policy.ready||!policy.has_unpublished_changes;}
+    function clearInstructionForm(){editingId=null;['kbi-title','kbi-body','kbi-tags','kbi-triggers'].forEach(id=>{const input=document.getElementById(id);if(input)input.value='';});const priority=document.getElementById('kbi-priority');if(priority)priority.value='100';const locale=document.getElementById('kbi-locale');if(locale)locale.value='all';const trust=document.getElementById('kbi-trust');if(trust)trust.value='public_policy';const programme=document.getElementById('kbi-programme');if(programme)programme.value='';const active=document.getElementById('kbi-active');if(active)active.checked=true;document.querySelectorAll('#kbi-actions option').forEach(option=>{option.selected=false;});}
+    function editInstruction(item){editingId=item.id;document.getElementById('kbi-title').value=item.title||'';document.getElementById('kbi-body').value=item.body||'';document.getElementById('kbi-tags').value=item.intent_tags||'';document.getElementById('kbi-triggers').value=(item.trigger_codes||[]).join(', ');document.getElementById('kbi-priority').value=String(item.priority||100);document.getElementById('kbi-locale').value=item.locale||'all';document.getElementById('kbi-trust').value=item.trust_scope||'public_policy';document.getElementById('kbi-programme').value=item.programme_kind||'';document.getElementById('kbi-active').checked=Boolean(item.is_active);const actions=new Set(item.allowed_actions||[]);document.querySelectorAll('#kbi-actions option').forEach(option=>{option.selected=actions.has(option.value);});document.getElementById('kbi-title').focus();}
+    async function del(type,id){const prompts={instruction:'Видалити цю інструкцію з чернетки?',quicklink:'Видалити це швидке посилання?',adcampaign:'Видалити це правило реклами?'};if(!window.confirm(prompts[type]||'Видалити цей запис?'))return;const fd=new FormData();fd.append('type',type);fd.append('op','delete');fd.append('id',id);if(type==='instruction')draftTokens(fd);setKbFeedback('Видаляємо…');try{await save(fd);setKbFeedback(type==='instruction'?'Чернетку оновлено.':'Запис видалено.','success');await load({preserveFeedback:true});}catch(error){setKbFeedback(error.message,'error');if(error.stale)await load({preserveFeedback:true});}}
+    function row(type,id,label,item=null){const d=document.createElement('div');d.className='bot-kb-item';const text=document.createElement('span');text.textContent=label;d.append(text);if(type==='instruction'&&item){const edit=document.createElement('button');edit.type='button';edit.className='bot-btn';edit.textContent='Змінити';edit.addEventListener('click',()=>editInstruction(item));d.append(edit);}const remove=document.createElement('button');remove.type='button';remove.className='x';remove.textContent='×';remove.setAttribute('aria-label','Видалити запис');remove.addEventListener('click',()=>del(type,id));d.append(remove);return d;}
     async function load({preserveFeedback=false}={}){
       if(!preserveFeedback)setKbFeedback('Завантаження…');
-      try{const response=await fetch(kbBase,{headers:{'X-Requested-With':'XMLHttpRequest'}});const d=await response.json().catch(()=>({}));if(!response.ok||!d.success)throw new Error(d.error||'Не вдалося завантажити інструкції.');
+      try{const d=await request(kbBase);policy=d.policy||{};instructions=d.instructions||[];renderPolicyState();
         const ie=document.getElementById('kb-instructions');ie.innerHTML='';
-        (d.instructions||[]).forEach(i=>ie.appendChild(row('instruction',i.id,(i.title?i.title+': ':'')+i.body)));
-        if(!(d.instructions||[]).length) ie.innerHTML='<div class="bot-hint">Поки порожньо.</div>';
+        instructions.forEach(i=>ie.appendChild(row('instruction',i.id,(i.title?i.title+': ':'')+i.body+' · '+(i.trust_scope==='operator_only'?'лише оператор':'публічна')+' · '+(i.locale||'all'),i)));
+        if(!instructions.length) ie.innerHTML='<div class="bot-hint">Поки порожньо.</div>';
         const le=document.getElementById('kb-links');le.innerHTML='';
         (d.quick_links||[]).forEach(q=>le.appendChild(row('quicklink',q.id,q.label+' — '+q.url)));
         if(!(d.quick_links||[]).length) le.innerHTML='<div class="bot-hint">Поки порожньо.</div>';
@@ -4023,13 +4065,18 @@ body.bot-drawer-open{overflow:hidden;}
     document.querySelectorAll('[data-kb-add]').forEach(btn=>{
       btn.addEventListener('click',async()=>{
         const tp=btn.getAttribute('data-kb-add');const fd=new FormData();fd.append('type',tp);
-        if(tp==='instruction'){fd.append('title',val('kbi-title'));fd.append('body',val('kbi-body'));}
+        if(tp==='instruction'){draftTokens(fd);if(editingId)fd.append('id',String(editingId));fd.append('title',val('kbi-title'));fd.append('body',val('kbi-body'));fd.append('intent_tags',val('kbi-tags'));fd.append('trigger_codes',val('kbi-triggers'));fd.append('priority',val('kbi-priority'));fd.append('locale',val('kbi-locale'));fd.append('trust_scope',val('kbi-trust'));fd.append('programme_kind',val('kbi-programme'));fd.append('is_active',document.getElementById('kbi-active').checked?'1':'0');fd.append('allowed_actions',Array.from(document.querySelectorAll('#kbi-actions option:checked')).map(option=>option.value).join(','));}
         else if(tp==='quicklink'){fd.append('kind',val('kbl-kind'));fd.append('label',val('kbl-label'));fd.append('url',val('kbl-url'));fd.append('garment_type',val('kbl-garment'));}
         else {fd.append('ad_id',val('kba-adid'));fd.append('title',val('kba-title'));fd.append('theme',val('kba-theme'));}
         btn.disabled=true;setKbFeedback('Зберігаємо…');
-        try{await save(fd);const fields={instruction:['kbi-title','kbi-body'],quicklink:['kbl-label','kbl-url','kbl-garment'],adcampaign:['kba-adid','kba-title','kba-theme']}[tp]||[];fields.forEach(id=>{const input=document.getElementById(id);if(input)input.value='';});setKbFeedback('Збережено.','success');await load({preserveFeedback:true});}catch(error){setKbFeedback(error.message||'Не вдалося зберегти.','error');}finally{btn.disabled=false;}
+        try{await save(fd);if(tp==='instruction')clearInstructionForm();else{const fields={quicklink:['kbl-label','kbl-url','kbl-garment'],adcampaign:['kba-adid','kba-title','kba-theme']}[tp]||[];fields.forEach(id=>{const input=document.getElementById(id);if(input)input.value='';});}setKbFeedback(tp==='instruction'?'Чернетку збережено.':'Збережено.','success');await load({preserveFeedback:true});}catch(error){setKbFeedback(error.message||'Не вдалося зберегти.','error');if(error.stale)await load({preserveFeedback:true});}finally{btn.disabled=false;}
       });
     });
+    const previewButton=document.getElementById('bot-policy-preview');if(previewButton)previewButton.addEventListener('click',async()=>{const fd=new FormData();draftTokens(fd);fd.append('locale',val('bot-policy-preview-locale'));fd.append('audience_tags',val('bot-policy-preview-tags'));fd.append('turn_text',val('bot-policy-preview-turn'));policyResult.textContent='Перевіряємо чернетку…';try{const data=await request(previewUrl,fd);policyResult.replaceChildren();const summary=document.createElement('b');summary.textContent=data.ready?'Чернетка готова до публікації.':'Чернетка потребує виправлення.';const selected=document.createElement('span');selected.textContent='Вибрано: '+((data.selected||[]).map(item=>item.title).join(', ')||'немає')+'. Використано '+String(data.used_chars||0)+' символів.';const omitted=document.createElement('span');omitted.textContent='Не вибрано: '+((data.omitted||[]).map(item=>item.label).join('; ')||'немає')+'.';policyResult.append(summary,selected,omitted);}catch(error){policyResult.textContent=error.message;if(error.stale)await load({preserveFeedback:true});}});
+    const publishButton=document.getElementById('bot-policy-publish');if(publishButton)publishButton.addEventListener('click',async()=>{const head=policy.active_publication;if(!head||!window.confirm('Опублікувати всю поточну чернетку інструкцій?'))return;const fd=new FormData();draftTokens(fd);fd.append('head_id',String(head.id));fd.append('head_hash',head.snapshot_hash);setKbFeedback('Публікуємо цілісну версію…');try{const data=await request(publishUrl,fd);setKbFeedback(data.changed?'Інструкції опубліковано.':'Ця версія вже опублікована.','success');await load({preserveFeedback:true});}catch(error){setKbFeedback(error.message,'error');if(error.stale)await load({preserveFeedback:true});}});
+    async function showHistory(){policyResult.textContent='Завантаження історії…';try{const data=await request(historyUrl);policyResult.replaceChildren();(data.history||[]).forEach(item=>{const line=document.createElement('div');const text=document.createElement('span');text.textContent='Версія '+item.version+' · '+item.kind+' · '+item.instruction_count+' інструкцій · '+new Date(item.created_at).toLocaleString();line.append(text);if(item.id!==data.active_publication_id){const restore=document.createElement('button');restore.type='button';restore.className='bot-btn';restore.textContent='Відкотити';restore.addEventListener('click',()=>rollback(item.id));line.append(' ',restore);}policyResult.append(line);});if(!(data.history||[]).length)policyResult.textContent='Історія порожня.';}catch(error){policyResult.textContent=error.message;}}
+    async function rollback(targetId){const head=policy.active_publication;if(!head||!window.confirm('Відновити всю вибрану версію інструкцій?'))return;const fd=new FormData();fd.append('target_publication_id',String(targetId));fd.append('head_id',String(head.id));fd.append('head_hash',head.snapshot_hash);try{await request(rollbackUrl,fd);setKbFeedback('Попередню версію відновлено.','success');await load({preserveFeedback:true});await showHistory();}catch(error){setKbFeedback(error.message,'error');if(error.stale)await load({preserveFeedback:true});}}
+    const historyButton=document.getElementById('bot-policy-history');if(historyButton)historyButton.addEventListener('click',showHistory);
     return {load:load};
   })();
 

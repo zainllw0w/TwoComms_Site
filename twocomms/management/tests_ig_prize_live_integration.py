@@ -15,6 +15,9 @@ class PrizeLiveIntegrationTests(TestCase):
             title="Shooting prize", body="Ask catalog or custom; team checks eligibility.",
             intent_tags=RESERVED_INTENT_TAG, is_active=True, priority=18,
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         self.customer = IgClient.objects.create(igsid="prize-live-customer")
         self.row = InstagramBotMessage.objects.create(
             client=self.customer, sender_id=self.customer.igsid, role="user",
@@ -101,5 +104,8 @@ class PrizeLiveIntegrationTests(TestCase):
         bot._persist_turn_intelligence(self.row, failure["turn_intelligence"])
         self.instruction.is_active = False
         self.instruction.save(update_fields=["is_active"])
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         bot._record_prize_case_from_intelligence(self.row)
         self.assertFalse(IgFollowUpTask.objects.exists())

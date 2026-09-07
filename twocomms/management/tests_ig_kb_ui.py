@@ -21,9 +21,19 @@ class BotKbApiTests(TestCase):
         ))
         self.client.force_login(self.admin)
 
+    def _draft_tokens(self):
+        from management.services.ig_policy_publication import draft_state
+
+        state = draft_state()
+        return {
+            "draft_revision": state.revision,
+            "draft_hash": state.snapshot_hash,
+        }
+
     def test_create_instruction(self):
         r = self.client.post(reverse("management_bot_kb_save_api"), {
             "type": "instruction", "title": "Графік", "body": "Працюємо щодня 10-20",
+            **self._draft_tokens(),
         })
         self.assertEqual(r.status_code, 200)
         self.assertTrue(r.json()["success"])
@@ -48,6 +58,7 @@ class BotKbApiTests(TestCase):
         inst = BotInstruction.objects.create(title="X", body="Y")
         r = self.client.post(reverse("management_bot_kb_save_api"), {
             "type": "instruction", "op": "delete", "id": inst.id,
+            **self._draft_tokens(),
         })
         self.assertEqual(r.status_code, 200)
         self.assertFalse(BotInstruction.objects.filter(id=inst.id).exists())

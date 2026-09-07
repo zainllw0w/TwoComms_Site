@@ -185,6 +185,9 @@ def drain_webhook_inbox(settings_obj, *, limit: int = 25) -> int:
     """Consume one namespace under a short DB transaction; root wires daemon."""
     from management.models import IgWebhookInboxEvent
     from management.services import instagram_bot as bot
+    from management.services.ig_db_circuit import (
+        DbActiveCapacityError, DbCircuitOpen, db_active_slot, record_db_failure, release_idle_connection,
+    )
 
     namespace, _owner = _namespace(settings_obj)
     processed = 0
@@ -192,44 +195,52 @@ def drain_webhook_inbox(settings_obj, *, limit: int = 25) -> int:
         now = timezone.now()
         row = None
         try:
-            with transaction.atomic():
-                row = (IgWebhookInboxEvent.objects.select_for_update(skip_locked=True).filter(
-                    namespace=namespace,
-                    decision=IgWebhookInboxEvent.Decision.ACCEPTED,
-                    processed_at__isnull=True,
-                ).filter(
-                    models.Q(next_attempt_at__isnull=True) | models.Q(next_attempt_at__lte=now),
-                ).order_by("attempts", "id").first())
-                if row is None:
-                    break
-                if _mid_namespace_state(row, namespace) == "blocked":
-                    row.decision = IgWebhookInboxEvent.Decision.BLOCKED
-                    row.reason = "provider_mid_namespace_unproven"
-                    row.next_attempt_at = None
+            with db_active_slot():
+                with transaction.atomic():
+                    row = (IgWebhookInboxEvent.objects.select_for_update(skip_locked=True).filter(
+                        namespace=namespace,
+                        decision=IgWebhookInboxEvent.Decision.ACCEPTED,
+                        processed_at__isnull=True,
+                    ).filter(
+                        models.Q(next_attempt_at__isnull=True) | models.Q(next_attempt_at__lte=now),
+                    ).order_by("attempts", "id").first())
+                    if row is None:
+                        break
+                    if _mid_namespace_state(row, namespace) == "blocked":
+                        row.decision = IgWebhookInboxEvent.Decision.BLOCKED
+                        row.reason = "provider_mid_namespace_unproven"
+                        row.next_attempt_at = None
+                        row.last_error = ""
+                        row.save(update_fields=["decision", "reason", "next_attempt_at", "last_error"])
+                        _queue_identity_reconciliation_notification(namespace)
+                        continue
+                    # persistence_only is verified to do only durable DB work:
+                    # no provider, model, media, or notification transport calls.
+                    bot.handle_webhook_payload(settings_obj, row.payload, persistence_only=True)
+                    if _mid_namespace_state(row, namespace, require_materialized=True) == "blocked":
+                        row.decision = IgWebhookInboxEvent.Decision.BLOCKED
+                        row.reason = "provider_mid_namespace_unproven"
+                        row.next_attempt_at = None
+                        row.last_error = ""
+                        row.save(update_fields=["decision", "reason", "next_attempt_at", "last_error"])
+                        _queue_identity_reconciliation_notification(namespace)
+                        continue
+                    row.processed_at = timezone.now()
+                    row.attempts = models.F("attempts") + 1
                     row.last_error = ""
-                    row.save(update_fields=["decision", "reason", "next_attempt_at", "last_error"])
-                    _queue_identity_reconciliation_notification(namespace)
-                    continue
-                # persistence_only is verified to do only durable DB work:
-                # no provider, model, media, or notification transport calls.
-                bot.handle_webhook_payload(settings_obj, row.payload, persistence_only=True)
-                if _mid_namespace_state(row, namespace, require_materialized=True) == "blocked":
-                    row.decision = IgWebhookInboxEvent.Decision.BLOCKED
-                    row.reason = "provider_mid_namespace_unproven"
                     row.next_attempt_at = None
-                    row.last_error = ""
-                    row.save(update_fields=["decision", "reason", "next_attempt_at", "last_error"])
-                    _queue_identity_reconciliation_notification(namespace)
-                    continue
-                row.processed_at = timezone.now()
-                row.attempts = models.F("attempts") + 1
-                row.last_error = ""
-                row.next_attempt_at = None
-                row.payload = _processed_payload(row.payload)
-                row.save(update_fields=["processed_at", "attempts", "last_error", "next_attempt_at", "payload"])
+                    row.payload = _processed_payload(row.payload)
+                    row.save(update_fields=["processed_at", "attempts", "last_error", "next_attempt_at", "payload"])
         except Exception as exc:
+            if isinstance(exc, DbActiveCapacityError):
+                break
+            if record_db_failure(exc, lane="webhook_inbox"):
+                # Materialization and processed_at rolled back together. The
+                # receipt remains durable; do not attempt another DB write.
+                release_idle_connection()
+                raise DbCircuitOpen("webhook database materialization deferred") from exc
             if row is None:
-                continue
+                raise
             retry_at = timezone.now() + timedelta(seconds=min(300, 15 * (2 ** min(int(row.attempts), 4))))
             IgWebhookInboxEvent.objects.filter(pk=row.pk, processed_at__isnull=True).update(attempts=models.F("attempts") + 1, last_error=type(exc).__name__[:64], next_attempt_at=retry_at)
             continue
@@ -321,7 +332,7 @@ def _row_event(payload):
 
 def _mid_namespace_state(row, namespace: str, *, require_materialized: bool = False) -> str:
     """Block cross-namespace MID collisions without changing provider IDs."""
-    from management.models import InstagramBotMessage
+    from management.models import IgClient, InstagramBotMessage
 
     if not hasattr(InstagramBotMessage, "provider_namespace"):
         return "blocked"
@@ -335,6 +346,11 @@ def _mid_namespace_state(row, namespace: str, *, require_materialized: bool = Fa
         is_echo = bool(message.get("is_echo"))
     except (TypeError, AttributeError):
         return "blocked"
+    if IgClient.objects.filter(
+        igsid=recipient if is_echo else sender,
+        privacy_erasure_started_at__isnull=False,
+    ).exists():
+        return "ignored"
     if not mid:
         return "ok"
     if message.get("is_deleted") or message.get("is_unsupported"):

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -34,6 +35,7 @@ REQUEST_IMMUTABLE_FIELDS = (
     "requires_media_reasoning",
     "candidate_plan",
     "candidate_plan_digest",
+    "policy_manifest",
     "deadline_ms",
     "deadline_at",
     "accounting_mode",
@@ -106,6 +108,199 @@ ATTEMPT_MUTABLE_FIELDS = frozenset({
 })
 
 
+class RequestPolicyManifestError(ValueError):
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+_MANIFEST_ID_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,128}$")
+_MANIFEST_REASON_RE = re.compile(r"^[a-z0-9_]{1,48}$")
+_MANIFEST_HASH_RE = re.compile(r"^[a-f0-9]{64}$")
+_MANIFEST_TOP_KEYS = frozenset({
+    "version", "content_hash", "selected_ids", "omitted", "mandatory_ids",
+    "budget_chars", "visual_trigger_codes", "core", "knowledge_hash",
+    "instruction_publication", "instruction_selection",
+})
+
+
+def _manifest_object(value, *, keys, code: str) -> dict:
+    if not isinstance(value, dict) or set(value) != set(keys):
+        raise RequestPolicyManifestError(code, "policy manifest object shape is invalid")
+    return value
+
+
+def _manifest_token(value, *, code: str, maximum=128) -> str:
+    token = str(value or "")
+    if len(token) > maximum or not _MANIFEST_ID_RE.fullmatch(token):
+        raise RequestPolicyManifestError(code, "policy manifest identifier is invalid")
+    return token
+
+
+def _manifest_hash(value, *, code: str) -> str:
+    digest = str(value or "").casefold()
+    if not _MANIFEST_HASH_RE.fullmatch(digest):
+        raise RequestPolicyManifestError(code, "policy manifest hash is invalid")
+    return digest
+
+
+def _manifest_positive_int(value, *, code: str, allow_zero=False) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise RequestPolicyManifestError(code, "policy manifest count is invalid")
+    minimum = 0 if allow_zero else 1
+    if value < minimum or value > 1_000_000:
+        raise RequestPolicyManifestError(code, "policy manifest count is outside bounds")
+    return value
+
+
+def _manifest_ids(values, *, code: str, maximum=100) -> list[str]:
+    if not isinstance(values, list) or len(values) > maximum:
+        raise RequestPolicyManifestError(code, "policy manifest identifier list is invalid")
+    result = [_manifest_token(value, code=code) for value in values]
+    if len(result) != len(set(result)):
+        raise RequestPolicyManifestError(code, "policy manifest identifiers must be unique")
+    return result
+
+
+def _manifest_omissions(values, *, code: str) -> list[dict]:
+    if not isinstance(values, list) or len(values) > 100:
+        raise RequestPolicyManifestError(code, "policy manifest omissions are invalid")
+    result = []
+    for raw in values:
+        item = _manifest_object(raw, keys={"id", "reason"}, code=code)
+        module_id = _manifest_token(item["id"], code=code)
+        reason = str(item["reason"] or "").casefold()
+        if not _MANIFEST_REASON_RE.fullmatch(reason):
+            raise RequestPolicyManifestError(code, "policy manifest omission is invalid")
+        result.append({"id": module_id, "reason": reason})
+    return result
+
+
+def sanitize_request_policy_manifest(value) -> dict:
+    """Accept only content-free compiler/publication metadata."""
+    if value in (None, {}):
+        return {}
+    manifest = _manifest_object(
+        value,
+        keys=_MANIFEST_TOP_KEYS,
+        code="policy_manifest_invalid",
+    )
+    core = _manifest_object(
+        manifest["core"],
+        keys={"version", "prompt_hash", "directives_hash"},
+        code="policy_manifest_core_invalid",
+    )
+    publication = _manifest_object(
+        manifest["instruction_publication"],
+        keys={"id", "version", "hash", "compiler_version"},
+        code="policy_manifest_publication_invalid",
+    )
+    selection = _manifest_object(
+        manifest["instruction_selection"],
+        keys={
+            "selected_ids", "omitted", "visual_trigger_codes",
+            "publication_id", "publication_version", "publication_hash",
+            "publication_compiler_version",
+        },
+        code="policy_manifest_selection_invalid",
+    )
+    safe_publication = {
+        "id": _manifest_positive_int(
+            publication["id"], code="policy_manifest_publication_invalid"
+        ),
+        "version": _manifest_positive_int(
+            publication["version"], code="policy_manifest_publication_invalid"
+        ),
+        "hash": _manifest_hash(
+            publication["hash"], code="policy_manifest_publication_invalid"
+        ),
+        "compiler_version": _manifest_token(
+            publication["compiler_version"],
+            code="policy_manifest_publication_invalid",
+            maximum=64,
+        ),
+    }
+    safe_selection = {
+        "selected_ids": _manifest_ids(
+            selection["selected_ids"], code="policy_manifest_selection_invalid"
+        ),
+        "omitted": _manifest_omissions(
+            selection["omitted"], code="policy_manifest_selection_invalid"
+        ),
+        "visual_trigger_codes": _manifest_ids(
+            selection["visual_trigger_codes"],
+            code="policy_manifest_selection_invalid",
+            maximum=32,
+        ),
+        "publication_id": _manifest_positive_int(
+            selection["publication_id"], code="policy_manifest_selection_invalid"
+        ),
+        "publication_version": _manifest_positive_int(
+            selection["publication_version"], code="policy_manifest_selection_invalid"
+        ),
+        "publication_hash": _manifest_hash(
+            selection["publication_hash"], code="policy_manifest_selection_invalid"
+        ),
+        "publication_compiler_version": _manifest_token(
+            selection["publication_compiler_version"],
+            code="policy_manifest_selection_invalid",
+            maximum=64,
+        ),
+    }
+    if (
+        safe_selection["publication_id"] != safe_publication["id"]
+        or safe_selection["publication_version"] != safe_publication["version"]
+        or safe_selection["publication_hash"] != safe_publication["hash"]
+        or safe_selection["publication_compiler_version"]
+        != safe_publication["compiler_version"]
+    ):
+        raise RequestPolicyManifestError(
+            "policy_manifest_mismatch",
+            "instruction publication metadata does not match selection metadata",
+        )
+    return {
+        "version": _manifest_token(
+            manifest["version"], code="policy_manifest_invalid"
+        ),
+        "content_hash": _manifest_hash(
+            manifest["content_hash"], code="policy_manifest_invalid"
+        ),
+        "selected_ids": _manifest_ids(
+            manifest["selected_ids"], code="policy_manifest_invalid"
+        ),
+        "omitted": _manifest_omissions(
+            manifest["omitted"], code="policy_manifest_invalid"
+        ),
+        "mandatory_ids": _manifest_ids(
+            manifest["mandatory_ids"], code="policy_manifest_invalid"
+        ),
+        "budget_chars": _manifest_positive_int(
+            manifest["budget_chars"], code="policy_manifest_invalid", allow_zero=True
+        ),
+        "visual_trigger_codes": _manifest_ids(
+            manifest["visual_trigger_codes"],
+            code="policy_manifest_invalid",
+            maximum=32,
+        ),
+        "core": {
+            "version": _manifest_token(
+                core["version"], code="policy_manifest_core_invalid"
+            ),
+            "prompt_hash": _manifest_hash(
+                core["prompt_hash"], code="policy_manifest_core_invalid"
+            ),
+            "directives_hash": _manifest_hash(
+                core["directives_hash"], code="policy_manifest_core_invalid"
+            ),
+        },
+        "knowledge_hash": _manifest_hash(
+            manifest["knowledge_hash"], code="policy_manifest_invalid"
+        ),
+        "instruction_publication": safe_publication,
+        "instruction_selection": safe_selection,
+    }
+
+
 def canonical_candidate_plan_digest(candidate_plan) -> str:
     """Return a deterministic digest without retaining plan payload elsewhere."""
     try:
@@ -132,6 +327,12 @@ def validate_request_contract(request) -> None:
             errors["candidate_plan_digest"] = "Non-empty candidate plan requires a digest."
         elif request.candidate_plan_digest != expected_digest:
             errors["candidate_plan_digest"] = "Candidate plan digest does not match the plan."
+    try:
+        safe_manifest = sanitize_request_policy_manifest(request.policy_manifest)
+        if request.policy_manifest != safe_manifest:
+            errors["policy_manifest"] = "Policy manifest is not canonical."
+    except RequestPolicyManifestError as exc:
+        errors["policy_manifest"] = str(exc)
 
     if request.pk is not None:
         persisted = (

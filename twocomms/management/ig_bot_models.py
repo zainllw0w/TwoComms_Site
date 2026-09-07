@@ -38,6 +38,7 @@ __all__ = [
     "IgPaymentProjection",
     "IgDealItem",
     "BotInstruction",
+    "BotPolicyPublication",
     "BotQuickLink",
     "BotAdCampaign",
     "IgClientStageEvent",
@@ -63,6 +64,9 @@ __all__ = [
     "IgClientDegradationEpisode",
     "IgCustomerTurn",
     "IgTurnMessage",
+    "IgCustomerTurnRevision",
+    "IgTurnRevisionSource",
+    "IgRevisionDeliveryEffect",
     "IgAlertRateBucket",
     "IgPermissionTransitionJob",
     "IgMetaEventLog",
@@ -4438,8 +4442,35 @@ class BotInstruction(models.Model):
     intent_tags = models.CharField(
         _("Ключові слова (через кому)"), max_length=400, blank=True, default=""
     )
+    class Locale(models.TextChoices):
+        ALL = "all", _("Усі мови")
+        UK = "uk", _("Українська")
+        RU = "ru", _("Російська")
+        EN = "en", _("Англійська")
+
+    class TrustScope(models.TextChoices):
+        PUBLIC_POLICY = "public_policy", _("Публічна політика")
+        OPERATOR_ONLY = "operator_only", _("Лише оператор")
+
     is_active = models.BooleanField(_("Активна"), default=True, db_index=True)
     priority = models.IntegerField(_("Пріоритет"), default=100)
+    locale = models.CharField(
+        max_length=8,
+        choices=Locale.choices,
+        default=Locale.ALL,
+        db_default=Locale.ALL,
+        db_index=True,
+    )
+    trigger_codes = models.JSONField(default=list, db_default=[], blank=True)
+    programme_metadata = models.JSONField(default=dict, db_default={}, blank=True)
+    allowed_actions = models.JSONField(default=list, db_default=[], blank=True)
+    trust_scope = models.CharField(
+        max_length=20,
+        choices=TrustScope.choices,
+        default=TrustScope.PUBLIC_POLICY,
+        db_default=TrustScope.PUBLIC_POLICY,
+        db_index=True,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -4462,6 +4493,91 @@ class BotInstruction(models.Model):
             title = (inst.title or "").strip()
             parts.append(f"• {title}: {body}" if title else f"• {body}")
         return "\n".join(parts)
+
+
+class _AppendOnlyPolicyPublicationQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("BotPolicyPublication is append-only")
+
+    def delete(self):
+        raise ValueError("BotPolicyPublication is append-only")
+
+
+class BotPolicyPublication(models.Model):
+    """Immutable complete publication of the editable instruction set."""
+
+    class Kind(models.TextChoices):
+        BOOTSTRAP = "bootstrap", _("Початковий знімок")
+        PUBLISH = "publish", _("Публікація")
+        ROLLBACK = "rollback", _("Відкат")
+
+    version = models.PositiveBigIntegerField(unique=True)
+    kind = models.CharField(max_length=12, choices=Kind.choices)
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="successor_publications",
+    )
+    restored_from = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="rollback_publications",
+    )
+    schema_version = models.PositiveSmallIntegerField(default=1)
+    snapshot = models.JSONField(default=dict)
+    snapshot_hash = models.CharField(max_length=64, db_index=True)
+    compiler_version = models.CharField(max_length=32)
+    instruction_count = models.PositiveIntegerField(default=0)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        db_constraint=False,
+        related_name="bot_policy_publications",
+    )
+    actor_label = models.CharField(max_length=150, blank=True, default="")
+    note = models.CharField(max_length=500, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(_AppendOnlyPolicyPublicationQuerySet)()
+
+    class Meta:
+        ordering = ["-version", "-id"]
+        indexes = [
+            models.Index(fields=["kind", "-version"], name="bot_policy_kind_ver"),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("BotPolicyPublication is append-only")
+        if not self.pk:
+            encoded = json.dumps(
+                self.snapshot,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            if hashlib.sha256(encoded).hexdigest() != self.snapshot_hash:
+                raise ValueError("BotPolicyPublication snapshot hash mismatch")
+            instructions = (
+                self.snapshot.get("instructions")
+                if isinstance(self.snapshot, dict)
+                else None
+            )
+            if (
+                not isinstance(instructions, list)
+                or len(instructions) != int(self.instruction_count)
+            ):
+                raise ValueError("BotPolicyPublication instruction count mismatch")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("BotPolicyPublication is append-only")
 
 
 class BotQuickLink(models.Model):
@@ -8050,6 +8166,322 @@ class IgTurnMessage(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover - trivial representation
         return f"turn_message:{self.turn_id}:{self.ordinal}"
+
+
+class _ImmutableTurnRevisionSourceQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValueError("IgTurnRevisionSource is append-only")
+
+    def delete(self):
+        raise ValueError("IgTurnRevisionSource is append-only")
+
+
+class IgCustomerTurnRevision(models.Model):
+    """One client-head revision; its bundle payload becomes immutable at seal."""
+
+    class State(models.TextChoices):
+        COLLECTING = "collecting", _("Збирається")
+        PREPARING = "preparing", _("Готується")
+        SEALED = "sealed", _("Зафіксовано")
+        CLAIMED = "claimed", _("Захоплено")
+        PROCESSED = "processed", _("Опрацьовано")
+        SUPERSEDED = "superseded", _("Витіснено")
+        OVERFLOW = "overflow", _("Перевищено межі")
+
+    client = models.ForeignKey(
+        "management.IgClient",
+        on_delete=models.CASCADE,
+        related_name="turn_revisions",
+        db_constraint=False,
+    )
+    turn = models.ForeignKey(
+        "management.IgCustomerTurn",
+        on_delete=models.CASCADE,
+        related_name="revisions",
+        db_constraint=False,
+    )
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="successors",
+        db_constraint=False,
+    )
+    revision = models.PositiveBigIntegerField()
+    # MariaDB permits many NULL values and one active value=1 per client.
+    active_slot = models.PositiveSmallIntegerField(null=True, blank=True, default=1)
+    state = models.CharField(
+        max_length=16,
+        choices=State.choices,
+        default=State.COLLECTING,
+        db_index=True,
+    )
+    quiet_started_at = models.DateTimeField()
+    quiet_deadline = models.DateTimeField(db_index=True)
+    quiet_cap_at = models.DateTimeField()
+    overall_deadline = models.DateTimeField(db_index=True)
+    media_prepare_deadline = models.DateTimeField(null=True, blank=True)
+    source_count = models.PositiveSmallIntegerField(default=0)
+    text_chars = models.PositiveIntegerField(default=0)
+    media_part_count = models.PositiveSmallIntegerField(default=0)
+    permission_epoch = models.PositiveBigIntegerField(default=0)
+    erasure_started_at_snapshot = models.DateTimeField(null=True, blank=True)
+    bundle_snapshot = models.JSONField(default=dict, blank=True)
+    snapshot_digest = models.CharField(max_length=64, blank=True, default="")
+    overflow = models.JSONField(default=dict, blank=True)
+    sealed_at = models.DateTimeField(null=True, blank=True)
+    claim_token = models.CharField(max_length=64, blank=True, default="")
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["client_id", "revision"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["client", "revision"], name="ig_turn_rev_client_num"
+            ),
+            models.UniqueConstraint(
+                fields=["client", "active_slot"], name="ig_turn_rev_active_head"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(active_slot__isnull=True) | models.Q(active_slot=1),
+                name="ig_turn_rev_active_slot",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["state", "quiet_deadline", "id"],
+                name="ig_turn_rev_due",
+            ),
+            models.Index(
+                fields=["client", "active_slot", "revision"],
+                name="ig_turn_rev_client_head",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                "client_id", "turn_id", "parent_id", "revision",
+                "quiet_started_at", "quiet_cap_at", "overall_deadline",
+                "source_count", "text_chars", "media_part_count",
+                "permission_epoch", "erasure_started_at_snapshot",
+                "bundle_snapshot", "snapshot_digest", "overflow",
+            ).first()
+            if previous:
+                immutable = (
+                    "client_id", "turn_id", "parent_id", "revision",
+                    "quiet_started_at", "quiet_cap_at", "overall_deadline",
+                    "source_count", "text_chars", "media_part_count",
+                    "permission_epoch", "erasure_started_at_snapshot", "overflow",
+                )
+                if any(getattr(self, field) != previous[field] for field in immutable):
+                    raise ValueError("IgCustomerTurnRevision identity is immutable")
+                if previous["snapshot_digest"] and (
+                    self.snapshot_digest != previous["snapshot_digest"]
+                    or self.bundle_snapshot != previous["bundle_snapshot"]
+                ):
+                    raise ValueError("sealed turn revision snapshot is immutable")
+        return super().save(*args, **kwargs)
+
+
+class IgTurnRevisionSource(models.Model):
+    """Immutable source envelope reused by later execution/manual revisions."""
+
+    revision = models.ForeignKey(
+        "management.IgCustomerTurnRevision",
+        on_delete=models.CASCADE,
+        related_name="sources",
+        db_constraint=False,
+    )
+    message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        on_delete=models.CASCADE,
+        related_name="revision_sources",
+        db_constraint=False,
+    )
+    ordinal = models.PositiveSmallIntegerField()
+    role = models.CharField(max_length=8)
+    source_namespace = models.CharField(max_length=128, blank=True, default="")
+    provider_message_id = models.CharField(max_length=255, blank=True, default="")
+    synthetic_event_key = models.CharField(max_length=64, blank=True, default="")
+    text = models.TextField(blank=True, default="")
+    provider_created_at = models.DateTimeField(null=True, blank=True)
+    reply_to_provider_message_id = models.CharField(
+        max_length=255, blank=True, default=""
+    )
+    quick_reply_payload = models.CharField(max_length=1000, blank=True, default="")
+    referral = models.JSONField(default=dict, blank=True)
+    discovered_media = models.JSONField(default=list, blank=True)
+    text_chars = models.PositiveIntegerField(default=0)
+    media_part_count = models.PositiveSmallIntegerField(default=0)
+    source_digest = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = models.Manager.from_queryset(_ImmutableTurnRevisionSourceQuerySet)()
+
+    class Meta:
+        ordering = ["revision_id", "ordinal", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["revision", "ordinal"], name="ig_turn_rev_source_ord"
+            ),
+            models.UniqueConstraint(
+                fields=["revision", "message"], name="ig_turn_rev_source_msg"
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["message", "revision"], name="ig_turn_rev_source_lookup"
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if self.pk and not kwargs.get("force_insert"):
+            raise ValueError("IgTurnRevisionSource is append-only")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("IgTurnRevisionSource is append-only")
+
+
+class _IgRevisionDeliveryEffectQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        if set(kwargs).intersection(IgRevisionDeliveryEffect._IMMUTABLE_FIELDS):
+            raise ValueError("revision delivery effect plan is immutable")
+        return super().update(**kwargs)
+
+
+class IgRevisionDeliveryEffect(models.Model):
+    """Canonical lifecycle for one physical provider HTTP request."""
+
+    class State(models.TextChoices):
+        PLANNED = "planned", _("Заплановано")
+        CLAIMED = "claimed", _("Захоплено")
+        PROVIDER_STARTED = "provider_started", _("Запит почато")
+        SENT = "sent", _("Надіслано")
+        DEFINITE_FAILED = "definite_failed", _("Підтверджена відмова")
+        UNKNOWN = "unknown", _("Результат невідомий")
+        CANCELLED = "cancelled", _("Скасовано")
+        SUPERSEDED = "superseded", _("Витіснено")
+
+    revision = models.ForeignKey(
+        "management.IgCustomerTurnRevision",
+        on_delete=models.CASCADE,
+        related_name="delivery_effects",
+        db_constraint=False,
+    )
+    source_message = models.ForeignKey(
+        "management.InstagramBotMessage",
+        on_delete=models.CASCADE,
+        related_name="revision_delivery_effects",
+        db_constraint=False,
+    )
+    effect_key = models.CharField(max_length=160, unique=True)
+    actor = models.CharField(max_length=16, default="bot")
+    purpose = models.CharField(max_length=32, default="normal_reply")
+    group = models.CharField(max_length=32)
+    kind = models.CharField(max_length=32)
+    order_index = models.PositiveSmallIntegerField()
+    part_index = models.PositiveSmallIntegerField()
+    part_count = models.PositiveSmallIntegerField()
+    plan_digest = models.CharField(max_length=64)
+    payload = models.JSONField(default=dict)
+    payload_digest = models.CharField(max_length=64)
+    activation_group = models.CharField(max_length=32, blank=True, default="")
+    activation_part_index = models.PositiveSmallIntegerField(null=True, blank=True)
+    activation_failure_code = models.CharField(max_length=64, blank=True, default="")
+    recipient_igsid = models.CharField(max_length=64)
+    provider_namespace = models.CharField(max_length=128)
+    generation_request_id = models.CharField(max_length=40, blank=True, default="")
+    generation_model = models.CharField(max_length=80, blank=True, default="")
+    settings_id_snapshot = models.PositiveIntegerField()
+    settings_permission_epoch = models.PositiveBigIntegerField()
+    client_permission_epoch = models.PositiveBigIntegerField()
+    revision_snapshot_digest = models.CharField(max_length=64)
+    publication_id = models.PositiveBigIntegerField()
+    publication_version = models.PositiveBigIntegerField()
+    publication_hash = models.CharField(max_length=64)
+    authority_context_digest = models.CharField(max_length=64)
+    fact_bindings = models.JSONField(default=list, blank=True)
+    offer_bindings = models.JSONField(default=list, blank=True)
+    state = models.CharField(
+        max_length=20,
+        choices=State.choices,
+        default=State.PLANNED,
+        db_index=True,
+    )
+    claim_token = models.CharField(max_length=64, blank=True, default="")
+    lease_until = models.DateTimeField(null=True, blank=True, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    provider_started_at = models.DateTimeField(null=True, blank=True)
+    provider_message_id = models.CharField(max_length=255, blank=True, default="")
+    provider_http_status = models.PositiveSmallIntegerField(null=True, blank=True)
+    provider_response_digest = models.CharField(max_length=64, blank=True, default="")
+    failure_code = models.CharField(max_length=64, blank=True, default="")
+    terminal_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["revision_id", "order_index", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["revision", "order_index"], name="ig_rev_effect_order"
+            ),
+            models.UniqueConstraint(
+                fields=["revision", "group", "part_index"],
+                name="ig_rev_effect_group_part",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(part_count__gte=1),
+                name="ig_rev_effect_part_count",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(part_index__lt=models.F("part_count")),
+                name="ig_rev_effect_part_index",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["revision", "group", "state", "part_index"],
+                name="ig_rev_effect_group_state",
+            ),
+            models.Index(
+                fields=["state", "lease_until", "id"],
+                name="ig_rev_effect_due",
+            ),
+        ]
+
+    _IMMUTABLE_FIELDS = (
+        "revision_id", "source_message_id", "effect_key", "actor", "purpose",
+        "group", "kind", "order_index", "part_index", "part_count",
+        "plan_digest", "payload", "payload_digest", "recipient_igsid",
+        "activation_group", "activation_part_index", "activation_failure_code",
+        "provider_namespace", "generation_request_id", "generation_model",
+        "settings_id_snapshot", "settings_permission_epoch",
+        "client_permission_epoch", "revision_snapshot_digest", "publication_id",
+        "publication_version", "publication_hash", "authority_context_digest",
+        "fact_bindings", "offer_bindings",
+    )
+
+    objects = models.Manager.from_queryset(_IgRevisionDeliveryEffectQuerySet)()
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous = type(self).objects.filter(pk=self.pk).values(
+                *self._IMMUTABLE_FIELDS
+            ).first()
+            if previous and any(
+                getattr(self, field) != previous[field]
+                for field in self._IMMUTABLE_FIELDS
+            ):
+                raise ValueError("revision delivery effect plan is immutable")
+        return super().save(*args, **kwargs)
 
 
 class IgAlertRateBucket(models.Model):

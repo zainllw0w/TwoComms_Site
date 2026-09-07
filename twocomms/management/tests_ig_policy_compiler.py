@@ -86,16 +86,14 @@ class PolicyCompilerTests(SimpleTestCase):
 
 
 class KnowledgeReadinessTests(SimpleTestCase):
-    def test_unreadable_knowledge_is_an_explicit_readiness_gap(self):
+    def test_unknown_approved_knowledge_language_is_an_explicit_readiness_gap(self):
         from management.services import bot_knowledge
 
-        with patch.object(bot_knowledge.os, "listdir", side_effect=PermissionError("blocked")):
-            with self.assertRaises(bot_knowledge.KnowledgeReadinessError) as raised:
-                bot_knowledge.read_knowledge_manifest()
+        with self.assertRaises(bot_knowledge.KnowledgeReadinessError) as raised:
+            bot_knowledge.read_knowledge_manifest("de")
 
-        self.assertEqual(raised.exception.code, "knowledge_directory_unreadable")
-        self.assertEqual(raised.exception.details["source"], "repository_knowledge")
-        self.assertNotIn("blocked", repr(raised.exception.details))
+        self.assertEqual(raised.exception.code, "approved_public_facts_unavailable")
+        self.assertEqual(raised.exception.details["language"], "de")
 
 
 class PlaybookSelectionCompatibilityTests(TestCase):
@@ -113,6 +111,9 @@ class PlaybookSelectionCompatibilityTests(TestCase):
         disabled = BotInstruction.objects.create(
             title="Disabled", body="NEVER", is_active=False, priority=3,
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         from management.services.bot_playbooks import active_instruction_block, active_instruction_selection
 
         selection = active_instruction_selection(
@@ -129,6 +130,9 @@ class PlaybookSelectionCompatibilityTests(TestCase):
     def test_budget_omission_keeps_each_playbook_whole(self):
         first = BotInstruction.objects.create(title="First", body="a" * 30, priority=1)
         second = BotInstruction.objects.create(title="Second", body="b" * 30, priority=2)
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         from management.services.bot_playbooks import active_instruction_selection
 
         selection = active_instruction_selection(self.client, budget_chars=45)
@@ -143,6 +147,9 @@ class LivePolicyCompilationTests(TestCase):
         from management.models import InstagramBotSettings
         from management.services import instagram_bot as bot
         optional = BotInstruction.objects.create(title="Oversized", body="x" * 60000, is_active=True)
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         metadata = {}
         prompt = bot.assemble_system_instruction(
             InstagramBotSettings(system_prompt="MANDATORY-CORE", knowledge_base="CURRENT-DIRECTIVE"),
@@ -154,15 +161,25 @@ class LivePolicyCompilationTests(TestCase):
         self.assertIn("core:live_directives", metadata["mandatory_ids"])
         self.assertIn({"id": f"instruction:{optional.pk}", "reason": "budget_exhausted"}, metadata["omitted"])
         self.assertNotIn("MANDATORY-CORE", str(metadata))
+        from management.services.gemini_accounting_contract import (
+            sanitize_request_policy_manifest,
+        )
+
+        self.assertEqual(sanitize_request_policy_manifest(metadata), metadata)
 
     def test_missing_required_knowledge_stops_before_provider_call(self):
         from management.models import InstagramBotSettings
         from management.services import instagram_bot as bot
         from management.services.bot_knowledge import KnowledgeReadinessError
+        from management.tests_ig_policy_helpers import (
+            ensure_test_instruction_publication,
+        )
+
+        ensure_test_instruction_publication()
         failure = {}
         with patch("management.services.bot_knowledge.read_knowledge_manifest", side_effect=KnowledgeReadinessError("knowledge_directory_missing", "missing")), patch("management.services.call_ai_analysis.gemini_generate_text") as provider:
             response = bot.gemini_generate(
-                InstagramBotSettings(), [{"role": "user", "text": "Вітаю"}],
+                InstagramBotSettings.load(), [{"role": "user", "text": "Вітаю"}],
                 failure_context=failure,
             )
         self.assertIsNone(response)

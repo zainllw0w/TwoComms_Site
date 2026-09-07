@@ -127,6 +127,9 @@ class InstructionBlockTests(TestCase):
             title="Size And Fit", body="Поясни різницю classic/oversize.",
             intent_tags="on:size_question", priority=30,
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         from management.services.bot_playbooks import active_instruction_block
 
         silent = active_instruction_block(self.client_row, turn_text="дай посилання")
@@ -140,6 +143,9 @@ class InstructionBlockTests(TestCase):
             title="Rescue", body="Знижка 5% як останній аргумент.",
             intent_tags="sales, not:paid", priority=50,
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         from management.services.bot_playbooks import active_instruction_block
 
         self.assertIn("Знижка", active_instruction_block(self.client_row))
@@ -160,6 +166,9 @@ class InstructionBlockTests(TestCase):
                 title=f"Rule {index}", body="х" * 800, intent_tags="global",
                 priority=index,
             )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         block = active_instruction_block(self.client_row)
 
         self.assertLessEqual(len(block), MAX_INSTRUCTION_BLOCK_CHARS + 200)
@@ -173,6 +182,9 @@ class InstructionBlockTests(TestCase):
         BotInstruction.objects.create(
             title="Narrow", body="Тільки для обміну.", intent_tags="exchange",
         )
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         from management.services.bot_playbooks import active_instruction_block
 
         self.assertIn("Тільки для обміну", active_instruction_block(None))

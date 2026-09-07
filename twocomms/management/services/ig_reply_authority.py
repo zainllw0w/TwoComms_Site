@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from itertools import islice
 from typing import Iterable, Mapping
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 
 from django.conf import settings
 from django.utils import timezone
@@ -88,6 +88,26 @@ def _configured_origin() -> tuple[str, str, int | None] | None:
     ):
         return None
     return parsed.scheme.casefold(), parsed.hostname.casefold(), port
+
+
+def _catalog_control_urls(control) -> tuple[str, ...]:
+    """Resolve link candidates from published products, never from reply prose."""
+    if not isinstance(control, Mapping) or not control.get("catalog_link"):
+        return ()
+    from management.services.ig_catalog_media import parse_product_ids
+    from storefront.services.public_products import public_products_queryset
+
+    identifiers = parse_product_ids(control.get("show_products") or control.get("product"))
+    if not identifiers or len(identifiers) > MAX_CATALOG_QUOTES:
+        return ()
+    origin = _configured_origin()
+    if origin is None:
+        return ()
+    base = str(getattr(settings, "SITE_BASE_URL", "") or "").rstrip("/")
+    return tuple(
+        f"{base}/product/{quote(slug, safe='-_.~')}/"
+        for slug in public_products_queryset().filter(pk__in=identifiers).values_list("slug", flat=True)
+    )
 
 
 def _server_urls(
@@ -478,8 +498,8 @@ def build_reply_truth_context(
                     (colors, item.color_label),
                 ):
                     normalized = str(value or "").strip()
-                if normalized:
-                    _append_unique(target, normalized)
+                    if normalized:
+                        _append_unique(target, normalized)
 
     configuration_pricing, configuration_invalid = _current_configuration_pricing(
         client, control
@@ -522,7 +542,8 @@ def build_reply_truth_context(
             ranges.append((low, high))
 
     authorized_urls, url_gaps, url_evidence = _server_urls(
-        server_urls, current_proposal=proposal
+        (*_catalog_control_urls(control), *islice(server_urls or (), MAX_SERVER_URLS)),
+        current_proposal=proposal,
     )
     for code in url_gaps:
         _append_unique(gaps, code)

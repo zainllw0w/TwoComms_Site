@@ -3631,6 +3631,15 @@ class InstagramBotSettings(models.Model):
     pinned_chat_model = models.CharField(max_length=80, blank=True, default="")
     pinned_until = models.DateTimeField(null=True, blank=True)
     settings_revision = models.PositiveBigIntegerField(default=0)
+    instruction_draft_revision = models.PositiveBigIntegerField(default=0, db_default=0)
+    active_instruction_publication = models.ForeignKey(
+        "management.BotPolicyPublication",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="active_settings",
+        db_constraint=False,
+    )
     gemini_model = models.CharField(max_length=80, default="gemini-3.7-flash")
     system_prompt = models.TextField(blank=True, default=DEFAULT_BOT_SYSTEM_PROMPT)
     # Додаткова база знань (правила доставки, оплати, повернень, графік тощо).
@@ -4445,8 +4454,9 @@ class GeminiRequest(models.Model):
     """Sanitized parent graph for one logical Gemini request.
 
     Candidate plans contain only safe project identities and model names. The
-    schema has no field for credentials, prompts, customer text or raw provider
-    bodies. Runtime writes remain disabled until the separate shadow slice.
+    policy manifest contains only bounded IDs, versions, hashes and omission
+    codes. The schema has no field for credentials, prompt bodies, customer
+    text or raw provider bodies.
     """
 
     class AccountingMode(models.TextChoices):
@@ -4480,6 +4490,7 @@ class GeminiRequest(models.Model):
     requires_media_reasoning = models.BooleanField(default=False)
     candidate_plan = models.JSONField(default=list, blank=True)
     candidate_plan_digest = models.CharField(max_length=64, blank=True, default="")
+    policy_manifest = models.JSONField(default=dict, db_default={}, blank=True)
     candidate_outcomes = models.JSONField(default=dict, blank=True)
     deadline_ms = models.PositiveIntegerField(default=0)
     deadline_at = models.DateTimeField(null=True, blank=True)

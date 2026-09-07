@@ -1258,7 +1258,8 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
                         routing_decision=None,
                         result_validator=None,
                         repair_payload_factory=None,
-                        max_actual_dispatches: int | None = None) -> dict:
+                        max_actual_dispatches: int | None = None,
+                        request_policy_manifest=None) -> dict:
     """Run one live reply through a deadline-aware, quality-first pool.
 
     The generic runner is intentionally not reused here: its three rounds and
@@ -1354,6 +1355,7 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
         == "shadow"
     )
     accounting_ownership_blocked = False
+    accounting_block_reason = ""
     try:
         from management.services import gemini_accounting_runtime
 
@@ -1365,18 +1367,33 @@ def _run_chat_with_pool(payload: dict, *, manual_key: str | None = None,
             candidate_plan=candidate_plan,
             deadline_seconds=effective_deadline_seconds,
             routing_decision=routing_decision,
+            request_policy_manifest=request_policy_manifest,
         )
         accounting_ownership_blocked = bool(
             getattr(accounting_observer, "provider_blocked", False)
         )
+        accounting_block_reason = str(
+            getattr(accounting_observer, "block_reason", "") or ""
+        )
         if not getattr(accounting_observer, "enabled", False):
+            if request_policy_manifest is not None and accounting_shadow_active and not accounting_ownership_blocked:
+                accounting_ownership_blocked = True
+                accounting_block_reason = "policy_manifest_unavailable"
             accounting_observer = None
     except Exception:
         accounting_observer = None
+        if request_policy_manifest is not None:
+            accounting_ownership_blocked = True
+            accounting_block_reason = "policy_manifest_unavailable"
     if accounting_ownership_blocked:
-        raise CallAIAnalysisError(
-            "Gemini provider dispatch rejected: source/lane already owned."
+        error = CallAIAnalysisError(
+            "Gemini provider dispatch rejected: "
+            + (accounting_block_reason or "request_ownership_conflict")
         )
+        error.failure_kind = accounting_block_reason or "request_ownership_conflict"
+        if accounting_block_reason.startswith("policy_manifest_"):
+            error.policy_readiness = accounting_block_reason
+        raise error
 
     def _audit_not_attempted(key_name: str, model: str, reason: str,
                              candidate_index: int) -> None:
@@ -2260,7 +2277,8 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
                          routing_decision=None,
                          result_validator=None,
                          repair_payload_factory=None,
-                         max_actual_dispatches: int | None = None) -> dict:
+                         max_actual_dispatches: int | None = None,
+                         request_policy_manifest=None) -> dict:
     """Текстовий (не-JSON) запит для діалогового бота. Пул ключів ролі + цепочка
     моделей. У result['parsed'] — сирий текст відповіді моделі.
     log_cb (опц.) отримує короткі рядки про кожну спробу (для консолі бота)."""
@@ -2278,11 +2296,13 @@ def gemini_generate_text(payload: dict, *, role: str = "chat",
             result_validator=result_validator,
             repair_payload_factory=repair_payload_factory,
             max_actual_dispatches=max_actual_dispatches,
+            request_policy_manifest=request_policy_manifest,
         )
     if (
         result_validator is not None
         or repair_payload_factory is not None
         or max_actual_dispatches is not None
+        or request_policy_manifest is not None
     ):
         raise ValueError("result validation is supported only for live chat")
     bounded_management = role == "management"
@@ -2547,6 +2567,9 @@ def _gemini_call_once(model: str, payload: dict, key: str, *, parse: bool = True
             attempt_boundary.cancelled_pre_dispatch(error)
         raise error
     try:
+        from management.services.ig_db_circuit import release_idle_connection
+
+        release_idle_connection()
         resp = requests.post(
             url,
             data=body,

@@ -146,6 +146,14 @@ class Command(BaseCommand):
             raise CommandError(
                 f"--budget-seconds must be between 1 and {MAX_BUDGET_SECONDS}"
             )
+        from management.services.ig_db_circuit import (
+            DbCircuitOpen, require_database_ready, record_db_failure,
+        )
+        try:
+            require_database_ready(lane="periodic_dispatch")
+        except DbCircuitOpen:
+            self.stdout.write("completed=- deferred=db_circuit failed=- timed_out=-")
+            return
         try:
             from management.services.ig_daemon_health import (
                 alert_daemon_runtime_health,
@@ -153,11 +161,21 @@ class Command(BaseCommand):
 
             with periodic_lane_deadline(min(15, budget)):
                 alert_daemon_runtime_health()
-        except (PeriodicLaneTimeout, Exception):
+        except (PeriodicLaneTimeout, Exception) as exc:
             # Runtime-health delivery is important but must never starve the
             # payment/fulfillment repair lanes it is meant to supervise.
             close_old_connections()
-        due = due_periodic_lanes(selected_lane=selected_lane, force=force)
+            if record_db_failure(exc, lane="periodic_health"):
+                self.stdout.write("completed=- deferred=db_circuit failed=- timed_out=-")
+                return
+        try:
+            due = due_periodic_lanes(selected_lane=selected_lane, force=force)
+        except Exception as exc:
+            if not record_db_failure(exc, lane="periodic_claim"):
+                raise
+            close_old_connections()
+            self.stdout.write("completed=- deferred=db_circuit failed=- timed_out=-")
+            return
         if options.get("dry_run"):
             self.stdout.write("due=" + ",".join(lane.task_key for lane in due))
             return
@@ -167,7 +185,7 @@ class Command(BaseCommand):
         deferred = []
         failures = []
         timed_out = []
-        for lane in due:
+        for position, lane in enumerate(due):
             remaining = budget - (time.monotonic() - started)
             if remaining <= 0:
                 deferred.append(lane.task_key)
@@ -186,6 +204,9 @@ class Command(BaseCommand):
                 # The child command owns its typed heartbeat/failure record.
                 # Continue so one broken lane cannot starve payment or delivery.
                 failures.append((lane.task_key, exc.__class__.__name__))
+                if record_db_failure(exc, lane=lane.task_key):
+                    deferred.extend(item.task_key for item in due[position + 1:])
+                    break
             else:
                 completed.append(lane.task_key)
             finally:

@@ -94,6 +94,11 @@ _MONEY_RE = re.compile(
     r"\$|€|£|zł)(?!\w)",
     re.I,
 )
+_PREFIX_MONEY_RE = re.compile(
+    r"(?<!\w)(?P<currency>грн|₴|uah|usd|eur|gbp|pln|cad|aud|chf|jpy|"
+    r"\$|€|£|zł)\s*(?P<amount>\d{1,9}(?:[.,]\d{1,2})?)(?!\d)",
+    re.I,
+)
 _RANGE_RE = re.compile(
     r"\b(?:від|от|from)\s*(?P<low>\d{1,9}(?:[.,]\d{1,2})?)\s*"
     r"(?:грн|₴|uah)?\s*(?:до|to|[-–—])\s*"
@@ -388,7 +393,7 @@ def validate_reply_truth(
             for match in _PERCENT_RE.finditer(sentence):
                 if _decimal(match.group(1)) not in discount_percents:
                     _add(reasons, "unverified_discount")
-        for match in _MONEY_RE.finditer(sentence):
+        for match in (*_MONEY_RE.finditer(sentence), *_PREFIX_MONEY_RE.finditer(sentence)):
             if any(start <= match.start() < end for start, end in range_spans):
                 continue
             if _locally_negated(sentence, match.start()):

@@ -438,9 +438,13 @@ class PrizeProgrammeSeedCommandTests(TestCase):
         call_command("seed_ig_prize_programme", apply=True, stdout=StringIO())
         instruction = BotInstruction.objects.get()
         self.assertEqual(instruction.intent_tags, RESERVED_INTENT_TAG)
+        from management.tests_ig_policy_helpers import publish_current_instructions
+
+        publish_current_instructions()
         seeded_version = active_shooting_prize_programme().version
         instruction.body = "Власна відредагована інструкція"
         instruction.save(update_fields=["body", "updated_at"])
+        publish_current_instructions()
         self.assertNotEqual(
             active_shooting_prize_programme().version,
             seeded_version,
@@ -449,6 +453,7 @@ class PrizeProgrammeSeedCommandTests(TestCase):
         instruction.save(update_fields=["is_active", "updated_at"])
 
         call_command("seed_ig_prize_programme", apply=True, stdout=StringIO())
+        publish_current_instructions()
         instruction.refresh_from_db()
         self.assertEqual(instruction.body, "Власна відредагована інструкція")
         self.assertFalse(instruction.is_active)

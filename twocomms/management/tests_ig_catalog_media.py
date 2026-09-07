@@ -203,10 +203,13 @@ class InstagramCatalogDiscoveryPipelineTests(TestCase):
         )
         for suffix, customer_text, caption in cases:
             with self.subTest(language=suffix):
-                generated = (
-                    f"{caption}: https://twocomms.shop/product/ignored/ "
-                    f"[SHOW_PRODUCTS:{self.product.pk}]"
-                )
+                generated = {
+                    "reply_text": caption,
+                    "controls": [{
+                        "kind": "show_products",
+                        "value": [self.product.pk],
+                    }],
+                }
                 handled, send_media, send_text = self._run(
                     sender=f"ig-discovery-{suffix}",
                     customer_text=customer_text,
@@ -225,10 +228,13 @@ class InstagramCatalogDiscoveryPipelineTests(TestCase):
         handled, send_media, send_text = self._run(
             sender="ig-discovery-link",
             customer_text="Скинь ссылку на эту футболку",
-            generated_reply=(
-                f"Ось фото і посилання: {url} "
-                f"[SHOW_PRODUCTS:{self.product.pk}] [CATALOG_LINK]"
-            ),
+            generated_reply={
+                "reply_text": f"Ось фото і посилання: {url}",
+                "controls": [
+                    {"kind": "show_products", "value": [self.product.pk]},
+                    {"kind": "catalog_link", "value": True},
+                ],
+            },
         )
 
         self.assertTrue(handled)

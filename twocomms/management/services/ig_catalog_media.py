@@ -81,6 +81,15 @@ class CatalogMediaDelivery:
     error: str = ""
 
 
+@dataclass(frozen=True)
+class PreparedCatalogMedia:
+    """Exact provider payloads plus content-safe product projection."""
+
+    payloads: tuple[dict, ...] = ()
+    product_refs: tuple[dict, ...] = ()
+    error: str = ""
+
+
 def _base_url() -> str:
     return (
         str(getattr(settings, "SITE_BASE_URL", "") or "https://twocomms.shop")
@@ -328,6 +337,39 @@ def _trusted_media_item(item: CatalogMediaItem) -> bool:
         return False
 
 
+def prepare_catalog_media(
+    settings_row,
+    recipient_id: str,
+    selection: CatalogMediaSelection,
+) -> PreparedCatalogMedia:
+    """Prepare the exact bounded HTTP payload list without sending anything."""
+    del settings_row  # Reserved for provider-specific payload fields.
+    recipient = str(recipient_id or "").strip()
+    safe_items = tuple(
+        item for item in selection.items if _trusted_media_item(item)
+    )[:MAX_CATALOG_MEDIA]
+    if not recipient or not safe_items:
+        return PreparedCatalogMedia(error=str(selection.state))
+    payloads = []
+    refs = []
+    for part_index, item in enumerate(safe_items):
+        payloads.append({
+            "recipient": {"id": recipient},
+            "message": {
+                "attachment": {
+                    "type": "image",
+                    "payload": {"url": item.url, "is_reusable": True},
+                }
+            },
+        })
+        refs.append({
+            "part_index": part_index,
+            "product_id": int(item.product_id),
+            "title": str(item.title or "")[:200],
+        })
+    return PreparedCatalogMedia(tuple(payloads), tuple(refs))
+
+
 def send_catalog_media(
     settings_row,
     recipient_id: str,
@@ -346,9 +388,14 @@ def send_catalog_media(
         get_page_token,
     )
 
-    safe_items = tuple(item for item in selection.items if _trusted_media_item(item))[:MAX_CATALOG_MEDIA]
-    if not safe_items:
-        return CatalogMediaDelivery(CatalogMediaDeliveryState.FAILED, error=selection.state)
+    prepared = prepare_catalog_media(
+        settings_row, recipient_id, selection
+    )
+    if not prepared.payloads:
+        return CatalogMediaDelivery(
+            CatalogMediaDeliveryState.FAILED,
+            error=prepared.error or selection.state,
+        )
     account_id = _provider_account_id(settings_row)
     page_token = get_page_token(settings_row)
     if not account_id or not page_token:
@@ -357,7 +404,7 @@ def send_catalog_media(
     sent = 0
     attempted = 0
     message_ids: list[str] = []
-    for item in safe_items:
+    for payload in prepared.payloads:
         boundary = permission_boundary_factory() if permission_boundary_factory else nullcontext(True)
         with boundary as allowed:
             if not allowed:
@@ -369,17 +416,7 @@ def send_catalog_media(
                     error="permission_changed",
                 )
             attempted += 1
-            body = json.dumps(
-                {
-                    "recipient": {"id": recipient_id},
-                    "message": {
-                        "attachment": {
-                            "type": "image",
-                            "payload": {"url": item.url, "is_reusable": True},
-                        }
-                    },
-                }
-            ).encode("utf-8")
+            body = json.dumps(payload).encode("utf-8")
             try:
                 code, response = _provider_http(
                     settings_row,

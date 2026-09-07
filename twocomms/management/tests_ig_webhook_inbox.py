@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.db import DatabaseError
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
 from management.models import IgClient, IgWebhookInboxEvent, InstagramBotMessage, InstagramBotSettings
 from management.services.ig_webhook_inbox import (
@@ -129,6 +130,38 @@ class WebhookInboxTests(TestCase):
         self.assertIsNone(row.processed_at)
         self.assertEqual(row.attempts, 1)
         self.assertIsNotNone(row.next_attempt_at)
+
+    def test_erased_customer_referral_is_not_restored_or_identity_blocked(self):
+        customer = IgClient.objects.create(
+            igsid="erased-user", privacy_erasure_started_at=timezone.now(),
+        )
+        event = self._event(customer.igsid, "erased-mid")
+        event["referral"] = {
+            "ref": "synthetic-ref", "ad_id": "synthetic-ad",
+            "ads_context_data": {"ad_title": "Synthetic campaign"},
+        }
+        payload = {"object": "instagram", "entry": [{"id": "owner-1", "messaging": [event]}]}
+        self.assertEqual(self._post(payload).status_code, 200)
+        self.assertEqual(drain_webhook_inbox(InstagramBotSettings.load(), limit=1), 1)
+        customer.refresh_from_db()
+        self.assertFalse(customer.ad_ref)
+        self.assertFalse(customer.ad_id)
+        self.assertFalse(customer.referral_payload)
+        self.assertFalse(InstagramBotMessage.objects.filter(mid="erased-mid").exists())
+        receipt = IgWebhookInboxEvent.objects.get()
+        self.assertEqual(receipt.decision, "accepted")
+        self.assertIsNotNone(receipt.processed_at)
+
+    def test_referral_is_bound_to_the_materialized_revision_source(self):
+        from management.models import IgTurnRevisionSource
+
+        event = self._event("referred-user", "referred-mid")
+        event["referral"] = {"ref": "synthetic-ref", "ad_id": "synthetic-ad"}
+        payload = {"object": "instagram", "entry": [{"id": "owner-1", "messaging": [event]}]}
+        self.assertEqual(self._post(payload).status_code, 200)
+        self.assertEqual(drain_webhook_inbox(InstagramBotSettings.load(), limit=1), 1)
+        source = IgTurnRevisionSource.objects.get(message__mid="referred-mid")
+        self.assertEqual(source.referral.get("ad_id"), "synthetic-ad")
 
     def test_owner_echo_uses_owner_sender_and_customer_recipient(self):
         echo = {

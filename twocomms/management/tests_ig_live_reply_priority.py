@@ -53,7 +53,7 @@ class StructuredProviderBoundaryTests(TestCase):
         )
 
     def test_customer_chat_uses_mime_only_json_and_returns_validated_response(self):
-        settings = InstagramBotSettings()
+        settings = InstagramBotSettings.load()
         provider = {
             "parsed": {
                 "reply_text": "Покажу варіанти.",
@@ -90,7 +90,7 @@ class StructuredProviderBoundaryTests(TestCase):
         self.assertTrue(generate.call_args.kwargs["parse"])
 
     def test_customer_chat_keeps_invalid_control_result_fail_closed(self):
-        settings = InstagramBotSettings()
+        settings = InstagramBotSettings.load()
         provider = {
             "parsed": {
                 "reply_text": "Ось посилання на оплату.",
@@ -113,7 +113,7 @@ class StructuredProviderBoundaryTests(TestCase):
         self.assertEqual(result.error, "invalid_control")
 
     def test_invalid_reply_text_from_provider_becomes_generation_failure(self):
-        settings = InstagramBotSettings()
+        settings = InstagramBotSettings.load()
         failure_context = {}
         invalid_payloads = (
             {"reply_text": "x" * 4001, "controls": []},
@@ -136,7 +136,7 @@ class StructuredProviderBoundaryTests(TestCase):
                 self.assertEqual(failure_context["kind"], "invalid_response")
 
     def test_customer_chat_uses_one_public_call_for_bounded_repair(self):
-        settings = InstagramBotSettings()
+        settings = InstagramBotSettings.load()
         calls = {"validation": 0, "repair": 0}
 
         def provider(_payload, **kwargs):
@@ -257,7 +257,7 @@ class StructuredProviderBoundaryTests(TestCase):
         self.assertIn("unverified_price", unbacked_range.reason_codes)
 
     def test_legacy_model_string_cannot_restore_operational_tags(self):
-        settings = InstagramBotSettings()
+        settings = InstagramBotSettings.load()
         provider = {
             "parsed": "[PAYLINK] [MANAGER] Можу допомогти з вибором.",
             "model": "gemini-test",
@@ -282,7 +282,7 @@ class StructuredProviderBoundaryTests(TestCase):
         self.assertNotIn("MANAGER", reply)
 
     def test_exhausted_semantic_repair_returns_reason_aware_safe_reply(self):
-        settings = InstagramBotSettings()
+        settings = InstagramBotSettings.load()
         failure_context = {}
 
         def rejected(_payload, **kwargs):

@@ -2341,7 +2341,7 @@ def finalize_paylink(
         reply = "\n\n".join(
             part for part in (lead, order_details, proposal_copy, url) if part
         ).strip()
-        log("success", "paylink", f"{sender_id}: {url}")
+        log("success", "paylink", f"client_id={getattr(client, 'pk', None)}: checkout offer prepared")
         return reply
 
     error_code = str(res.get("error") or "")
@@ -7768,9 +7768,23 @@ def gemini_generate(
             return None
     from management.services.ig_policy_compiler import PolicyReadinessError
     from management.services.bot_knowledge import KnowledgeReadinessError
+    from management.services.ig_policy_publication import (
+        PolicyPublicationError, load_active_policy_snapshot,
+    )
 
     policy_metadata = {}
     try:
+        # A worker reuses settings across several customers. Bind the current
+        # public policy inputs for this request rather than a previous cycle's
+        # publication pointer. Keep explicit unsaved preview/test settings.
+        if getattr(s, "pk", None) and not getattr(getattr(s, "_state", None), "adding", True):
+            public_policy_inputs = InstagramBotSettings.objects.filter(pk=s.pk).values(
+                "system_prompt", "knowledge_base", "settings_revision",
+                "reply_permission_epoch", "active_instruction_publication_id",
+            ).get()
+            for field, value in public_policy_inputs.items():
+                setattr(s, field, value)
+        instruction_publication = load_active_policy_snapshot(settings_obj=s)
         sys_text = assemble_system_instruction(
             s,
             client=client,
@@ -7781,8 +7795,9 @@ def gemini_generate(
             turn_note=turn_note,
             turn_text=latest_user_text,
             compiled_metadata=policy_metadata,
+            instruction_publication=instruction_publication,
         )
-    except (PolicyReadinessError, KnowledgeReadinessError) as exc:
+    except (PolicyReadinessError, KnowledgeReadinessError, PolicyPublicationError) as exc:
         if failure_context is not None:
             failure_context["kind"] = "invalid_payload"
             failure_context["policy_readiness"] = exc.code
@@ -7814,7 +7829,7 @@ def gemini_generate(
         ]).exists()
     )
     prize_programme = (
-        active_shooting_prize_programme()
+        active_shooting_prize_programme(publication_snapshot=instruction_publication)
         if pending_prize_case or any(mime.startswith("image/") for mime, _raw in images)
         else None
     )
@@ -7977,6 +7992,7 @@ def gemini_generate(
             result_validator=response_guard.validate,
             repair_payload_factory=response_guard.repair,
             max_actual_dispatches=2,
+            request_policy_manifest=policy_metadata,
         )
     except CallAIAnalysisError as exc:
         failure_kind = _gemini_failure_kind(exc)
@@ -7989,6 +8005,10 @@ def gemini_generate(
                 if semantic_rejection
                 else failure_kind
             )
+            readiness = str(getattr(exc, "policy_readiness", "") or "")
+            if readiness.startswith("policy_manifest_"):
+                failure_context["kind"] = "invalid_payload"
+                failure_context["policy_readiness"] = readiness
         log("error", "gemini", f"({_time.monotonic() - _t0:.1f}с) {str(exc)[:300]}")
         if semantic_rejection:
             from management.services.ig_response_control import ValidatedResponse
@@ -8240,6 +8260,7 @@ def assemble_system_instruction(
     turn_note: str | None = None,
     turn_text: str = "",
     compiled_metadata: dict | None = None,
+    instruction_publication=None,
 ) -> str:
     """Собрать system_instruction; на время сборки — один снимок фактов (Э8.5).
 
@@ -8271,6 +8292,7 @@ def assemble_system_instruction(
             turn_note=turn_note,
             turn_text=turn_text,
             compiled_metadata=compiled_metadata,
+            instruction_publication=instruction_publication,
         )
 
 
@@ -8313,6 +8335,7 @@ def _assemble_system_instruction(
     turn_note: str | None = None,
     turn_text: str = "",
     compiled_metadata: dict | None = None,
+    instruction_publication=None,
 ) -> str:
     """Compile one ordered policy; mandatory sources are never truncated."""
     from management.services.ig_policy_compiler import PolicyModule, compile_policy
@@ -8324,9 +8347,13 @@ def _assemble_system_instruction(
     budget = int(getattr(settings, "IG_BOT_POLICY_BUDGET_CHARS", 48000))
     # Reading mandatory knowledge is deliberately outside _prompt_section:
     # unreadability is a named readiness fault, not a silent missing rule.
-    knowledge = read_knowledge_manifest()
+    knowledge_language = str(getattr(client, "language", "") or "uk").casefold()
+    if knowledge_language not in {"uk", "ru", "en"}:
+        knowledge_language = "uk"
+    knowledge = read_knowledge_manifest(knowledge_language)
     selection = active_instruction_selection(
         client, turn_text=turn_text or "", budget_chars=budget,
+        publication_snapshot=instruction_publication,
     )
     dynamic = []
     omissions = list(selection.omitted)
@@ -8369,6 +8396,26 @@ def _assemble_system_instruction(
     )
     if compiled_metadata is not None:
         compiled_metadata.update(compiled.metadata())
+        from management.services.ig_core_policy import CORE_POLICY_SHA256, CORE_POLICY_VERSION
+
+        effective_prompt_hash = hashlib.sha256(
+            str(s.system_prompt or "").strip().encode("utf-8")
+        ).hexdigest()
+        compiled_metadata["core"] = {
+            "version": CORE_POLICY_VERSION if effective_prompt_hash == CORE_POLICY_SHA256 else "custom",
+            "prompt_hash": effective_prompt_hash,
+            "directives_hash": hashlib.sha256(
+                str(s.knowledge_base or "").strip().encode("utf-8")
+            ).hexdigest(),
+        }
+        compiled_metadata["knowledge_hash"] = knowledge.content_hash
+        compiled_metadata["instruction_publication"] = {
+            "id": selection.publication_id,
+            "version": selection.publication_version,
+            "hash": selection.publication_hash,
+            "compiler_version": selection.compiler_version,
+        }
+        compiled_metadata["instruction_selection"] = selection.metadata()
     return compiled.text
 
 
@@ -12132,6 +12179,7 @@ def enqueue_inbound(
     received_at: datetime | None = None,
     reply_to_provider_message_id: str = "",
     quick_reply_payload: str = "",
+    referral_payload: dict | None = None,
     persistence_only: bool = False,
     _commercial_lock_held: bool = False,
 ) -> bool:
@@ -12195,6 +12243,7 @@ def enqueue_inbound(
                 received_at=received_at,
                 reply_to_provider_message_id=reply_to_provider_message_id,
                 quick_reply_payload=quick_reply_payload,
+                referral_payload=referral_payload,
                 persistence_only=persistence_only,
                 _commercial_lock_held=True,
             )
@@ -12442,9 +12491,11 @@ def enqueue_inbound(
                         ensure_turn_for_inbound,
                     )
 
-                    ensure_turn_for_inbound(msg)
+                    ensure_turn_for_inbound(msg, referral=referral_payload)
                 except Exception as exc:
-                    log("warning", "customer_turn", repr(exc))
+                    log("warning", "customer_turn", type(exc).__name__)
+                    if persistence_only:
+                        raise
                 from management.services.ig_funnel_analytics import (
                     record_client_step_event_in_transaction,
                 )
@@ -16355,6 +16406,7 @@ def _handle_polled_page_side(
     return InstagramBotMessage.objects.filter(mid=message.get("id")).exists()
 
 
+@transaction.atomic
 def _apply_referral(sender_id: str, ref: dict) -> None:
     """Зберігає атрибуцію реклами (Click-to-IG-Direct) у картку клієнта.
 
@@ -16364,6 +16416,9 @@ def _apply_referral(sender_id: str, ref: dict) -> None:
     if not ref:
         return
     client = IgClient.get_or_create_for_sender(sender_id)
+    client = IgClient.objects.select_for_update().get(pk=client.pk)
+    if client.privacy_erasure_started_at:
+        return
     acd = ref.get("ads_context_data") or {}
     client.ad_ref = (str(ref.get("ref") or ""))[:255]
     client.ad_id = (str(ref.get("ad_id") or ""))[:64]
@@ -16434,6 +16489,7 @@ def handle_webhook_payload(
             source="webhook",
             attachments=media,
             attachment_metadata=media_metadata,
+            referral_payload=ref,
             received_at=msg.get("_event_created_at"),
             reply_to_provider_message_id=_reply_to_provider_message_id(msg),
             quick_reply_payload=_quick_reply_payload(msg),

@@ -209,7 +209,26 @@ class StructuredImageObservationTests(SimpleTestCase):
         self.assertEqual(result.error, "invalid_turn_intelligence")
 
 
-@patch("management.services.ig_prize_programme.active_shooting_prize_programme", new=lambda: None)
+def _published_policy_fixture():
+    from management.services.ig_policy_publication import ActivePolicySnapshot
+
+    return ActivePolicySnapshot(
+        publication_id=1,
+        version=1,
+        snapshot_hash="a" * 64,
+        compiler_version="instruction-set-v1",
+        snapshot={"schema_version": 1, "instructions": []},
+    )
+
+
+@patch(
+    "management.services.ig_policy_publication.load_active_policy_snapshot",
+    new=lambda settings_obj=None: _published_policy_fixture(),
+)
+@patch(
+    "management.services.ig_prize_programme.active_shooting_prize_programme",
+    new=lambda **_kwargs: None,
+)
 class MediaBundleIntegrationTests(SimpleTestCase):
     def test_live_provider_assigns_identity_before_equal_url_transport_merge(self):
         url = "https://provider.example/shared.jpg"

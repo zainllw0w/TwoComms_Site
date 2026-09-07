@@ -12,13 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 
-from management.models import BotInstruction, IgClient
+from management.models import IgClient
 
 logger = logging.getLogger(__name__)
-
-
-def _split_tags(raw: str) -> set[str]:
-    return {p.strip().lower() for p in (raw or "").replace(";", ",").split(",") if p.strip()}
 
 
 def tags_for_client(client: IgClient | None) -> set[str]:
@@ -128,6 +124,10 @@ class InstructionSelection:
     modules: tuple[InstructionModule, ...]
     omitted: tuple[InstructionOmission, ...]
     visual_trigger_codes: tuple[str, ...]
+    publication_id: int
+    publication_version: int
+    publication_hash: str
+    compiler_version: str
 
     @property
     def selected_ids(self) -> tuple[str, ...]:
@@ -141,6 +141,10 @@ class InstructionSelection:
             "selected_ids": list(self.selected_ids),
             "omitted": [item.metadata() for item in self.omitted],
             "visual_trigger_codes": list(self.visual_trigger_codes),
+            "publication_id": self.publication_id,
+            "publication_version": self.publication_version,
+            "publication_hash": self.publication_hash,
+            "publication_compiler_version": self.compiler_version,
         }
 
 
@@ -150,15 +154,19 @@ def active_instruction_selection(
     turn_text: str = "",
     budget_chars: int = MAX_INSTRUCTION_BLOCK_CHARS,
     visual_trigger_codes=None,
+    publication_snapshot=None,
 ) -> InstructionSelection:
     """Choose applicable playbooks without cutting any instruction body.
 
-    Visual trigger codes are accepted as explicit future B01.6 inputs. No
-    visual fact is inferred here: current ``BotInstruction`` tags only define
-    text/CRM routing, so the codes remain metadata until a later explicit
-    routing contract exists.
+    Visual trigger codes are explicit inputs. No visual fact is inferred here:
+    the bound publication only defines text/CRM routing and the caller supplies
+    any observed visual codes.
     """
-    from management.services.bot_instruction_routing import instruction_matches, turn_triggers
+    from management.services.bot_instruction_routing import turn_triggers
+    from management.services.ig_policy_publication import (
+        load_active_policy_snapshot,
+        select_policy_snapshot,
+    )
 
     try:
         budget = int(budget_chars)
@@ -167,46 +175,53 @@ def active_instruction_selection(
     if budget < 0:
         raise ValueError("instruction budget cannot be negative")
     visual_codes = tuple(sorted({str(code) for code in (visual_trigger_codes or ()) if str(code)}))
-    client_tags = tags_for_client(client)
+    bound = publication_snapshot or load_active_policy_snapshot()
+    client_tags = tags_for_client(client) if client is not None else None
     active_triggers = turn_triggers(turn_text)
-    modules: list[InstructionModule] = []
-    omitted: list[InstructionOmission] = []
-    used = 0
-    for inst in BotInstruction.objects.order_by("priority", "id"):
-        module_id = f"instruction:{inst.pk}"
-        body = (inst.body or "").strip()
-        if not inst.is_active:
-            omitted.append(InstructionOmission(module_id, "inactive"))
-            continue
-        if not body:
-            omitted.append(InstructionOmission(module_id, "empty_body"))
-            continue
-        if client is not None and not instruction_matches(
-            inst.intent_tags, client_tags, active_triggers=active_triggers
-        ):
-            omitted.append(InstructionOmission(module_id, "not_relevant"))
-            continue
-        title = (inst.title or "").strip()
-        rendered = f"• {title}: {body}" if title else f"• {body}"
-        cost = len(rendered) + (1 if modules else 0)
-        if used + cost > budget:
-            omitted.append(InstructionOmission(module_id, "budget_exhausted"))
-            continue
-        modules.append(InstructionModule(
-            id=module_id,
-            body=rendered,
-            priority=inst.priority,
-            tags=tuple(sorted(_split_tags(inst.intent_tags))),
+    locale = str(getattr(client, "language", "") or "all").casefold()
+    if locale not in {"uk", "ru", "en"}:
+        locale = "all"
+    selected = select_policy_snapshot(
+        bound.snapshot,
+        locale=locale,
+        client_tags=client_tags,
+        active_triggers=active_triggers,
+        budget_chars=budget,
+        public_only=True,
+    )
+    modules = tuple(
+        InstructionModule(
+            id=item["id"],
+            body=item["rendered_body"],
+            priority=int(item["priority"]),
+            tags=tuple(sorted([
+                *(str(value) for value in item.get("tags") or []),
+                *(f"on:{value}" for value in item.get("triggers") or []),
+            ])),
             active=True,
-        ))
-        used += cost
-    return InstructionSelection(tuple(modules), tuple(omitted), visual_codes)
+        )
+        for item in selected["selected"]
+    )
+    omitted = tuple(
+        InstructionOmission(str(item["id"]), str(item["reason"]))
+        for item in selected["omitted"]
+    )
+    return InstructionSelection(
+        modules,
+        omitted,
+        visual_codes,
+        int(bound.publication_id),
+        int(bound.version),
+        str(bound.snapshot_hash),
+        str(bound.compiler_version),
+    )
 
 
 def active_instruction_block(
     client: IgClient | None = None,
     *,
     turn_text: str = "",
+    publication_snapshot=None,
 ) -> str:
     """Інструкції, доречні цьому клієнту на цьому ході.
 
@@ -218,7 +233,11 @@ def active_instruction_block(
     хід не підмішується. Це і є різниця між «клієнт питає про розмір зараз» і
     «в картці лежить objection=size з минулого тижня».
     """
-    selection = active_instruction_selection(client, turn_text=turn_text)
+    selection = active_instruction_selection(
+        client,
+        turn_text=turn_text,
+        publication_snapshot=publication_snapshot,
+    )
     parts = [module.body for module in selection.modules]
     dropped = sum(1 for item in selection.omitted if item.reason == "budget_exhausted")
     if dropped:

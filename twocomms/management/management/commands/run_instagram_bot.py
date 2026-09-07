@@ -30,6 +30,9 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections, connection
+from management.services.ig_db_circuit import (
+    DbCircuitOpen, record_db_failure, require_database_ready,
+)
 from django.utils import timezone
 
 from management.models import InstagramBotSettings
@@ -532,6 +535,21 @@ def _conversation_refresh_wait_seconds(s: InstagramBotSettings) -> int:
     return CONV_REFRESH_EVERY
 
 
+def _raise_disconnected_database(exc: Exception, *, lane: str) -> None:
+    """Bubble a shared DB deferral past legacy log-and-continue handlers."""
+    if isinstance(exc, DbCircuitOpen):
+        raise exc
+    if _database_disconnected(exc, lane=lane):
+        raise DbCircuitOpen("background database work deferred") from exc
+
+
+def _database_disconnected(exc: Exception, *, lane: str) -> bool:
+    if not record_db_failure(exc, lane=lane):
+        return False
+    close_old_connections()
+    return True
+
+
 def _conv_refresher(stop_event: threading.Event):
     """Фоновий потік: рідко оновлює список тредів (важкий ~25 c виклик),
     тільки коли увімкнено резервний поллінг."""
@@ -539,6 +557,7 @@ def _conv_refresher(stop_event: threading.Event):
         wait_seconds = CONV_REFRESH_EVERY
         try:
             close_old_connections()
+            require_database_ready(lane="conv_refresher")
             s = InstagramBotSettings.load()
             if s.receive_via_poll and bot._provider_account_id(s):
                 token = bot.get_page_token(s)
@@ -546,7 +565,12 @@ def _conv_refresher(stop_event: threading.Event):
                     bot.refresh_conv_ids(s, token)
                     s.refresh_from_db(fields=["conversation_discovery_cursor"])
                     wait_seconds = _conversation_refresh_wait_seconds(s)
+        except DbCircuitOpen:
+            pass
         except Exception as exc:
+            if _database_disconnected(exc, lane="conv_refresher"):
+                stop_event.wait(2)
+                continue
             try:
                 bot.log("warning", "conv_refresh", repr(exc))
             except Exception:
@@ -566,6 +590,7 @@ def _analysis_worker(stop_event: threading.Event):
     while not stop_event.is_set():
         try:
             close_old_connections()
+            require_database_ready(lane="analysis_worker")
             if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 monotonic_now = time.monotonic()
                 if (
@@ -596,6 +621,7 @@ def _analysis_worker(stop_event: threading.Event):
 
                         reconcile_typed_memory(limit=ANALYSIS_RECONCILE_BATCH)
                     except Exception as exc:
+                        _raise_disconnected_database(exc, lane="analysis_worker")
                         try:
                             bot.log(
                                 "error",
@@ -609,6 +635,7 @@ def _analysis_worker(stop_event: threading.Event):
                 try:
                     process_due_analysis(limit=1)
                 except Exception as exc:
+                    _raise_disconnected_database(exc, lane="analysis_worker")
                     try:
                         bot.log("error", "conversation_analysis_due", repr(exc))
                     except Exception:
@@ -624,11 +651,17 @@ def _analysis_worker(stop_event: threading.Event):
                             f"rejected={terminal_rejected} failed={terminal_failed}",
                         )
                 except Exception as exc:
+                    _raise_disconnected_database(exc, lane="analysis_worker")
                     try:
                         bot.log("error", "conversation_analysis_events", repr(exc))
                     except Exception:
                         pass
+        except DbCircuitOpen:
+            pass
         except Exception as exc:
+            if _database_disconnected(exc, lane="analysis_worker"):
+                stop_event.wait(2)
+                continue
             try:
                 bot.log("error", "conversation_analysis", repr(exc))
             except Exception:
@@ -653,6 +686,7 @@ def _ai_reply_recovery_worker(stop_event: threading.Event):
         worked = False
         try:
             close_old_connections()
+            require_database_ready(lane="ai_reply_recovery_worker")
             if (
                 not maintenance_status(path=MAINTENANCE_FILE)["active"]
                 and time.monotonic() - last_sweep >= INCIDENT_SWEEP_INTERVAL_SECONDS
@@ -665,10 +699,16 @@ def _ai_reply_recovery_worker(stop_event: threading.Event):
 
                     close_stale_incidents()
                 except Exception as exc:
+                    _raise_disconnected_database(exc, lane="ai_reply_recovery_worker")
                     bot.log("warning", "provider_incident_sweep", repr(exc))
             if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 worked = bool(process_due_recoveries(limit=1))
+        except DbCircuitOpen:
+            pass
         except Exception as exc:
+            if _database_disconnected(exc, lane="ai_reply_recovery_worker"):
+                stop_event.wait(2)
+                continue
             try:
                 bot.log("error", "ai_reply_recovery", repr(exc))
             except Exception:
@@ -689,9 +729,15 @@ def _permission_transition_worker(stop_event: threading.Event):
         worked = False
         try:
             close_old_connections()
+            require_database_ready(lane="permission_transition_worker")
             if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 worked = bool(process_due_permission_transitions(limit=1))
+        except DbCircuitOpen:
+            pass
         except Exception as exc:
+            if _database_disconnected(exc, lane="permission_transition_worker"):
+                stop_event.wait(2)
+                continue
             try:
                 bot.log(
                     "error",
@@ -714,10 +760,16 @@ def _inbox_refresh_worker(stop_event: threading.Event):
         worked = False
         try:
             close_old_connections()
+            require_database_ready(lane="inbox_refresh_worker")
             if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 result = process_refresh_slice()
                 worked = bool(result.get("worked")) if isinstance(result, dict) else False
+        except DbCircuitOpen:
+            pass
         except Exception as exc:
+            if _database_disconnected(exc, lane="inbox_refresh_worker"):
+                stop_event.wait(2)
+                continue
             try:
                 bot.log("error", "inbox_refresh", repr(exc))
             except Exception:
@@ -735,9 +787,15 @@ def _checkout_lifecycle_worker(stop_event: threading.Event):
     while not stop_event.is_set():
         try:
             close_old_connections()
+            require_database_ready(lane="checkout_lifecycle_worker")
             if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 dispatch_due_lifecycle_events(limit=10)
+        except DbCircuitOpen:
+            pass
         except Exception as exc:
+            if _database_disconnected(exc, lane="checkout_lifecycle_worker"):
+                stop_event.wait(2)
+                continue
             try:
                 bot.log("error", "ig_checkout_lifecycle", repr(exc))
             except Exception:
@@ -758,6 +816,7 @@ def _follow_intelligence_worker(stop_event: threading.Event):
         worked = False
         try:
             close_old_connections()
+            require_database_ready(lane="follow_intelligence_worker")
             if not maintenance_status(path=MAINTENANCE_FILE)["active"]:
                 counts = reconcile_follow_intelligence_once(limit=10)
                 worked = bool(
@@ -765,7 +824,12 @@ def _follow_intelligence_worker(stop_event: threading.Event):
                     + int(counts.get("follow_selected", 0) or 0)
                     + int(counts.get("ugc_selected", 0) or 0)
                 )
+        except DbCircuitOpen:
+            pass
         except Exception as exc:
+            if _database_disconnected(exc, lane="follow_intelligence_worker"):
+                stop_event.wait(2)
+                continue
             try:
                 bot.log("error", "ig_follow_intelligence", repr(exc))
             except Exception:
@@ -1211,6 +1275,7 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
 
     Порядок до ЭА.15 сохранён в `_run_legacy_work_cycle` и включается флагом.
     """
+    require_database_ready(lane="daemon_cycle")
     # Ingress is part of the customer lane, including while replies are
     # disabled: echoes and opt-outs must still acquire their permission fence.
     if (
@@ -1221,7 +1286,14 @@ def _run_work_cycle(settings_obj, last_poll: float) -> tuple[bool, float]:
 
         try:
             drain_webhook_inbox(settings_obj, limit=25)
+        except DbCircuitOpen:
+            raise
         except Exception as exc:
+            from management.services.ig_db_circuit import record_db_failure
+
+            if record_db_failure(exc, lane="webhook_inbox"):
+                close_old_connections()
+                raise DbCircuitOpen("inbox database work deferred") from exc
             if cache.add("ig_inbox_drain_error_notice", True, timeout=60):
                 bot.log("error", "webhook_inbox_drain", type(exc).__name__)
             return bool(settings_obj.is_enabled), last_poll
@@ -1739,6 +1811,7 @@ class Command(BaseCommand):
                         state="running",
                     )
                     try:
+                        require_database_ready(lane="main_loop")
                         if not task_expectations_registered:
                             task_expectations_registered = ensure_task_expectations()
                         s = InstagramBotSettings.load()
@@ -1754,7 +1827,21 @@ class Command(BaseCommand):
                         # DB progress remains useful, but is not process-liveness proof.
                         s.heartbeat_at = tz.now()
                         s.save(update_fields=["heartbeat_at"])
+                    except DbCircuitOpen:
+                        cycle_state = "db_deferred"
+                        _publish_main_progress(
+                            owner=owner, start_sentinel=start_sentinel,
+                            cycle=cycle, state=cycle_state,
+                        )
                     except Exception as exc:
+                        if record_db_failure(exc, lane="main_loop"):
+                            cycle_state = "db_deferred"
+                            close_old_connections()
+                            _publish_main_progress(
+                                owner=owner, start_sentinel=start_sentinel,
+                                cycle=cycle, state=cycle_state,
+                            )
+                            continue
                         cycle_state = "error"
                         bot.log("error", "daemon_loop", repr(exc))
                         _publish_main_progress(

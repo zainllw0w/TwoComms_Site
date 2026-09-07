@@ -690,6 +690,75 @@ class TemplateDelivery:
         return self.ok
 
 
+@dataclass(frozen=True)
+class PreparedTemplateEffects:
+    """Exact dormant-outbox effect specs; this object performs no send."""
+
+    effects: tuple[dict, ...] = ()
+    degraded_fields: tuple = field(default=())
+    projection_text: str = ""
+    error: str = ""
+
+
+def prepare_template_effects(
+    recipient_id: str,
+    template: GenericTemplate,
+    *,
+    allow_text_fallback: bool = True,
+    rejection_code: str = "provider_rejected",
+) -> PreparedTemplateEffects:
+    """Prepare primary and conditional fallback payloads without provider I/O."""
+    recipient = str(recipient_id or "").strip()
+    if not recipient:
+        return PreparedTemplateEffects(error="recipient_missing")
+    try:
+        normalized = normalize_template(template)
+    except TemplateValidationError as exc:
+        fallback = _clean(template.fallback_text)
+        if allow_text_fallback and fallback:
+            return PreparedTemplateEffects(effects=({
+                "group": "substantive_text",
+                "kind": "text",
+                "payload": {
+                    "recipient": {"id": recipient},
+                    "message": {"text": fallback},
+                },
+            },), error=str(exc))
+        return PreparedTemplateEffects(error=str(exc))
+    effects = [{
+        "group": "template",
+        "kind": "template",
+        "payload": {
+            "recipient": {"id": recipient},
+            "message": template_message_payload(normalized),
+        },
+    }]
+    fallback = _clean(normalized.fallback_text)
+    if allow_text_fallback and fallback:
+        effects.append({
+            "group": "template_fallback",
+            "kind": "fallback",
+            "payload": {
+                "recipient": {"id": recipient},
+                "message": {"text": fallback},
+            },
+            "activation": {
+                "group": "template",
+                "part_index": 0,
+                "failure_code": (
+                    rejection_code
+                    if rejection_code in {"provider_rejected", "link_rejected"}
+                    else "provider_rejected"
+                ),
+            },
+        })
+    return PreparedTemplateEffects(
+        effects=tuple(effects),
+        degraded_fields=normalized.degraded_fields,
+        projection_text=normalized.projection_text,
+    )
+
+
 # Коди помилок Meta, специфічні для шаблонів: недоступна картинка, надто довге
 # поле, непідтримуваний тип. Це НЕ причина молчати — це причина відправити
 # текстовий еквівалент, підготовлений разом з карточкою.

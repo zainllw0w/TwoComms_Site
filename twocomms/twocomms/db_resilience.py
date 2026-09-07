@@ -7,7 +7,7 @@ from django.db import DEFAULT_DB_ALIAS, connections
 
 
 logger = logging.getLogger(__name__)
-MYSQL_DISCONNECT_ERROR_CODES = frozenset({2006, 2013, 2055})
+MYSQL_DISCONNECT_ERROR_CODES = frozenset({2002, 2006, 2013, 2055})
 _NO_FALLBACK = object()
 
 

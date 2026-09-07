@@ -23,6 +23,21 @@ from orders.models import Order
 
 @override_settings(SITE_BASE_URL="https://twocomms.test")
 class ReplyAuthorityContextTests(TestCase):
+    def _catalog_product(self, *, suffix, status="published"):
+        from storefront.models import Category, Product
+
+        category = Category.objects.create(
+            name=f"Catalog URL {suffix}",
+            slug=f"catalog-url-{suffix}",
+        )
+        return Product.objects.create(
+            title=f"Catalog URL product {suffix}",
+            slug=f"catalog-url-product-{suffix}",
+            category=category,
+            price=Decimal("900.00"),
+            status=status,
+        )
+
     def _order(self, number, **overrides):
         values = {
             "order_number": number,
@@ -98,6 +113,21 @@ class ReplyAuthorityContextTests(TestCase):
 
         self.assertTrue(confirmed.payment_confirmed)
         self.assertIn("current_episode_provider_payment", confirmed.evidence_codes)
+
+    def test_current_proposal_preserves_each_configuration_fact(self):
+        client, deal, episode = self._current_episode("authority-configuration")
+        proposal = self._proposal(client, deal, episode)
+        proposal.items.create(
+            product_title="Synthetic T-shirt", size="XL", fit_code="oversize",
+            color_code="black", color_label="Чорний",
+            catalog_unit_price=900, catalog_line_total=900,
+            quoted_unit_price=900, quoted_line_total=900,
+        )
+        context = build_reply_truth_context(client)
+        self.assertIn("XL", context.allowed_sizes)
+        self.assertIn("oversize", context.allowed_fits)
+        self.assertIn("black", context.allowed_colors)
+        self.assertIn("Чорний", context.allowed_colors)
 
     def test_historical_paid_order_and_tracking_do_not_authorize_current_episode(self):
         client, current_deal, episode = self._current_episode("authority-orders")
@@ -360,3 +390,71 @@ class ReplyAuthorityContextTests(TestCase):
         self.assertIn("server_url_not_owned", context.readiness_gaps)
         self.assertLessEqual(set(context.readiness_gaps), READINESS_GAP_CODES)
         self.assertLessEqual(set(context.evidence_codes), EVIDENCE_CODES)
+
+    def test_catalog_link_authorizes_exact_published_product_url(self):
+        product = self._catalog_product(suffix="published")
+        client = IgClient.objects.create(igsid="authority-catalog-published")
+        url = f"https://twocomms.test/product/{product.slug}/"
+
+        context = build_reply_truth_context(
+            client,
+            control={"catalog_link": True, "show_products": str(product.pk)},
+        )
+
+        self.assertIn(url, context.authorized_urls)
+        self.assertTrue(validate_reply_truth(
+            f"Ось сторінка товару: {url}", context=context
+        ).valid)
+
+    def test_catalog_link_never_authorizes_foreign_or_arbitrary_model_url(self):
+        product = self._catalog_product(suffix="foreign")
+        client = IgClient.objects.create(igsid="authority-catalog-foreign")
+        context = build_reply_truth_context(
+            client,
+            control={"catalog_link": True, "show_products": str(product.pk)},
+        )
+
+        for url in (
+            "https://evil.example/product/fake/",
+            "https://twocomms.test/product/not-the-db-slug/",
+        ):
+            with self.subTest(url=url):
+                result = validate_reply_truth(f"Ось товар: {url}", context=context)
+                self.assertIn("unauthorized_url", result.reasons)
+
+    def test_catalog_link_does_not_authorize_unpublished_product(self):
+        from storefront.models import ProductStatus
+
+        product = self._catalog_product(
+            suffix="unpublished",
+            status=ProductStatus.DRAFT,
+        )
+        client = IgClient.objects.create(igsid="authority-catalog-unpublished")
+        url = f"https://twocomms.test/product/{product.slug}/"
+
+        context = build_reply_truth_context(
+            client,
+            control={"catalog_link": True, "show_products": str(product.pk)},
+        )
+
+        self.assertNotIn(url, context.authorized_urls)
+        self.assertIn(
+            "unauthorized_url",
+            validate_reply_truth(f"Ось товар: {url}", context=context).reasons,
+        )
+
+    def test_product_control_without_catalog_link_does_not_authorize_url(self):
+        product = self._catalog_product(suffix="missing-control")
+        client = IgClient.objects.create(igsid="authority-catalog-no-link")
+        url = f"https://twocomms.test/product/{product.slug}/"
+
+        context = build_reply_truth_context(
+            client,
+            control={"show_products": str(product.pk)},
+        )
+
+        self.assertNotIn(url, context.authorized_urls)
+        self.assertIn(
+            "unauthorized_url",
+            validate_reply_truth(f"Ось товар: {url}", context=context).reasons,
+        )

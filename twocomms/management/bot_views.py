@@ -7630,10 +7630,56 @@ def bot_kb_api(request):
     if blocked:
         return blocked
     from .models import BotAdCampaign, BotInstruction, BotQuickLink
+    from .services.ig_policy_publication import PolicyPublicationError, draft_state
+
+    try:
+        draft = draft_state()
+    except PolicyPublicationError as exc:
+        return JsonResponse({
+            "success": False,
+            "error": str(exc),
+            "code": exc.code,
+        }, status=409)
+    settings_obj = InstagramBotSettings.objects.select_related(
+        "active_instruction_publication"
+    ).get(pk=1)
+    head = settings_obj.active_instruction_publication
+
+    def instruction_routing(instruction):
+        from .services.bot_instruction_routing import split_instruction_tags
+
+        parts = split_instruction_tags(instruction.intent_tags)
+        tags = set(parts["plain"])
+        reserved_programme = "programme:shooting_prize" in tags
+        tags.discard("programme:shooting_prize")
+        tags.update(f"not:{value}" for value in parts["excludes"])
+        triggers = set(parts["triggers"])
+        triggers.update(str(value) for value in instruction.trigger_codes or [])
+        programme_kind = str(
+            (instruction.programme_metadata or {}).get("kind") or ""
+        )
+        if not programme_kind and reserved_programme:
+            programme_kind = "shooting_prize"
+        return ", ".join(sorted(tags)), sorted(triggers), programme_kind
+
+    def instruction_payload(instruction):
+        tags, triggers, programme_kind = instruction_routing(instruction)
+        return {
+            "id": instruction.id,
+            "title": instruction.title,
+            "body": instruction.body,
+            "intent_tags": tags,
+            "is_active": instruction.is_active,
+            "priority": instruction.priority,
+            "locale": instruction.locale,
+            "trigger_codes": triggers,
+            "programme_kind": programme_kind,
+            "allowed_actions": list(instruction.allowed_actions or []),
+            "trust_scope": instruction.trust_scope,
+        }
 
     instructions = [
-        {"id": i.id, "title": i.title, "body": i.body, "intent_tags": i.intent_tags,
-         "is_active": i.is_active, "priority": i.priority}
+        instruction_payload(i)
         for i in BotInstruction.objects.all().order_by("priority", "id")[:300]
     ]
     quick_links = [
@@ -7652,6 +7698,25 @@ def bot_kb_api(request):
         "instructions": instructions,
         "quick_links": quick_links,
         "ad_campaigns": ad_campaigns,
+        "policy": {
+            "draft_revision": draft.revision,
+            "draft_hash": draft.snapshot_hash,
+            "active_publication": (
+                {
+                    "id": head.pk,
+                    "version": int(head.version),
+                    "snapshot_hash": head.snapshot_hash,
+                    "instruction_count": int(head.instruction_count),
+                    "created_at": head.created_at.isoformat(),
+                }
+                if head is not None else None
+            ),
+            "ready": head is not None,
+            "readiness_code": "" if head is not None else "active_publication_missing",
+            "has_unpublished_changes": bool(
+                head is None or head.snapshot_hash != draft.snapshot_hash
+            ),
+        },
     })
 
 
@@ -7675,6 +7740,101 @@ def bot_kb_save_api(request):
     if not model:
         return JsonResponse({"success": False, "error": "Невідомий тип."}, status=400)
 
+    if kind == "instruction":
+        from .services.ig_policy_publication import (
+            DraftRevisionConflict,
+            PolicyPublicationError,
+            delete_instruction_draft,
+            save_instruction_draft,
+        )
+
+        try:
+            expected_revision = int(request.POST.get("draft_revision"))
+        except (TypeError, ValueError):
+            return JsonResponse({
+                "success": False,
+                "error": "Оновіть чернетку перед збереженням.",
+                "code": "draft_revision_required",
+            }, status=409)
+        expected_hash = str(request.POST.get("draft_hash") or "")
+        try:
+            if op == "delete":
+                state = delete_instruction_draft(
+                    expected_revision=expected_revision,
+                    expected_snapshot_hash=expected_hash,
+                    instruction_id=int(obj_id or 0),
+                    actor=request.user,
+                )
+                return JsonResponse({
+                    "success": True,
+                    "draft_revision": state.revision,
+                    "draft_hash": state.snapshot_hash,
+                })
+            try:
+                priority = int(request.POST.get("priority") or 100)
+            except (TypeError, ValueError):
+                priority = 100
+
+            def split_values(name):
+                return [
+                    value.strip()
+                    for value in str(request.POST.get(name) or "")
+                    .replace(";", ",").split(",")
+                    if value.strip()
+                ]
+
+            programme_kind = str(
+                request.POST.get("programme_kind") or ""
+            ).strip()
+            programme_metadata = (
+                {
+                    "kind": "shooting_prize",
+                    "programme_id": "shooting_prize",
+                    "manager_required": True,
+                    "confirmed_visual_sample": False,
+                }
+                if programme_kind == "shooting_prize" else {}
+            )
+            tags = split_values("intent_tags")
+            if programme_kind == "shooting_prize":
+                tags.append("programme:shooting_prize")
+            instruction, state = save_instruction_draft(
+                expected_revision=expected_revision,
+                expected_snapshot_hash=expected_hash,
+                instruction_id=int(obj_id) if obj_id else None,
+                actor=request.user,
+                values={
+                    "title": request.POST.get("title") or "",
+                    "body": request.POST.get("body") or "",
+                    "active": _truthy(request.POST.get("is_active", "1")),
+                    "priority": priority,
+                    "locale": request.POST.get("locale") or "all",
+                    "tags": tags,
+                    "triggers": split_values("trigger_codes"),
+                    "programme_metadata": programme_metadata,
+                    "allowed_actions": split_values("allowed_actions"),
+                    "trust_scope": request.POST.get("trust_scope") or "public_policy",
+                },
+            )
+            return JsonResponse({
+                "success": True,
+                "id": instruction.pk,
+                "draft_revision": state.revision,
+                "draft_hash": state.snapshot_hash,
+            })
+        except DraftRevisionConflict:
+            return JsonResponse({
+                "success": False,
+                "error": "Чернетку вже змінено. Оновіть сторінку.",
+                "code": "draft_revision_conflict",
+            }, status=409)
+        except (PolicyPublicationError, TypeError, ValueError) as exc:
+            return JsonResponse({
+                "success": False,
+                "error": str(exc),
+                "code": getattr(exc, "code", "invalid_instruction"),
+            }, status=400)
+
     if op == "delete":
         if obj_id:
             model.objects.filter(id=obj_id).delete()
@@ -7683,41 +7843,7 @@ def bot_kb_save_api(request):
     obj = model.objects.filter(id=obj_id).first() if obj_id else model()
     p = request.POST
     warnings: list[str] = []
-    if kind == "instruction":
-        obj.title = (p.get("title") or "")[:200]
-        obj.body = p.get("body") or ""
-        obj.intent_tags = (p.get("intent_tags") or "")[:400]
-        obj.is_active = _truthy(p.get("is_active", "1"))
-        try:
-            obj.priority = int(p.get("priority") or 100)
-        except (TypeError, ValueError):
-            obj.priority = 100
-        # Опечатка в теге раньше не проявлялась никак: инструкция сохранялась и
-        # молча не срабатывала никогда. Хуже — правило «пустые теги = всегда»
-        # превращало опечатку в противоположность замысла: администратор хотел
-        # «всегда», написал `globl`, получил «никогда».
-        #
-        # Сохранение не блокируем: терять уже набранный текст из-за опечатки в
-        # теге — та же ошибка, что F-UX-006, где таб чистил поля при ошибке.
-        try:
-            from management.services.bot_instruction_routing import (
-                validate_instruction_tags,
-            )
-
-            issues = validate_instruction_tags(obj.intent_tags)
-            if issues["unknown_tags"]:
-                warnings.append(
-                    "Невідомі теги: " + ", ".join(issues["unknown_tags"])
-                    + ". Інструкція збережена, але за цими тегами не спрацює."
-                )
-            if issues["unknown_triggers"]:
-                warnings.append(
-                    "Невідомі тригери: " + ", ".join(issues["unknown_triggers"])
-                    + ". Перевірте назву після `on:`."
-                )
-        except Exception:
-            pass
-    elif kind == "quicklink":
+    if kind == "quicklink":
         obj.kind = (p.get("kind") or "other")[:20]
         obj.label = (p.get("label") or "")[:200]
         obj.url = (p.get("url") or "")[:600]
@@ -7740,3 +7866,190 @@ def bot_kb_save_api(request):
     if warnings:
         payload["warnings"] = warnings
     return JsonResponse(payload)
+
+
+_POLICY_OMISSION_LABELS = {
+    "operator_only": "Лише для операторів — не потрапляє у відповідь бота",
+    "inactive": "Вимкнено у чернетці",
+    "empty_body": "Порожній текст",
+    "locale_mismatch": "Інша мова",
+    "not_relevant": "Не відповідає тегам або тригеру",
+    "budget_exhausted": "Не вмістилося у ліміт інструкцій",
+}
+
+
+def _policy_error_response(exc, *, default_status=400):
+    from .services.ig_policy_publication import (
+        DraftRevisionConflict,
+        PolicyPublicationError,
+        PublicationHeadConflict,
+    )
+
+    if not isinstance(exc, (PolicyPublicationError, TypeError, ValueError)):
+        return JsonResponse({
+            "success": False,
+            "error": "Не вдалося виконати операцію з інструкціями.",
+            "code": "policy_publication_unavailable",
+        }, status=500)
+    status = 409 if isinstance(
+        exc, (DraftRevisionConflict, PublicationHeadConflict)
+    ) else default_status
+    return JsonResponse({
+        "success": False,
+        "error": (
+            "Дані вже змінилися. Оновіть чернетку й повторіть дію."
+            if status == 409
+            else str(exc) if isinstance(exc, PolicyPublicationError)
+            else "Некоректні параметри запиту."
+        ),
+        "code": getattr(exc, "code", "policy_publication_error"),
+    }, status=status)
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_policy_preview_api(request):
+    blocked = _require_bot_capabilities(request, EDIT_IG_PROMPT_PERMISSION)
+    if blocked:
+        return blocked
+    from .services.bot_instruction_routing import turn_triggers
+    from .services.ig_policy_publication import preview_instruction_draft
+
+    try:
+        expected_revision = int(request.POST.get("draft_revision"))
+        expected_hash = str(request.POST.get("draft_hash") or "")
+        raw_tags = str(request.POST.get("audience_tags") or "")
+        audience_tags = {
+            value.strip().casefold()
+            for value in raw_tags.replace(";", ",").split(",")
+            if value.strip()
+        } or None
+        turn_text = str(request.POST.get("turn_text") or "")[:1000]
+        preview = preview_instruction_draft(
+            expected_revision=expected_revision,
+            expected_snapshot_hash=expected_hash,
+            locale=request.POST.get("locale") or "all",
+            client_tags=audience_tags,
+            active_triggers=turn_triggers(turn_text),
+        )
+    except Exception as exc:
+        return _policy_error_response(exc)
+    readiness = (
+        ["active_instruction_empty"]
+        if any(item["reason"] == "empty_body" for item in preview["omitted"])
+        else []
+    )
+    return JsonResponse({
+        "success": True,
+        "draft_revision": preview["draft_revision"],
+        "draft_hash": preview["snapshot_hash"],
+        "instruction_count": preview["instruction_count"],
+        "used_chars": preview["used_chars"],
+        "ready": not readiness,
+        "readiness": readiness,
+        "selected": [
+            {
+                "id": item["id"],
+                "title": item.get("title") or "Без назви",
+                "priority": item["priority"],
+                "locale": item["locale"],
+            }
+            for item in preview["selected"]
+        ],
+        "omitted": [
+            {
+                "id": item["id"],
+                "reason": item["reason"],
+                "label": _POLICY_OMISSION_LABELS.get(
+                    item["reason"], "Не вибрано"
+                ),
+            }
+            for item in preview["omitted"]
+        ],
+        "effective_proposal_actions": preview["effective_proposal_actions"],
+    })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_policy_publish_api(request):
+    blocked = _require_bot_capabilities(request, EDIT_IG_PROMPT_PERMISSION)
+    if blocked:
+        return blocked
+    from .services.ig_policy_publication import publish_instruction_policy
+
+    settings_obj = InstagramBotSettings.load()
+    if not settings_obj.active_instruction_publication_id:
+        return JsonResponse({
+            "success": False,
+            "error": "Опублікований знімок інструкцій ще не ініціалізовано.",
+            "code": "active_publication_missing",
+        }, status=503)
+    try:
+        result = publish_instruction_policy(
+            expected_draft_revision=int(request.POST.get("draft_revision")),
+            expected_draft_hash=str(request.POST.get("draft_hash") or ""),
+            expected_head_id=int(request.POST.get("head_id")),
+            expected_head_hash=str(request.POST.get("head_hash") or ""),
+            actor=request.user,
+            note=str(request.POST.get("note") or "")[:500],
+        )
+    except Exception as exc:
+        return _policy_error_response(exc)
+    publication = result.publication
+    return JsonResponse({
+        "success": True,
+        "changed": result.changed,
+        "publication": {
+            "id": publication.pk,
+            "version": int(publication.version),
+            "snapshot_hash": publication.snapshot_hash,
+            "instruction_count": int(publication.instruction_count),
+        },
+    })
+
+
+@login_required(login_url="management_login")
+@require_GET
+def bot_policy_history_api(request):
+    blocked = _require_bot_capabilities(request, EDIT_IG_PROMPT_PERMISSION)
+    if blocked:
+        return blocked
+    from .services.ig_policy_publication import publication_history
+
+    settings_obj = InstagramBotSettings.load()
+    return JsonResponse({
+        "success": True,
+        "active_publication_id": settings_obj.active_instruction_publication_id,
+        "history": publication_history(limit=50),
+    })
+
+
+@login_required(login_url="management_login")
+@require_POST
+def bot_policy_rollback_api(request):
+    blocked = _require_bot_capabilities(request, EDIT_IG_PROMPT_PERMISSION)
+    if blocked:
+        return blocked
+    from .services.ig_policy_publication import rollback_instruction_policy
+
+    try:
+        result = rollback_instruction_policy(
+            target_publication_id=int(request.POST.get("target_publication_id")),
+            expected_head_id=int(request.POST.get("head_id")),
+            expected_head_hash=str(request.POST.get("head_hash") or ""),
+            actor=request.user,
+            note=str(request.POST.get("note") or "")[:500],
+        )
+    except Exception as exc:
+        return _policy_error_response(exc)
+    publication = result.publication
+    return JsonResponse({
+        "success": True,
+        "publication": {
+            "id": publication.pk,
+            "version": int(publication.version),
+            "snapshot_hash": publication.snapshot_hash,
+            "restored_from_id": publication.restored_from_id,
+        },
+    })

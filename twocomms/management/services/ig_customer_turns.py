@@ -27,6 +27,7 @@ from __future__ import annotations
 import secrets
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import Mapping
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -77,6 +78,8 @@ class TurnAttachment:
     created: bool
     attached: bool
     reason: str = ""
+    revision_id: int = 0
+    successor_required: bool = False
 
 
 def _flag(name: str, default: bool) -> bool:
@@ -141,10 +144,49 @@ def _event_at(row: InstagramBotMessage):
     return getattr(row, "provider_created_at", None) or getattr(row, "created_at", None)
 
 
+def _turn_source_messages(turn: IgCustomerTurn) -> list[InstagramBotMessage]:
+    return list(
+        InstagramBotMessage.objects.filter(turn_membership__turn_id=turn.pk)
+        .order_by("turn_membership__ordinal", "turn_membership__id")
+    )
+
+
+def _record_shadow_revision(
+    turn: IgCustomerTurn,
+    *,
+    now,
+    bypass: bool,
+    referral: Mapping | None = None,
+) -> tuple[int, bool, str]:
+    from management.services.ig_turn_revisions import create_collecting_revision
+
+    messages = _turn_source_messages(turn)
+    latest = messages[-1]
+    metadata = {
+        latest.pk: {
+            "source_namespace": str(
+                getattr(latest, "provider_namespace", "") or ""
+            ),
+            "referral": dict(referral or {}),
+        }
+    }
+    result = create_collecting_revision(
+        turn,
+        messages,
+        source_metadata=metadata,
+        now=now,
+        bypass_quiet=bypass,
+    )
+    if not result.created or result.revision is None:
+        raise RuntimeError(result.reason or "turn_revision_not_created")
+    return result.revision.pk, result.successor_required, result.reason
+
+
 def ensure_turn_for_inbound(
     row: InstagramBotMessage,
     *,
     now=None,
+    referral: Mapping | None = None,
 ) -> TurnAttachment | None:
     """Прив'язати вхідне до відкритого ходу або відкрити новий.
 
@@ -181,32 +223,59 @@ def ensure_turn_for_inbound(
             .order_by("-id")
             .first()
         )
+        overflow_predecessor = None
         if open_turn is not None and not open_turn.bypass_debounce:
             keys = list(open_turn.dedupe_keys or [])
             if dedupe_key in keys:
                 # Те саме вкладення з новим підписом URL: інший рядок, та сама
                 # ідентичність провайдера. Другого повідомлення в ході не буде.
                 return TurnAttachment(open_turn, False, False, "duplicate_identity")
-            ordinal = int(open_turn.message_count or 0) + 1
-            try:
-                IgTurnMessage.objects.create(
-                    turn=open_turn,
-                    message_id=row.pk,
-                    ordinal=ordinal,
-                    role=row.role,
+            from management.services.ig_turn_revisions import (
+                prospective_overflow_reason,
+            )
+
+            existing_messages = _turn_source_messages(open_turn)
+            if prospective_overflow_reason([*existing_messages, row]):
+                # The whole new source becomes the primary member of an ordered
+                # successor.  Existing OneToOne memberships are never moved.
+                overflow_predecessor = open_turn
+                open_turn = None
+            else:
+                ordinal = int(open_turn.message_count or 0) + 1
+                try:
+                    IgTurnMessage.objects.create(
+                        turn=open_turn,
+                        message_id=row.pk,
+                        ordinal=ordinal,
+                        role=row.role,
+                    )
+                except IntegrityError:
+                    return TurnAttachment(open_turn, False, False, "attach_race")
+                keys.append(dedupe_key)
+                open_turn.dedupe_keys = keys[:50]
+                open_turn.message_count = ordinal
+                if bypass:
+                    # Кнопка або opt-out посеред burst-у: хід більше не чекає.
+                    open_turn.bypass_debounce = True
+                open_turn.save(update_fields=[
+                    "dedupe_keys", "message_count", "bypass_debounce", "updated_at",
+                ])
+                revision_id, successor_required, _revision_reason = (
+                    _record_shadow_revision(
+                        open_turn,
+                        now=now,
+                        bypass=bypass,
+                        referral=referral,
+                    )
                 )
-            except IntegrityError:
-                return TurnAttachment(open_turn, False, False, "attach_race")
-            keys.append(dedupe_key)
-            open_turn.dedupe_keys = keys[:50]
-            open_turn.message_count = ordinal
-            if bypass:
-                # Кнопка або opt-out посеред burst-у: хід більше не чекає.
-                open_turn.bypass_debounce = True
-            open_turn.save(update_fields=[
-                "dedupe_keys", "message_count", "bypass_debounce", "updated_at",
-            ])
-            return TurnAttachment(open_turn, False, True, "attached")
+                return TurnAttachment(
+                    open_turn,
+                    False,
+                    True,
+                    "attached",
+                    revision_id,
+                    successor_required,
+                )
 
         deadline = now + (timedelta(0) if bypass else TURN_DEBOUNCE)
         try:
@@ -230,7 +299,23 @@ def ensure_turn_for_inbound(
         IgTurnMessage.objects.create(
             turn=turn, message_id=row.pk, ordinal=1, role=row.role
         )
-        return TurnAttachment(turn, True, True, "created")
+        revision_id, successor_required, _revision_reason = _record_shadow_revision(
+            turn,
+            now=now,
+            bypass=bypass,
+            referral=referral,
+        )
+        reason = "overflow_successor" if overflow_predecessor else "created"
+        if successor_required:
+            reason = "oversize_blocked"
+        return TurnAttachment(
+            turn,
+            True,
+            True,
+            reason,
+            revision_id,
+            successor_required,
+        )
 
 
 def turn_is_due(turn: IgCustomerTurn, *, now=None) -> bool:
@@ -288,6 +373,19 @@ def mark_turn_processed(turn_id: int, *, reason: str = "", now=None) -> None:
         claim_state=IgCustomerTurn.ClaimState.PROCESSED
     ).update(**fields)
     if transitioned:
+        if reason:
+            try:
+                from management.services.ig_turn_revisions import (
+                    terminalize_legacy_shadow_revision,
+                )
+
+                terminalize_legacy_shadow_revision(
+                    turn_id, reason=str(reason), now=now
+                )
+            except Exception:
+                # The revision producer is shadow-only until B03.4/B03.5. Its
+                # failure cannot change the existing turn terminal outcome.
+                pass
         try:
             from management.services.ig_analysis_materiality import (
                 record_completed_customer_turn,
@@ -313,6 +411,17 @@ def turn_id_for_message(message_id) -> int:
         .first()
         or 0
     )
+
+
+def current_revision_id_for_message(message_id) -> int:
+    """Shadow head for a future revision-aware claimant/collector."""
+    turn_id = turn_id_for_message(message_id)
+    if not turn_id:
+        return 0
+    from management.services.ig_turn_revisions import current_revision_for_turn
+
+    revision = current_revision_for_turn(turn_id)
+    return int(getattr(revision, "pk", 0) or 0)
 
 
 # Статуси рядка, після яких хід уже не отримає ще однієї спроби виконання.
