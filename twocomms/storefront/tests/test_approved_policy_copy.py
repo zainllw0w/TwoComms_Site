@@ -4,6 +4,7 @@ from copy import deepcopy
 from django.contrib.auth.models import AnonymousUser
 from django.template.loader import render_to_string
 from django.test import RequestFactory, SimpleTestCase
+from django.utils.translation import override
 
 from storefront.services.approved_policy_copy import (
     PolicyCopyReadinessError,
@@ -120,3 +121,13 @@ class ApprovedPolicyCopyTests(SimpleTestCase):
                 context = _build_page_context(request, "delivery")
                 html = render_to_string("pages/support_page.html", context, request=request)
                 self.assertIn(approved_policy_copy(language)["text"]["dispatch"], html)
+
+    def test_actual_active_locale_also_resolves_lazy_translated_help_questions(self):
+        for language in ("uk", "ru", "en"):
+            with self.subTest(language=language), override(language):
+                for page_key in ("delivery", "returns", "help_center", "faq"):
+                    request = self.factory.get("/delivery/")
+                    request.LANGUAGE_CODE = language
+                    request.user = AnonymousUser()
+                    context = _build_page_context(request, page_key)
+                    self.assertTrue(context["page"]["faq_items"])

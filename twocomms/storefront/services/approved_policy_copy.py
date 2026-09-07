@@ -60,8 +60,10 @@ _SLOT_LABELS = {
         "returns_service_question": "Какие товары можно вернуть или обменять?",
         "returns_custom_question": "Можно ли вернуть кастомную одежду?",
         "help_section": "Кастомная печать и сервисные обращения",
-        # This list is presently not translated; keep its actual stable key.
-        "help_service_question": "Як подати сервісне звернення після отримання замовлення?",
+        "help_service_question": (
+            "Як подати сервісне звернення після отримання замовлення?",
+            "Как подать сервисное обращение после получения заказа?",
+        ),
         "faq_delivery_question": "Сколько идёт доставка по Украине?",
         "faq_service_question": "Какие условия возврата и обмена?",
         "dispatch_hero_meta": "отправка 1–3 дня",
@@ -74,8 +76,10 @@ _SLOT_LABELS = {
         "returns_service_question": "Which items can be returned or exchanged?",
         "returns_custom_question": "Can custom apparel be returned?",
         "help_section": "Custom print and service requests",
-        # This list is presently not translated; keep its actual stable key.
-        "help_service_question": "Як подати сервісне звернення після отримання замовлення?",
+        "help_service_question": (
+            "Як подати сервісне звернення після отримання замовлення?",
+            "How do I submit a service request after receiving an order?",
+        ),
         "faq_delivery_question": "How long is delivery within Ukraine?",
         "faq_service_question": "What are the return and exchange terms?",
         "dispatch_hero_meta": "dispatch in 1–3 days",
@@ -83,15 +87,16 @@ _SLOT_LABELS = {
 }
 
 
-def _labels(language: str) -> dict[str, str]:
+def _labels(language: str) -> dict[str, str | tuple[str, ...]]:
     try:
         return _SLOT_LABELS[language]
     except KeyError as exc:
         raise PolicyCopyReadinessError(f"unsupported public policy language: {language}") from exc
 
 
-def _one(items: list[dict[str, Any]], field: str, expected: str, slot: str) -> dict[str, Any]:
-    matches = [item for item in items if str(item.get(field, "")) == expected]
+def _one(items: list[dict[str, Any]], field: str, expected: str | tuple[str, ...], slot: str) -> dict[str, Any]:
+    labels = (expected,) if isinstance(expected, str) else expected
+    matches = [item for item in items if str(item.get(field, "")) in labels]
     if len(matches) != 1:
         raise PolicyCopyReadinessError(f"required policy slot missing or ambiguous: {slot}")
     return matches[0]
